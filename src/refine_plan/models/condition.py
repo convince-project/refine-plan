@@ -48,7 +48,9 @@ class Label(object):
         Returns:
             label: A str representation of the label
         """
-        return self.to_prism_string()
+        return 'label "{}" = {};'.format(
+            self._name, self._cond.to_prism_string(is_post_cond=False)
+        )
 
     def __str__(self):
         """Make the label human readable.
@@ -56,7 +58,9 @@ class Label(object):
         Returns:
             label: A str representation of the label
         """
-        return self.to_prism_string()
+        return 'label "{}" = {};'.format(
+            self._name, self._cond.to_prism_string(is_post_cond=False)
+        )
 
 
 class Condition(object):
@@ -171,7 +175,9 @@ class EqCondition(Condition):
             is_post_cond: Should the condition be written as a postcondition?
         """
         post_cond_part = "'" if is_post_cond else ""
-        return "({}{} = {})".format(self._sf.get_name(), post_cond_part, self._value)
+        return "({}{} = {})".format(
+            self._sf.get_name(), post_cond_part, self._sf.get_idx(self._value)
+        )
 
     def __repr__(self):
         """Make the condition human readable.
@@ -179,7 +185,7 @@ class EqCondition(Condition):
         Returns:
             label: A str representation of the label
         """
-        return self.to_prism_string(self.is_post_cond())
+        return self.to_prism_string()
 
     def __str__(self):
         """Make the condition human readable.
@@ -187,7 +193,7 @@ class EqCondition(Condition):
         Returns:
             label: A str representation of the label
         """
-        return self.to_prism_string(self.is_post_cond())
+        return self.to_prism_string()
 
 
 class AddCondition(Condition):
@@ -279,7 +285,7 @@ class AddCondition(Condition):
             raise Exception("AddCondition can only output as a postcondition")
 
         return "({}' = {} + {})".format(
-            self._sf.get_name(), self._sf.get_name(), self._value
+            self._sf.get_name(), self._sf.get_name(), self._inc_value
         )
 
     def __repr__(self):
@@ -299,7 +305,7 @@ class AddCondition(Condition):
         return self.to_prism_string(True)
 
 
-class CompareCondition(Condition):
+class InequalityCondition(Condition):
     """A precondition which compares a state factor to a value.
 
     EqCondition is not included here, as it can be a postcondition.
@@ -323,10 +329,16 @@ class CompareCondition(Condition):
 
         Raises:
             invalid_value: Raised if value is invalid for sf
+            not_int: Raised if sf is not an IntStateFactor
         """
 
+        if not isinstance(sf, IntStateFactor):
+            raise Exception("InequalityCondition must use IntStateFactor")
+
         if not sf.is_valid_value(value):
-            raise Exception("EqCondition: value is an invalid value for state factor")
+            raise Exception(
+                "InequalityCondition: value is an invalid value for state factor"
+            )
 
         self._sf = sf
         self._value = value
@@ -356,19 +368,19 @@ class CompareCondition(Condition):
         return self._comp_fn(state[sf_name], self._value)
 
     def is_pre_cond(self):
-        """CompareConditions are valid preconditions.
+        """InequalityConditions are valid preconditions.
         Returns:
             is_pre_cond: Can the condition be used as a precondition?
         """
         return True
 
     def is_post_cond(self):
-        """CompareConditions are valid postconditions.
+        """InequalityConditions are valid postconditions.
 
         Returns:
             is_post_cond: Can the condition be used as a postcondition?
         """
-        return True
+        return False
 
     def to_prism_string(self, is_post_cond=False):
         """Outputs the prism string for this condition.
@@ -381,9 +393,11 @@ class CompareCondition(Condition):
         """
 
         if is_post_cond:
-            raise Exception("CompareCondition cannot be postcondition.")
+            raise Exception("InequalityCondition cannot be postcondition.")
 
-        return "({} {} {})".format(self._sf.get_name(), self._comp_str, self._value)
+        return "({} {} {})".format(
+            self._sf.get_name(), self._comp_str, self._sf.get_idx(self._value)
+        )
 
     def __repr__(self):
         """Make the condition human readable.
@@ -402,7 +416,7 @@ class CompareCondition(Condition):
         return self.to_prism_string()
 
 
-class LtCondition(CompareCondition):
+class LtCondition(InequalityCondition):
     """A precondition for <.
 
     Attributes:
@@ -419,7 +433,7 @@ class LtCondition(CompareCondition):
         super(LtCondition, self).__init__(sf, value, lambda x, y: x < y, "<")
 
 
-class GtCondition(CompareCondition):
+class GtCondition(InequalityCondition):
     """A precondition for >.
 
     Attributes:
@@ -436,7 +450,7 @@ class GtCondition(CompareCondition):
         super(GtCondition, self).__init__(sf, value, lambda x, y: x > y, ">")
 
 
-class LeqCondition(CompareCondition):
+class LeqCondition(InequalityCondition):
     """A precondition for <=.
 
     Attributes:
@@ -453,7 +467,7 @@ class LeqCondition(CompareCondition):
         super(LeqCondition, self).__init__(sf, value, lambda x, y: x <= y, "<=")
 
 
-class GeqCondition(CompareCondition):
+class GeqCondition(InequalityCondition):
     """A precondition for >=.
 
     Attributes:
@@ -467,7 +481,7 @@ class GeqCondition(CompareCondition):
             sf: The state factor
             value: The state factor value to check
         """
-        super(LeqCondition, self).__init__(sf, value, lambda x, y: x >= y, ">=")
+        super(GeqCondition, self).__init__(sf, value, lambda x, y: x >= y, ">=")
 
 
 class AndCondition(Condition):
@@ -483,7 +497,9 @@ class AndCondition(Condition):
         Args:
             conds: The conditions to combine
         """
-        self._cond_list = conds
+        self._cond_list = []
+        for cond in conds:
+            self._cond_list.append(cond)
 
     def add_cond(self, cond):
         """Add a new condition to the conjunction.
@@ -579,7 +595,9 @@ class OrCondition(Condition):
         Args:
             conds: The conditions to combine
         """
-        self._cond_list = conds
+        self._cond_list = []
+        for cond in conds:
+            self._cond_list.append(cond)
 
     def add_cond(self, cond):
         """Add a new condition to the conjunction.
@@ -631,7 +649,7 @@ class OrCondition(Condition):
         Args:
             is_post_cond: Is the condition a post condition?"""
 
-        if self.is_post_cond():
+        if is_post_cond:
             raise Exception("OrCondition cannot be a postcondition.")
 
         prism_str = "("
