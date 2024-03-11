@@ -106,6 +106,66 @@ class Condition(object):
         raise NotImplementedError()
 
 
+class TrueCondition(Condition):
+    """A condition which is always true."""
+
+    def __init__(self):
+        """No attributes to initialise."""
+        super(TrueCondition, self).__init__()
+
+    def is_satisfied(self, state, prev_state=None):
+        """Always returns True.
+
+        Args:
+            state: Not used
+            prev_state: Not used
+
+        Returns:
+            is_satisfied: Always True
+        """
+        return True
+
+    def is_pre_cond(self):
+        """TrueCondition is a valid precondition
+
+        Returns:
+            is_pre_cond: True
+        """
+        return True
+
+    def is_post_cond(self):
+        """TrueConditions can be used to signify self loops in PRISM
+
+        Returns:
+            is_post_cond: True for TrueConditions
+        """
+        return True
+
+    def to_prism_string(self, is_post_cond=False):
+        """Outputs the prism string for this condition.
+
+        Args:
+            is_post_cond: Should the condition be written as a postcondition?
+        """
+        return "true"
+
+    def __repr__(self):
+        """Make the condition human readable.
+
+        Returns:
+            label: A str representation of the label
+        """
+        return self.to_prism_string()
+
+    def __str__(self):
+        """Make the condition human readable.
+
+        Returns:
+            label: A str representation of the label
+        """
+        return self.to_prism_string()
+
+
 class EqCondition(Condition):
     """A condition which checks for equality.
 

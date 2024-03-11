@@ -8,6 +8,7 @@ Owner: Charlie Street
 from refine_plan.models.condition import (
     Label,
     Condition,
+    TrueCondition,
     EqCondition,
     AddCondition,
     LtCondition,
@@ -52,6 +53,19 @@ class ConditionTest(unittest.TestCase):
 
         with self.assertRaises(NotImplementedError):
             cond.to_prism_string()
+
+
+class TrueConditionTest(unittest.TestCase):
+
+    def test_function(self):
+        cond = TrueCondition()
+
+        self.assertTrue(cond.is_satisfied(None))
+        self.assertTrue(cond.is_pre_cond())
+        self.assertTrue(cond.is_post_cond())
+        self.assertEqual(cond.to_prism_string(), "true")
+        self.assertEqual(repr(cond), "true")
+        self.assertEqual(str(cond), "true")
 
 
 class EqConditionTest(unittest.TestCase):
