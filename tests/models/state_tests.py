@@ -24,12 +24,24 @@ class StateTest(unittest.TestCase):
         self.assertEqual(state._state_dict, {"loc": "v2", "time": 5})
         self.assertEqual(state._sf_dict, {"loc": loc, "time": time})
         self.assertEqual(state._hash_val, None)
+        self.assertEqual(repr(state), "State(loc: v2, time: 5)")
+        self.assertEqual(str(state), "State(loc: v2, time: 5)")
 
         with self.assertRaises(Exception):
             state["battery"]
 
         self.assertEqual(state["loc"], "v2")
         self.assertEqual(state["time"], 5)
+
+        self.assertTrue("loc" in state)
+        self.assertTrue("time" in state)
+        self.assertFalse("battery" in state)
+
+        self.assertEqual(state, state)
+        self.assertEqual(state, State({loc: "v2", time: 5}))
+        self.assertNotEqual(state, State({loc: "v1", time: 5}))
+        battery = StateFactor("battery", ["low", "med", "high"])
+        self.assertNotEqual(state, State({loc: "v2", time: 5, battery: "med"}))
 
         self.assertEqual(state._hash_val, None)
         self.assertEqual(hash(state), hash(State({loc: "v2", time: 5})))

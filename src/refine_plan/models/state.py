@@ -64,6 +64,54 @@ class State(object):
 
         return self._hash_val
 
+    def __repr__(self):
+        """Overwrite for printing purposes.
+
+        Returns:
+            repr: The representation of this object
+        """
+        internal = ""
+        for sf in self._state_dict:
+            internal += "{}: {}, ".format(sf, self._state_dict[sf])
+
+        return "State(" + internal[:-2] + ")"
+
+    def __str__(self):
+        """Overwrite for printing purposes.
+
+        Returns:
+            str: A string representation of this object
+        """
+        return repr(self)
+
+    def __contains__(self, sf):
+        """Check if a certain state factor name is present in a state.
+
+        Args:
+            sf: The state factor to check
+
+        Returns:
+            is_contained: True if sf in state, False otherwise
+        """
+        return sf in self._state_dict and sf in self._sf_dict
+
+    def __eq__(self, other):
+        """Overwrite as I've overwritten hash.
+
+        Returns:
+            other: The state to compare against
+        """
+        if len(self._state_dict) != len(other._state_dict):
+            return False
+
+        for sf in self._state_dict:
+            if sf not in other:
+                return False
+            if self[sf] != other[sf]:
+                return False
+
+        return True
+
     def to_add_cond(self):
         """Converts a state into a conjunction of conditions.
 
