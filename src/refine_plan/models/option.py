@@ -107,6 +107,40 @@ class Option(object):
 
         return total_reward
 
-    # TODO: Transition prism string
+    def get_transition_prism_string(self):
+        """Return a PRISM string which captures all transitions for this option.
 
-    # TODO: Reward prism string
+        Returns:
+            trans_prism_str: The transition PRISM string
+        """
+        prism_str = ""
+        for trans in self._transition_list:
+            pre_cond, prob_post_conds = trans
+            prism_str += "[{}] {} -> ".format(
+                self.get_name(), pre_cond.to_prism_string()
+            )
+
+            for post_cond in prob_post_conds:
+                prism_str += "{}:{} + ".format(
+                    prob_post_conds[post_cond], post_cond.to_prism_string()
+                )
+
+            prism_str = prism_str[:-3] + ";\n"  # Remove final " + "
+
+        return prism_str
+
+    def get_reward_prism_string(self):
+        """Return a PRISM string which captures all rewards for this option.
+
+        Returns:
+            reward_prism_str: The reward PRISM string
+        """
+        prism_str = ""
+        for reward_pair in self._reward_list:
+            pre_cond, reward = reward_pair
+
+            prism_str += "[{}] {}: {};\n".format(
+                self.get_name(), pre_cond.to_prism_string(), reward
+            )
+
+        return prism_str
