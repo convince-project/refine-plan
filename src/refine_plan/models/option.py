@@ -99,7 +99,7 @@ class Option(object):
             reward: The reward for the state
         """
 
-        total_reward = 0
+        total_reward = 0.0
         for reward_pair in self._reward_list:
             pre_cond, reward = reward_pair
             if pre_cond.is_satisfied(state):
@@ -122,7 +122,8 @@ class Option(object):
 
             for post_cond in prob_post_conds:
                 prism_str += "{}:{} + ".format(
-                    prob_post_conds[post_cond], post_cond.to_prism_string()
+                    prob_post_conds[post_cond],
+                    post_cond.to_prism_string(is_post_cond=True),
                 )
 
             prism_str = prism_str[:-3] + ";\n"  # Remove final " + "
