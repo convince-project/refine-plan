@@ -14,23 +14,23 @@ class SemiMDP(object):
     Attributes:
         _state_factors: A dictionary from state factor name to state factor
         _options: A dictionary from option name to options
-        _props: A list of Propoisitons
+        _labels: A list of Labels
         _initial_state: A deterministic initial state (if there is one)
     """
 
-    def __init__(self, sf_list, option_list, props, initial_state=None):
+    def __init__(self, sf_list, option_list, labels, initial_state=None):
         """Initialise attributes.
 
         Args:
             sf_list: A list of state factors
             option_list: A list of Options
-            props: A list of propositions
+            labels: A list of Labels
             initial_state: Optional. An initial state of the semi-MDP
         """
 
         self._state_factors = {sf.get_name(): sf for sf in sf_list}
-        self._options = {opt.get_name() for opt in option_list}
-        self._props = props
+        self._options = {opt.get_name(): opt for opt in option_list}
+        self._labels = labels
         self._initial_state = initial_state
 
     def get_det_initial_state(self):
@@ -41,13 +41,13 @@ class SemiMDP(object):
         """
         return self._initial_state
 
-    def get_props(self):
-        """Return the list of propositions.
+    def get_labels(self):
+        """Return the list of labels.
 
         Returns:
-            props: The list of propositions
+            labels: The list of labels
         """
-        return self._props
+        return self._labels
 
     def get_transition_prob(self, state, option, next_state):
         """Get the transition probability for executing an option in a state.
@@ -107,12 +107,14 @@ class SemiMDP(object):
         )
 
         # MDP declaration
-        prism_str += "mdp\n\n module\n\n"
+        prism_str += "mdp\n\nmodule\n\n"
 
         # State factors
         for sf in self._state_factors:
             prism_str += self._state_factors[sf].to_prism_string(
-                self._initial_state[sf] if sf in self._initial_state else None
+                self._initial_state[sf]
+                if self._initial_state is not None and sf in self._initial_state
+                else None
             )
 
         prism_str += "\n"
@@ -123,8 +125,8 @@ class SemiMDP(object):
         prism_str += "\nendmodule\n\n"
 
         # Write labels
-        for prop in self._props:
-            prism_str += prop.to_prism_string()
+        for label in self._labels:
+            prism_str += label.to_prism_string()
 
         # Write rewards
         prism_str += "\nrewards\n"

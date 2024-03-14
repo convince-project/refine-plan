@@ -112,7 +112,7 @@ class State(object):
 
         return True
 
-    def to_add_cond(self):
+    def to_and_cond(self):
         """Converts a state into a conjunction of conditions.
 
         Returns:

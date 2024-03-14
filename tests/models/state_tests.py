@@ -52,7 +52,7 @@ class StateTest(unittest.TestCase):
         self.assertEqual(state._hash_val, hash(State({loc: "v2", time: 5})))
         self.assertEqual(state._hash_val, hash(state))
 
-        and_cond = state.to_add_cond()
+        and_cond = state.to_and_cond()
         self.assertTrue(isinstance(and_cond, AndCondition))
         self.assertEqual(len(and_cond._cond_list), 2)
         if and_cond._cond_list[0]._sf == loc:

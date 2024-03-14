@@ -68,7 +68,7 @@ class Option(object):
         """
         return self._name
 
-    def get_transition_probs(self, state, next_state):
+    def get_transition_prob(self, state, next_state):
         """Return the transition probability for a (s,s') pair.
 
         Assumes there is only one precondition which holds for each state.
