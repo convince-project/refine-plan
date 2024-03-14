@@ -92,6 +92,37 @@ class StateFactor(object):
 
         return self._name
 
+    def to_prism_string(self, initial_value=None):
+        """Write the state factor out in PRISM format.
+
+        Args:
+            initial_value: The initial value of that state factor, if applicable.
+
+        Returns:
+            prism_str: The PRISM string for this state factor
+
+        Raises:
+            bad_init_exception: Raised if initial_value is not valid value
+        """
+
+        prism_str = "{}: [{}..{}]".format(
+            self.get_name(),
+            self.get_idx(self._values[0]),
+            self.get_idx(self._values[-1]),
+        )
+
+        if initial_value is not None:
+            if not self.is_valid_value(initial_value):
+                raise Exception(
+                    "{} is invalid value for {}".format(initial_value, self.get_name)
+                )
+
+            prism_str += " init {}".format(self.get_idx(initial_value))
+
+        prism_str += ";\n"
+
+        return prism_str
+
 
 class BoolStateFactor(StateFactor):
     """A subclass of StateFactor which can only take values True and False.

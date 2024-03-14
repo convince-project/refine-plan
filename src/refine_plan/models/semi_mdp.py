@@ -5,6 +5,8 @@ Author: Charlie Street
 Owner: Charlie Street
 """
 
+from datetime import datetime
+
 
 class SemiMDP(object):
     """Class for semi-MDPs where actions=options.
@@ -83,3 +85,55 @@ class SemiMDP(object):
             raise Exception("{} is an invalid option".format(option.get_name()))
 
         return self._options[option].get_reward(state)
+
+    def to_prism_string(self, output_file=None):
+        """Convert the semi-MDP into a PRISM model.
+
+        Because of the objectives we are handling this is written as an MDP.
+
+        Args:
+            output_file: Optional. A file path to write the PRISM string to.
+
+        Returns:
+            prism_str: The PRISM string
+        """
+
+        # Opening comments
+        prism_str = "// Auto-generated semi-MDP for REFINE-PLAN\n"
+
+        now = datetime.now()
+        prism_str += "// Date generated: {}/{}/{}\n\n".format(
+            now.day, now.month, now.year
+        )
+
+        # MDP declaration
+        prism_str += "mdp\n\n module\n\n"
+
+        # State factors
+        for sf in self._state_factors:
+            prism_str += self._state_factors[sf].to_prism_string(
+                self._initial_state[sf] if sf in self._initial_state else None
+            )
+
+        prism_str += "\n"
+
+        # Transitions
+        for option in self._options:
+            prism_str += self._options[option].get_transition_prism_string()
+        prism_str += "\nendmodule\n\n"
+
+        # Write labels
+        for prop in self._props:
+            prism_str += prop.to_prism_string()
+
+        # Write rewards
+        prism_str += "\nrewards\n"
+        for option in self._options:
+            prism_str += self._options[option].get_reward_prism_string()
+        prism_str += "endrewards\n"
+
+        if output_file is not None:
+            with open(output_file, "w") as out_nm:
+                out_nm.write(prism_str)
+
+        return prism_str

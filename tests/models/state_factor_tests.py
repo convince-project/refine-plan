@@ -35,6 +35,11 @@ class StateFactorTest(unittest.TestCase):
         self.assertEqual(sf.get_valid_values(), ["a", "b", "c"])
         self.assertEqual(sf.get_name(), "sf")
 
+        self.assertEqual(sf.to_prism_string(), "sf: [0..2];\n")
+        self.assertEqual(sf.to_prism_string("b"), "sf: [0..2] init 1;\n")
+        with self.assertRaises(Exception):
+            sf.to_prism_string("d")
+
 
 class BoolStateFactorTest(unittest.TestCase):
 
@@ -57,6 +62,11 @@ class BoolStateFactorTest(unittest.TestCase):
 
         self.assertEqual(sf.get_valid_values(), [False, True])
         self.assertEqual(sf.get_name(), "bool_sf")
+
+        self.assertEqual(sf.to_prism_string(), "bool_sf: [0..1];\n")
+        self.assertEqual(sf.to_prism_string(True), "bool_sf: [0..1] init 1;\n")
+        with self.assertRaises(Exception):
+            sf.to_prism_string("d")
 
 
 class IntStateFactorTest(unittest.TestCase):
@@ -85,6 +95,11 @@ class IntStateFactorTest(unittest.TestCase):
 
         self.assertEqual(sf.get_valid_values(), [5, 6, 7, 8, 9, 10])
         self.assertEqual(sf.get_name(), "int_sf")
+
+        self.assertEqual(sf.to_prism_string(), "int_sf: [5..10];\n")
+        self.assertEqual(sf.to_prism_string(8), "int_sf: [5..10] init 8;\n")
+        with self.assertRaises(Exception):
+            sf.to_prism_string(2)
 
 
 if __name__ == "__main__":
