@@ -116,16 +116,21 @@ def _extract_policy(result, storm_model, semi_mdp):
     for state_id in storm_model.states:
 
         state_json = state_vals.get_json(state_id)  # sf_name -> value of sf
-        state = State({state_factors[sf]: state_json[sf] for sf in state_factors})
+        state = State(
+            {
+                state_factors[sf]: state_factors[sf].get_value(int(state_json[sf]))
+                for sf in state_factors
+            }
+        )
 
         # Need to offset action by the row group for the state according to Github
         action_id = (
             storm_model.transition_matrix.get_row_group_start(state_id)
-            + scheduler.get_choice(state).get_deterministic_choice()
+            + scheduler.get_choice(state_id).get_deterministic_choice()
         )
         # Action labels for action (should just be one)
         choice_set = choice_labeling.get_labels_of_choice(action_id)
-        action_label = None if len(choice_set) > 0 else list(choice_set)[0]
+        action_label = None if len(choice_set) == 0 else list(choice_set)[0]
 
         state_action_dict[state] = action_label
         value_dict[state] = result.at(state_id)
@@ -158,4 +163,4 @@ def synthesise_policy(semi_mdp, prism_prop='Rmax=?[F "goal"]'):
 
     _check_result(result)
 
-    return _extract_policy(result, semi_mdp)
+    return _extract_policy(result, storm_model, semi_mdp)
