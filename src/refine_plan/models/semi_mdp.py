@@ -115,7 +115,7 @@ class SemiMDP(object):
         )
 
         # MDP declaration
-        prism_str += "mdp\n\nmodule\n\n"
+        prism_str += "mdp\n\nmodule semimdp\n\n"
 
         # State factors
         for sf in self._state_factors:

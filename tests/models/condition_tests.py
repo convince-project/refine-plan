@@ -297,13 +297,13 @@ class AndConditionTest(unittest.TestCase):
         self.assertTrue(and_cond.is_post_cond())
         self.assertEqual(
             and_cond.to_prism_string(True),
-            "((sf_1' = 1) & (sf_2' = sf_2 + 1) & (sf_3' = 1))",
+            "(sf_1' = 1) & (sf_2' = sf_2 + 1) & (sf_3' = 1)",
         )
         self.assertEqual(
-            repr(and_cond), "((sf_1' = 1) & (sf_2' = sf_2 + 1) & (sf_3' = 1))"
+            repr(and_cond), "(sf_1' = 1) & (sf_2' = sf_2 + 1) & (sf_3' = 1)"
         )
         self.assertEqual(
-            str(and_cond), "((sf_1' = 1) & (sf_2' = sf_2 + 1) & (sf_3' = 1))"
+            str(and_cond), "(sf_1' = 1) & (sf_2' = sf_2 + 1) & (sf_3' = 1)"
         )
 
 

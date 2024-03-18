@@ -26,10 +26,10 @@ def _build_prism_program(semi_mdp):
 
     tmp_file = tempfile.NamedTemporaryFile()
 
-    with open(tmp_file, "w") as prism_in:
+    with open(tmp_file.name, "w") as prism_in:
         prism_in.write(semi_mdp.to_prism_string())
 
-    return stormpy.parse_prism_program(tmp_file)
+    return stormpy.parse_prism_program(tmp_file.name)
 
 
 def _build_storm_model(prism_program, formula):

@@ -20,29 +20,31 @@ def generate_prism_test_string(add_initial_state=False):
     expected = "// Auto-generated semi-MDP for REFINE-PLAN\n"
     expected += "// Date generated: {}/{}/{}\n\n".format(now.day, now.month, now.year)
     if add_initial_state:
-        expected += "mdp\n\nmodule\n\nsf: [0..2] init 1;\nbool_sf: [0..1] init 1;\n\n"
+        expected += (
+            "mdp\n\nmodule semimdp\n\nsf: [0..2] init 1;\nbool_sf: [0..1] init 1;\n\n"
+        )
     else:
-        expected += "mdp\n\nmodule\n\nsf: [0..2];\nbool_sf: [0..1];\n\n"
+        expected += "mdp\n\nmodule semimdp\n\nsf: [0..2];\nbool_sf: [0..1];\n\n"
     expected += (
         "[opt_1] ((sf = 0) & (bool_sf = 0)) -> "
-        + "0.6:((sf' = 1) & (bool_sf' = 0)) + 0.4:((sf' = 2) & (bool_sf' = 0));\n"
+        + "0.6:(sf' = 1) & (bool_sf' = 0) + 0.4:(sf' = 2) & (bool_sf' = 0);\n"
     )
     expected += (
         "[opt_1] ((sf = 1) & (bool_sf = 0)) -> "
-        + "0.3:((sf' = 0) & (bool_sf' = 0)) + 0.7:((sf' = 2) & (bool_sf' = 0));\n"
+        + "0.3:(sf' = 0) & (bool_sf' = 0) + 0.7:(sf' = 2) & (bool_sf' = 0);\n"
     )
     expected += (
         "[opt_1] ((sf = 2) & (bool_sf = 0)) -> "
-        + "0.5:((sf' = 0) & (bool_sf' = 0)) + 0.5:((sf' = 1) & (bool_sf' = 0));\n"
+        + "0.5:(sf' = 0) & (bool_sf' = 0) + 0.5:(sf' = 1) & (bool_sf' = 0);\n"
     )
     expected += (
-        "[opt_2] ((sf = 0) & (bool_sf = 0)) -> 1.0:((sf' = 0) & (bool_sf' = 1));\n"
+        "[opt_2] ((sf = 0) & (bool_sf = 0)) -> 1.0:(sf' = 0) & (bool_sf' = 1);\n"
     )
     expected += (
-        "[opt_2] ((sf = 1) & (bool_sf = 0)) -> 1.0:((sf' = 1) & (bool_sf' = 1));\n"
+        "[opt_2] ((sf = 1) & (bool_sf = 0)) -> 1.0:(sf' = 1) & (bool_sf' = 1);\n"
     )
     expected += (
-        "[opt_2] ((sf = 2) & (bool_sf = 0)) -> 1.0:((sf' = 2) & (bool_sf' = 1));\n"
+        "[opt_2] ((sf = 2) & (bool_sf = 0)) -> 1.0:(sf' = 2) & (bool_sf' = 1);\n"
     )
     expected += "\nendmodule\n\n"
     expected += 'label "label_1" = (bool_sf = 1);\n'

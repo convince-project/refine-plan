@@ -614,14 +614,19 @@ class AndCondition(Condition):
 
         Args:
             is_post_cond: Is the condition a post condition?"""
-        prism_str = "("
+
+        prism_str = ""
+
+        if not is_post_cond:
+            prism_str += "("
 
         for i in range(len(self._cond_list)):
             prism_str += self._cond_list[i].to_prism_string(is_post_cond)
             if i < len(self._cond_list) - 1:
                 prism_str += " & "
 
-        prism_str += ")"
+        if not is_post_cond:
+            prism_str += ")"
 
         return prism_str
 
