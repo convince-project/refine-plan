@@ -85,6 +85,7 @@ class ConstructorTest(unittest.TestCase):
 
         self.assertEqual(semi_mdp.get_det_initial_state(), initial_state)
         self.assertEqual(semi_mdp.get_labels(), [label_1, label_2])
+        self.assertEqual(semi_mdp.get_state_factors(), {"sf": sf_1, "bool_sf": sf_2})
 
 
 class TransitionRewardTest(unittest.TestCase):

@@ -33,6 +33,14 @@ class SemiMDP(object):
         self._labels = labels
         self._initial_state = initial_state
 
+    def get_state_factors(self):
+        """Return the state factor dictionary.
+
+        Returns:
+            state_factors: A dictionary from state factor name to state factor
+        """
+        return self._state_factors
+
     def get_det_initial_state(self):
         """Return the deterministic initial state, if there is one.
 
