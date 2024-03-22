@@ -6,6 +6,7 @@ Owner: Charlie Street
 """
 
 from refine_plan.models.state_factor import IntStateFactor
+from pyeda.inter import expr, And, Or, Not
 
 
 class Label(object):
@@ -128,6 +129,17 @@ class Condition(object):
         """
         raise NotImplementedError()
 
+    def to_pyeda_expr(self):
+        """Converts the condition into a pyeda logical expression.
+
+        This allows it to be worked with and minimised etc.
+
+        Returns:
+            pyeda_expr: The corresponding pyeda expression
+            var_map: A mapping from var_name to condition. Only returned if return_var_map
+        """
+        raise NotImplementedError()
+
 
 class TrueCondition(Condition):
     """A condition which is always true."""
@@ -171,6 +183,15 @@ class TrueCondition(Condition):
             is_post_cond: Should the condition be written as a postcondition?
         """
         return "true"
+
+    def to_pyeda_expr(self):
+        """Converts the condition into a pyeda logical expression (1)
+
+        Returns:
+            pyeda_expr: The corresponding pyeda expression
+            var_map: A mapping from var_name to condition.
+        """
+        return expr(True), {}
 
     def __repr__(self):
         """Make the condition human readable.
@@ -284,6 +305,18 @@ class EqCondition(Condition):
             self._sf.get_name(), post_cond_part, self._sf.get_idx(self._value)
         )
 
+    def to_pyeda_expr(self):
+        """Converts the condition into a pyeda logical expression.
+
+        We create a variable name for the condition <sf_name>EQ<value>.
+
+        Returns:
+            pyeda_expr: The corresponding pyeda expression
+            var_map: A mapping from var_name to condition.
+        """
+        var_name = "{}EQ{}".format(self._sf.get_name(), self._value)
+        return expr(var_name), {var_name: self}
+
     def __repr__(self):
         """Make the condition human readable.
 
@@ -387,6 +420,18 @@ class NotCondition(Condition):
             raise Exception("NotConditions cannot be postconditions")
 
         return "!{}".format(self._cond.to_prism_string())
+
+    def to_pyeda_expr(self):
+        """Converts the condition into a pyeda logical expression.
+
+        This just negates the condition included in the object.
+
+        Returns:
+            pyeda_expr: The corresponding pyeda expression
+            var_map: A mapping from var_name to condition.
+        """
+        cond_expr, var_map = self._cond.to_pyeda_expr()
+        return Not(cond_expr), var_map
 
     def __repr__(self):
         """Make the condition human readable.
@@ -519,6 +564,10 @@ class AddCondition(Condition):
         return "({}' = {} + {})".format(
             self._sf.get_name(), self._sf.get_name(), self._inc_value
         )
+
+    def to_pyeda_expr(self):
+        """Throws exception as AddConditions are only postconditions."""
+        raise Exception("No pyeda expression for AddCondition as postcondition.")
 
     def __repr__(self):
         """Make the condition human readable.
@@ -716,6 +765,23 @@ class LtCondition(InequalityCondition):
         """
         super(LtCondition, self).__init__(sf, value, lambda x, y: x < y, "<")
 
+    def to_pyeda_expr(self):
+        """Converts the condition into a pyeda logical expression.
+
+        We need to be careful with inequalities when minimising.
+        Following from https://github.com/SimonaGug/BT-from-planning-experts
+        < is represented logically as Not(>=).
+        We have a variable for the >= as well, not the <
+        We can then convert this back after doing all the logical work we need.
+
+        Returns:
+            pyeda_expr: The corresponding pyeda expression
+            var_map: A mapping from var_name to condition.
+        """
+        geq_cond = GeqCondition(self._sf, self._value)
+        geq_expr, var_map = geq_cond.to_pyeda_expr()
+        return Not(geq_expr), var_map
+
 
 class GtCondition(InequalityCondition):
     """A precondition for >.
@@ -732,6 +798,19 @@ class GtCondition(InequalityCondition):
             value: The state factor value to check
         """
         super(GtCondition, self).__init__(sf, value, lambda x, y: x > y, ">")
+
+    def to_pyeda_expr(self):
+        """Converts the condition into a pyeda logical expression.
+
+        > are represented just as >. Its < and <= which are flipped in terms of
+        variables.
+
+        Returns:
+            pyeda_expr: The corresponding pyeda expression
+            var_map: A mapping from var_name to condition.
+        """
+        var_name = "{}GT{}".format(self._sf.name, self._value)
+        return expr(var_name), {var_name: self}
 
 
 class LeqCondition(InequalityCondition):
@@ -750,6 +829,23 @@ class LeqCondition(InequalityCondition):
         """
         super(LeqCondition, self).__init__(sf, value, lambda x, y: x <= y, "<=")
 
+    def to_pyeda_expr(self):
+        """Converts the condition into a pyeda logical expression.
+
+        We need to be careful with inequalities when minimising.
+        Following from https://github.com/SimonaGug/BT-from-planning-experts
+        <= is represented logically as Not(>).
+        We have a variable for the > as well, not the <=
+        We can then convert this back after doing all the logical work we need.
+
+        Returns:
+            pyeda_expr: The corresponding pyeda expression
+            var_map: A mapping from var_name to condition.
+        """
+        gt_cond = GtCondition(self._sf, self._value)
+        gt_expr, var_map = gt_cond.to_pyeda_expr()
+        return Not(gt_expr), var_map
+
 
 class GeqCondition(InequalityCondition):
     """A precondition for >=.
@@ -766,6 +862,19 @@ class GeqCondition(InequalityCondition):
             value: The state factor value to check
         """
         super(GeqCondition, self).__init__(sf, value, lambda x, y: x >= y, ">=")
+
+    def to_pyeda_expr(self):
+        """Converts the condition into a pyeda logical expression.
+
+        >= are represented just as >=. Its < and <= which are flipped in terms of
+        variables.
+
+        Returns:
+            pyeda_expr: The corresponding pyeda expression
+            var_map: A mapping from var_name to condition.
+        """
+        var_name = "{}GEQ{}".format(self._sf.name, self._value)
+        return expr(var_name), {var_name: self}
 
 
 class AndCondition(Condition):
@@ -856,6 +965,29 @@ class AndCondition(Condition):
             prism_str += ")"
 
         return prism_str
+
+    def to_pyeda_expr(self):
+        """Converts the condition into a pyeda logical expression.
+
+        Here we just do an And() of all sub-conditions, and combine the variable maps.
+
+        Returns:
+            pyeda_expr: The corresponding pyeda expression
+            var_map: A mapping from var_name to condition.
+        """
+        expr_list = []
+        var_map = {}
+
+        for cond in self._cond_list:
+            expr, sub_var_map = cond.to_pyeda_expr()
+            expr_list.append(expr)
+            for var in sub_var_map:
+                if var not in var_map:  # Add in new variables
+                    var_map[var] = sub_var_map[var]
+                else:  # A small test that they are the same condition
+                    assert var_map[var] == sub_var_map[var]
+
+        return And(*expr_list), var_map
 
     def __repr__(self):
         """Make the condition human readable.
@@ -992,6 +1124,29 @@ class OrCondition(Condition):
         prism_str += ")"
 
         return prism_str
+
+    def to_pyeda_expr(self):
+        """Converts the condition into a pyeda logical expression.
+
+        Here we just do an Or() of all sub-conditions, and combine the variable maps.
+
+        Returns:
+            pyeda_expr: The corresponding pyeda expression
+            var_map: A mapping from var_name to condition.
+        """
+        expr_list = []
+        var_map = {}
+
+        for cond in self._cond_list:
+            expr, sub_var_map = cond.to_pyeda_expr()
+            expr_list.append(expr)
+            for var in sub_var_map:
+                if var not in var_map:  # Add in new variables
+                    var_map[var] = sub_var_map[var]
+                else:  # A small test that they are the same condition
+                    assert var_map[var] == sub_var_map[var]
+
+        return Or(*expr_list), var_map
 
     def __repr__(self):
         """Make the condition human readable.
