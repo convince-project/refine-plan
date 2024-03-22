@@ -15,6 +15,7 @@ class StateFactor(object):
     Attributes:
         _name: The name of the state factor
         _values: The valid values for that state factor
+        _hash_val: A caching variable for the object's hash
     """
 
     def __init__(self, name, values):
@@ -26,6 +27,7 @@ class StateFactor(object):
         """
         self._name = name
         self._values = values
+        self._hash_val = None
 
     def get_value(self, idx):
         """Get the state factor value at a given index.
@@ -122,6 +124,34 @@ class StateFactor(object):
         prism_str += ";\n"
 
         return prism_str
+
+    def __hash__(self):
+        """Overwriting so that SFs with equal names, types, and ranges are equal.
+
+        Returns:
+            hash_val: The hash of the object
+        """
+        if self._hash_val is None:
+            self._hash_val = hash(
+                (type(self), self.get_name(), tuple(sorted(self._values)))
+            )
+
+        return self._hash_val
+
+    def __eq__(self, other):
+        """Overwrite equality so I can use SFs as dict keys.
+
+        Args:
+            other: The state factor we're comparing against
+
+        Returns:
+            is_equal: Are the two state factors equal?
+        """
+        return (
+            type(self) == type(other)
+            and self.get_name() == other.get_name()
+            and set(self._values) == set(other._values)
+        )
 
 
 class BoolStateFactor(StateFactor):

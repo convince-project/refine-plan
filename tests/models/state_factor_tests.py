@@ -13,6 +13,7 @@ class StateFactorTest(unittest.TestCase):
 
     def test_function(self):
         sf = StateFactor("sf", ["a", "b", "c"])
+        self.assertEqual(sf._hash_val, None)
 
         self.assertEqual(sf.get_value(0), "a")
         self.assertEqual(sf.get_value(1), "b")
@@ -40,11 +41,28 @@ class StateFactorTest(unittest.TestCase):
         with self.assertRaises(Exception):
             sf.to_prism_string("d")
 
+        self.assertEqual(hash(sf), hash((type(sf), "sf", ("a", "b", "c"))))
+        self.assertEqual(sf._hash_val, hash((type(sf), "sf", ("a", "b", "c"))))
+
+        self.assertEqual(sf, sf)
+        sf_equal = StateFactor("sf", ["b", "a", "c"])
+        self.assertEqual(sf, sf_equal)
+        self.assertEqual(hash(sf), hash(sf_equal))
+
+        bad_sf = StateFactor("sf", ["a", "b"])
+        self.assertNotEqual(sf, bad_sf)
+
+        sf = StateFactor("int_sf", [1, 2, 3])
+        int_sf = IntStateFactor("int_sf", 1, 3)
+        self.assertNotEqual(sf, int_sf)
+
 
 class BoolStateFactorTest(unittest.TestCase):
 
     def test_function(self):
         sf = BoolStateFactor("bool_sf")
+
+        self.assertEqual(sf._hash_val, None)
 
         self.assertEqual(sf.get_value(0), False)
         self.assertEqual(sf.get_value(1), True)
@@ -68,11 +86,20 @@ class BoolStateFactorTest(unittest.TestCase):
         with self.assertRaises(Exception):
             sf.to_prism_string("d")
 
+        self.assertEqual(hash(sf), hash((type(sf), "bool_sf", (False, True))))
+        self.assertEqual(sf._hash_val, hash((type(sf), "bool_sf", (False, True))))
+
+        self.assertEqual(sf, BoolStateFactor("bool_sf"))
+        self.assertNotEqual(sf, BoolStateFactor("sf_2"))
+        self.assertNotEqual(sf, StateFactor("bool_sf", [False, True]))
+
 
 class IntStateFactorTest(unittest.TestCase):
 
     def test_function(self):
         sf = IntStateFactor("int_sf", 5, 10)
+
+        self.assertEqual(sf._hash_val, None)
 
         for i in range(5, 11):
             self.assertEqual(sf.get_value(i), i)
@@ -100,6 +127,15 @@ class IntStateFactorTest(unittest.TestCase):
         self.assertEqual(sf.to_prism_string(8), "int_sf: [5..10] init 8;\n")
         with self.assertRaises(Exception):
             sf.to_prism_string(2)
+
+        self.assertEqual(sf, sf)
+        self.assertEqual(sf, IntStateFactor("int_sf", 5, 10))
+        self.assertNotEqual(sf, IntStateFactor("sf", 5, 10))
+        self.assertNotEqual(sf, IntStateFactor("int_sf", 5, 9))
+        self.assertNotEqual(sf, StateFactor("int_sf", [5, 6, 7, 8, 9, 10]))
+
+        self.assertEqual(hash(sf), hash((type(sf), "int_sf", (5, 6, 7, 8, 9, 10))))
+        self.assertEqual(sf._hash_val, hash((type(sf), "int_sf", (5, 6, 7, 8, 9, 10))))
 
 
 if __name__ == "__main__":
