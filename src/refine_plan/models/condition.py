@@ -14,6 +14,7 @@ class Label(object):
     Attributes:
         _name: The label name
         _cond: The corresponding condition
+        _hash_val: The cached hash value for the label
     """
 
     def __init__(self, name, cond):
@@ -31,6 +32,7 @@ class Label(object):
 
         self._name = name
         self._cond = cond
+        self._hash_val = None
 
     def to_prism_string(self):
         """Converts the label into a PRISM string.
@@ -61,6 +63,27 @@ class Label(object):
         return 'label "{}" = {};'.format(
             self._name, self._cond.to_prism_string(is_post_cond=False)
         )
+
+    def __hash__(self):
+        """Overwriting so labels with equal contents have the same hash.
+
+        Returns:
+            hash_val: The hash value of the label
+        """
+        if self._hash_val is None:
+            self._hash_val = hash((self._name, self._cond))
+        return self._hash_val
+
+    def __eq__(self, other):
+        """Overwriting so labels with equal contents are equal.
+
+        Args:
+            other: The other label
+
+        Returns:
+            is_equal: Are the two Labels equal?
+        """
+        return self._name == other._name and self._cond and other._cond
 
 
 class Condition(object):
@@ -165,6 +188,26 @@ class TrueCondition(Condition):
         """
         return self.to_prism_string()
 
+    def __hash__(self):
+        """Overwriting for use in dictionaries etc.
+
+        Returns:
+            hash_val: The hash
+        """
+        # No caching here as its so simple
+        return hash(type(self))
+
+    def __eq__(self, other):
+        """Overwriting for use in dictionaries etc.
+
+        Args:
+            other: The other condition
+
+        Returns:
+            is_equal: Are the two conditions equal?
+        """
+        return type(self) == type(other)
+
 
 class EqCondition(Condition):
     """A condition which checks for equality.
@@ -172,6 +215,7 @@ class EqCondition(Condition):
     Attributes:
         _sf: The state factor we're checking
         _value: The value to check against
+        _hash_val: The cached hash
     """
 
     def __init__(self, sf, value):
@@ -190,6 +234,7 @@ class EqCondition(Condition):
 
         self._sf = sf
         self._value = value
+        self._hash_val = None
 
     def is_satisfied(self, state, prev_state=None):
         """Checks if the value of _sf in state matches _value.
@@ -255,12 +300,38 @@ class EqCondition(Condition):
         """
         return self.to_prism_string()
 
+    def __hash__(self):
+        """Overwriting for use in dictionaries etc.
+
+        Returns:
+            hash_val: The hash
+        """
+        if self._hash_val is None:
+            self._hash_val = hash((type(self), self._sf, self._value))
+        return self._hash_val
+
+    def __eq__(self, other):
+        """Overwriting so conditions with identical information are equal.
+
+        Args:
+            other: The other condition
+
+        Returns:
+            is_equal: Are the conditions equal?
+        """
+        return (
+            type(self) == type(other)
+            and self._sf == other._sf
+            and self._value == other._value
+        )
+
 
 class NotCondition(Condition):
     """A condition which negates another condition.
 
     Attributes:
         _cond: The condition we're negating
+        _hash_val: The cached hash
     """
 
     def __init__(self, cond):
@@ -277,6 +348,7 @@ class NotCondition(Condition):
             raise Exception("NotCondition: Condition is not a valid precondition")
 
         self._cond = cond
+        self._hash_val = None
 
     def is_satisfied(self, state, prev_state=None):
         """Flips the return value of self._cond
@@ -332,6 +404,27 @@ class NotCondition(Condition):
         """
         return self.to_prism_string()
 
+    def __hash__(self):
+        """Overwriting for use in dictionaries etc.
+
+        Returns:
+            hash_val: The hash
+        """
+        if self._hash_val is None:
+            self._hash_val = hash((type(self), self._cond))
+        return self._hash_val
+
+    def __eq__(self, other):
+        """Overwriting so conditions with identical information are equal.
+
+        Args:
+            other: The other condition
+
+        Returns:
+            is_equal: Are the conditions equal?
+        """
+        return type(self) == type(other) and self._cond == other._cond
+
 
 class AddCondition(Condition):
     """Condition for adding a value to a state factor.
@@ -342,6 +435,7 @@ class AddCondition(Condition):
         Same as superclass, plus:
         _sf: The state factor
         _inc_value: The increment value
+        _hash_val: The cached hash
     """
 
     def __init__(self, sf, inc_value):
@@ -356,6 +450,7 @@ class AddCondition(Condition):
 
         self._sf = sf
         self._inc_value = inc_value
+        self._hash_val = None
 
     def is_satisfied(self, state, prev_state=None):
         """Checks if the value of _sf in state = prev_state + _inc_value
@@ -441,6 +536,31 @@ class AddCondition(Condition):
         """
         return self.to_prism_string(True)
 
+    def __hash__(self):
+        """Overwriting for use in dictionaries etc.
+
+        Returns:
+            hash_val: The hash
+        """
+        if self._hash_val is None:
+            self._hash_val = hash((type(self), self._sf, self._inc_value))
+        return self._hash_val
+
+    def __eq__(self, other):
+        """Overwriting so conditions with identical information are equal.
+
+        Args:
+            other: The other condition
+
+        Returns:
+            is_equal: Are the conditions equal?
+        """
+        return (
+            type(self) == type(other)
+            and self._sf == other._sf
+            and self._inc_value == other._inc_value
+        )
+
 
 class InequalityCondition(Condition):
     """A precondition which compares a state factor to a value.
@@ -453,6 +573,7 @@ class InequalityCondition(Condition):
         _comp_fn: The int x int -> bool comparison function
         _comp_str: The PRISM symbol for the comparison operation
         _value: The value to check against
+        _hash_val: The cached hash
     """
 
     def __init__(self, sf, value, comp_fn, comp_str):
@@ -481,6 +602,7 @@ class InequalityCondition(Condition):
         self._value = value
         self._comp_fn = comp_fn
         self._comp_str = comp_str
+        self._hash_val = None
 
     def is_satisfied(self, state, prev_state=None):
         """Checks if the value of _sf in state matches _value.
@@ -551,6 +673,31 @@ class InequalityCondition(Condition):
             label: A str representation of the label
         """
         return self.to_prism_string()
+
+    def __hash__(self):
+        """Overwriting for use in dictionaries etc.
+
+        Returns:
+            hash_val: The hash
+        """
+        if self._hash_val is None:
+            self._hash_val = hash((type(self), self._sf, self._value))
+        return self._hash_val
+
+    def __eq__(self, other):
+        """Overwriting so conditions with identical information are equal.
+
+        Args:
+            other: The other condition
+
+        Returns:
+            is_equal: Are the conditions equal?
+        """
+        return (
+            type(self) == type(other)
+            and self._sf == other._sf
+            and self._value == other._value
+        )
 
 
 class LtCondition(InequalityCondition):
@@ -626,6 +773,7 @@ class AndCondition(Condition):
 
     Attributes:
         _cond_list: A list of conditions
+        _hash_val: The cached hash
     """
 
     def __init__(self, *conds):
@@ -637,6 +785,7 @@ class AndCondition(Condition):
         self._cond_list = []
         for cond in conds:
             self._cond_list.append(cond)
+        self._hash_val = None
 
     def add_cond(self, cond):
         """Add a new condition to the conjunction.
@@ -645,6 +794,7 @@ class AndCondition(Condition):
             cond: The new condition
         """
         self._cond_list.append(cond)
+        self._hash_val = None  # Needs recomputation
 
     def is_satisfied(self, state, prev_state=None):
         """Check if conjunction is satisfied.
@@ -723,12 +873,48 @@ class AndCondition(Condition):
         """
         return self.to_prism_string(self.is_post_cond())
 
+    def __hash__(self):
+        """Overwriting for use in dictionaries etc.
+
+        Returns:
+            hash_val: The hash
+        """
+        if self._hash_val is None:
+            hash_sorter = lambda c: hash(c)
+            self._hash_val = hash(
+                (type(self), tuple(sorted(self._cond_list, key=hash_sorter)))
+            )
+        return self._hash_val
+
+    def __eq__(self, other):
+        """Overwriting so conditions with identical information are equal.
+
+        Args:
+            other: The other condition
+
+        Returns:
+            is_equal: Are the conditions equal?
+        """
+        first_part = type(self) == type(other) and len(self._cond_list) == len(
+            other._cond_list
+        )
+
+        if not first_part:
+            return False
+
+        for cond in self._cond_list:
+            if cond not in other._cond_list:
+                return False
+
+        return True
+
 
 class OrCondition(Condition):
     """Composite condition which captures disjunctions.
 
     Attributes:
         _cond_list: A list of conditions
+        _hash_val: The cached hash
     """
 
     def __init__(self, *conds):
@@ -740,6 +926,7 @@ class OrCondition(Condition):
         self._cond_list = []
         for cond in conds:
             self._cond_list.append(cond)
+        self._hash_val = None
 
     def add_cond(self, cond):
         """Add a new condition to the conjunction.
@@ -748,6 +935,7 @@ class OrCondition(Condition):
             cond: The new condition
         """
         self._cond_list.append(cond)
+        self._hash_val = None
 
     def is_satisfied(self, state, prev_state=None):
         """Check if disjunction is satisfied.
@@ -820,3 +1008,38 @@ class OrCondition(Condition):
             label: A str representation of the label
         """
         return self.to_prism_string()
+
+    def __hash__(self):
+        """Overwriting for use in dictionaries etc.
+
+        Returns:
+            hash_val: The hash
+        """
+        if self._hash_val is None:
+            hash_sorter = lambda c: hash(c)
+            self._hash_val = hash(
+                (type(self), tuple(sorted(self._cond_list, key=hash_sorter)))
+            )
+        return self._hash_val
+
+    def __eq__(self, other):
+        """Overwriting so conditions with identical information are equal.
+
+        Args:
+            other: The other condition
+
+        Returns:
+            is_equal: Are the conditions equal?
+        """
+        first_part = type(self) == type(other) and len(self._cond_list) == len(
+            other._cond_list
+        )
+
+        if not first_part:
+            return False
+
+        for cond in self._cond_list:
+            if cond not in other._cond_list:
+                return False
+
+        return True
