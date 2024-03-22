@@ -17,8 +17,10 @@ from refine_plan.models.condition import (
     GeqCondition,
     AndCondition,
     OrCondition,
+    NotCondition,
 )
 from refine_plan.models.state_factor import StateFactor, IntStateFactor, BoolStateFactor
+from refine_plan.models.state import State
 import unittest
 
 
@@ -94,6 +96,37 @@ class EqConditionTest(unittest.TestCase):
 
         self.assertEqual(repr(cond), "(sf = 1)")
         self.assertEqual(str(cond), "(sf = 1)")
+
+
+class NotConditionTest(unittest.TestCase):
+
+    def test_function(self):
+
+        sf = IntStateFactor("sf", 5, 10)
+        cond = LtCondition(sf, 7)
+
+        not_cond = NotCondition(cond)
+
+        self.assertEqual(not_cond._cond, cond)
+        self.assertTrue(not_cond.is_pre_cond())
+        self.assertFalse(not_cond.is_post_cond())
+
+        self.assertFalse(not_cond.is_satisfied(State({sf: 5})))
+        self.assertFalse(not_cond.is_satisfied(State({sf: 6})))
+        self.assertTrue(not_cond.is_satisfied(State({sf: 7})))
+        self.assertTrue(not_cond.is_satisfied(State({sf: 8})))
+        self.assertTrue(not_cond.is_satisfied(State({sf: 9})))
+        self.assertTrue(not_cond.is_satisfied(State({sf: 10})))
+
+        with self.assertRaises(Exception):
+            not_cond.to_prism_string(True)
+
+        self.assertEqual(not_cond.to_prism_string(), "!(sf < 7)")
+        self.assertEqual(repr(not_cond), "!(sf < 7)")
+        self.assertEqual(str(not_cond), "!(sf < 7)")
+
+        with self.assertRaises(Exception):
+            NotCondition(AddCondition(sf, 1))
 
 
 class AddConditionTest(unittest.TestCase):

@@ -256,6 +256,83 @@ class EqCondition(Condition):
         return self.to_prism_string()
 
 
+class NotCondition(Condition):
+    """A condition which negates another condition.
+
+    Attributes:
+        _cond: The condition we're negating
+    """
+
+    def __init__(self, cond):
+        """Initialises attributes.
+
+        Args:
+            cond: The condition we want to negate
+
+        Raises:
+            invalid_cond: Raised if cond is not a valid precondition
+        """
+
+        if not cond.is_pre_cond():
+            raise Exception("NotCondition: Condition is not a valid precondition")
+
+        self._cond = cond
+
+    def is_satisfied(self, state, prev_state=None):
+        """Flips the return value of self._cond
+
+        Args:
+            state: The state to check
+            prev_state: Not used here
+
+        Returns:
+            is_satisfied: Is the condition satisfied?
+        """
+        return not self._cond.is_satisfied(state, prev_state=prev_state)
+
+    def is_pre_cond(self):
+        """NotConditions are valid preconditions.
+        Returns:
+            is_pre_cond: Can the condition be used as a precondition?
+        """
+        return True
+
+    def is_post_cond(self):
+        """NotConditions are not valid postconditions.
+
+        Returns:
+            is_post_cond: Can the condition be used as a postcondition?
+        """
+        return False
+
+    def to_prism_string(self, is_post_cond=False):
+        """Outputs the prism string for this condition.
+
+        Args:
+            is_post_cond: Should the condition be written as a postcondition?
+        """
+        if is_post_cond:
+            raise Exception("NotConditions cannot be postconditions")
+
+        return "!{}".format(self._cond.to_prism_string())
+
+    def __repr__(self):
+        """Make the condition human readable.
+
+        Returns:
+            label: A str representation of the label
+        """
+        return self.to_prism_string()
+
+    def __str__(self):
+        """Make the condition human readable.
+
+        Returns:
+            label: A str representation of the label
+        """
+        return self.to_prism_string()
+
+
 class AddCondition(Condition):
     """Condition for adding a value to a state factor.
 
