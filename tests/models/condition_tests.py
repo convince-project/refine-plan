@@ -33,10 +33,19 @@ class LabelTest(unittest.TestCase):
 
         self.assertEqual(label._name, "test")
         self.assertEqual(label._cond, cond)
+        self.assertEqual(label._hash_val, None)
 
         self.assertEqual(label.to_prism_string(), 'label "test" = (sf = 1);\n')
         self.assertEqual(repr(label), 'label "test" = (sf = 1);')
         self.assertEqual(str(label), 'label "test" = (sf = 1);')
+
+        self.assertEqual(hash(label), hash(("test", cond)))
+        self.assertEqual(label._hash_val, hash(("test", cond)))
+
+        self.assertEqual(label, label)
+        self.assertEqual(label, Label("test", cond))
+        self.assertNotEqual(label, Label("nope", cond))
+        self.assertNotEqual(label, Label("test", TrueCondition()))
 
 
 class ConditionTest(unittest.TestCase):
@@ -68,6 +77,9 @@ class TrueConditionTest(unittest.TestCase):
         self.assertEqual(cond.to_prism_string(), "true")
         self.assertEqual(repr(cond), "true")
         self.assertEqual(str(cond), "true")
+        self.assertEqual(hash(cond), hash(type(cond)))
+        self.assertEqual(cond, cond)
+        self.assertEqual(cond, TrueCondition())
 
 
 class EqConditionTest(unittest.TestCase):
@@ -81,6 +93,7 @@ class EqConditionTest(unittest.TestCase):
 
         self.assertEqual(cond._sf, sf)
         self.assertEqual(cond._value, "b")
+        self.assertEqual(cond._hash_val, None)
 
         dummy_state = {"sf": "b"}
         self.assertTrue(cond.is_satisfied(dummy_state))
@@ -97,6 +110,13 @@ class EqConditionTest(unittest.TestCase):
         self.assertEqual(repr(cond), "(sf = 1)")
         self.assertEqual(str(cond), "(sf = 1)")
 
+        self.assertEqual(hash(cond), hash((type(cond), sf, "b")))
+        self.assertEqual(cond._hash_val, hash((type(cond), sf, "b")))
+        self.assertEqual(cond, cond)
+        self.assertEqual(cond, EqCondition(sf, "b"))
+        self.assertNotEqual(cond, EqCondition(sf, "c"))
+        self.assertNotEqual(cond, EqCondition(StateFactor("sf", ["a", "b"]), "b"))
+
 
 class NotConditionTest(unittest.TestCase):
 
@@ -108,6 +128,7 @@ class NotConditionTest(unittest.TestCase):
         not_cond = NotCondition(cond)
 
         self.assertEqual(not_cond._cond, cond)
+        self.assertEqual(not_cond._hash_val, None)
         self.assertTrue(not_cond.is_pre_cond())
         self.assertFalse(not_cond.is_post_cond())
 
@@ -128,6 +149,14 @@ class NotConditionTest(unittest.TestCase):
         with self.assertRaises(Exception):
             NotCondition(AddCondition(sf, 1))
 
+        self.assertEqual(hash(not_cond), hash((type(not_cond), cond)))
+        self.assertEqual(not_cond._hash_val, hash((type(not_cond), cond)))
+
+        self.assertEqual(not_cond, not_cond)
+        self.assertEqual(not_cond, NotCondition(cond))
+        self.assertNotEqual(not_cond, cond)
+        self.assertNotEqual(not_cond, NotCondition(GtCondition(sf, 7)))
+
 
 class AddConditionTest(unittest.TestCase):
 
@@ -142,6 +171,7 @@ class AddConditionTest(unittest.TestCase):
 
         self.assertEqual(cond._sf, sf)
         self.assertEqual(cond._inc_value, 2)
+        self.assertEqual(cond._hash_val, None)
 
         state = {"sf": 7}
         with self.assertRaises(Exception):
@@ -171,6 +201,15 @@ class AddConditionTest(unittest.TestCase):
         self.assertEqual(repr(cond), "(sf' = sf + 2)")
         self.assertEqual(str(cond), "(sf' = sf + 2)")
 
+        self.assertEqual(hash(cond), hash((type(cond), sf, 2)))
+        self.assertEqual(cond._hash_val, hash((type(cond), sf, 2)))
+
+        self.assertEqual(cond, cond)
+        self.assertEqual(cond, AddCondition(sf, 2))
+        self.assertNotEqual(cond, EqCondition(sf, 7))
+        self.assertNotEqual(cond, AddCondition(IntStateFactor("int", 1, 3), 2))
+        self.assertNotEqual(cond, AddCondition(sf, 1))
+
 
 class LtConditionTest(unittest.TestCase):
 
@@ -185,6 +224,7 @@ class LtConditionTest(unittest.TestCase):
 
         cond = LtCondition(sf, 7)
 
+        self.assertEqual(cond._hash_val, None)
         self.assertTrue(cond.is_satisfied({"sf": 5}))
         self.assertTrue(cond.is_satisfied({"sf": 6}))
         self.assertFalse(cond.is_satisfied({"sf": 7}))
@@ -202,6 +242,15 @@ class LtConditionTest(unittest.TestCase):
         self.assertEqual(repr(cond), "(sf < 7)")
         self.assertEqual(str(cond), "(sf < 7)")
 
+        self.assertEqual(hash(cond), hash((type(cond), sf, 7)))
+        self.assertEqual(cond._hash_val, hash((type(cond), sf, 7)))
+
+        self.assertEqual(cond, cond)
+        self.assertEqual(cond, LtCondition(sf, 7))
+        self.assertNotEqual(cond, GtCondition(sf, 7))
+        self.assertNotEqual(cond, LtCondition(IntStateFactor("int", 7, 100), 7))
+        self.assertNotEqual(cond, LtCondition(sf, 8))
+
 
 class GtConditionTest(unittest.TestCase):
 
@@ -216,6 +265,7 @@ class GtConditionTest(unittest.TestCase):
 
         cond = GtCondition(sf, 7)
 
+        self.assertEqual(cond._hash_val, None)
         self.assertFalse(cond.is_satisfied({"sf": 5}))
         self.assertFalse(cond.is_satisfied({"sf": 6}))
         self.assertFalse(cond.is_satisfied({"sf": 7}))
@@ -233,6 +283,15 @@ class GtConditionTest(unittest.TestCase):
         self.assertEqual(repr(cond), "(sf > 7)")
         self.assertEqual(str(cond), "(sf > 7)")
 
+        self.assertEqual(hash(cond), hash((type(cond), sf, 7)))
+        self.assertEqual(cond._hash_val, hash((type(cond), sf, 7)))
+
+        self.assertEqual(cond, cond)
+        self.assertEqual(cond, GtCondition(sf, 7))
+        self.assertNotEqual(cond, LtCondition(sf, 7))
+        self.assertNotEqual(cond, GtCondition(IntStateFactor("int", 7, 100), 7))
+        self.assertNotEqual(cond, GtCondition(sf, 8))
+
 
 class LeqConditionTest(unittest.TestCase):
 
@@ -247,6 +306,7 @@ class LeqConditionTest(unittest.TestCase):
 
         cond = LeqCondition(sf, 7)
 
+        self.assertEqual(cond._hash_val, None)
         self.assertTrue(cond.is_satisfied({"sf": 5}))
         self.assertTrue(cond.is_satisfied({"sf": 6}))
         self.assertTrue(cond.is_satisfied({"sf": 7}))
@@ -264,6 +324,15 @@ class LeqConditionTest(unittest.TestCase):
         self.assertEqual(repr(cond), "(sf <= 7)")
         self.assertEqual(str(cond), "(sf <= 7)")
 
+        self.assertEqual(hash(cond), hash((type(cond), sf, 7)))
+        self.assertEqual(cond._hash_val, hash((type(cond), sf, 7)))
+
+        self.assertEqual(cond, cond)
+        self.assertEqual(cond, LeqCondition(sf, 7))
+        self.assertNotEqual(cond, GeqCondition(sf, 7))
+        self.assertNotEqual(cond, LeqCondition(IntStateFactor("int", 7, 100), 7))
+        self.assertNotEqual(cond, LeqCondition(sf, 8))
+
 
 class GeqConditionTest(unittest.TestCase):
 
@@ -278,6 +347,7 @@ class GeqConditionTest(unittest.TestCase):
 
         cond = GeqCondition(sf, 7)
 
+        self.assertEqual(cond._hash_val, None)
         self.assertFalse(cond.is_satisfied({"sf": 5}))
         self.assertFalse(cond.is_satisfied({"sf": 6}))
         self.assertTrue(cond.is_satisfied({"sf": 7}))
@@ -295,6 +365,15 @@ class GeqConditionTest(unittest.TestCase):
         self.assertEqual(repr(cond), "(sf >= 7)")
         self.assertEqual(str(cond), "(sf >= 7)")
 
+        self.assertEqual(hash(cond), hash((type(cond), sf, 7)))
+        self.assertEqual(cond._hash_val, hash((type(cond), sf, 7)))
+
+        self.assertEqual(cond, cond)
+        self.assertEqual(cond, GeqCondition(sf, 7))
+        self.assertNotEqual(cond, LeqCondition(sf, 7))
+        self.assertNotEqual(cond, GeqCondition(IntStateFactor("int", 7, 100), 7))
+        self.assertNotEqual(cond, GeqCondition(sf, 8))
+
 
 class AndConditionTest(unittest.TestCase):
 
@@ -307,9 +386,12 @@ class AndConditionTest(unittest.TestCase):
         cond_3 = EqCondition(sf_3, True)
 
         and_cond = AndCondition(cond_1, cond_2)
+        self.assertEqual(and_cond._hash_val, None)
+        and_cond._hash_val = "test"
         self.assertEqual(len(and_cond._cond_list), 2)
         and_cond.add_cond(cond_3)
         self.assertEqual(len(and_cond._cond_list), 3)
+        self.assertEqual(and_cond._hash_val, None)
 
         state = {"sf_1": "b", "sf_2": 6, "sf_3": True}
         self.assertTrue(and_cond.is_satisfied(state))
@@ -324,6 +406,20 @@ class AndConditionTest(unittest.TestCase):
         )
         self.assertEqual(repr(and_cond), "((sf_1 = 1) & (sf_2 < 7) & (sf_3 = 1))")
         self.assertEqual(str(and_cond), "((sf_1 = 1) & (sf_2 < 7) & (sf_3 = 1))")
+
+        hash_sorter = lambda c: hash(c)
+        self.assertEqual(
+            hash(and_cond),
+            hash((type(and_cond), tuple(sorted(and_cond._cond_list, key=hash_sorter)))),
+        )
+        self.assertEqual(
+            and_cond._hash_val,
+            hash((type(and_cond), tuple(sorted(and_cond._cond_list, key=hash_sorter)))),
+        )
+        self.assertEqual(and_cond, and_cond)
+        self.assertEqual(and_cond, AndCondition(cond_3, cond_2, cond_1))
+        self.assertNotEqual(and_cond, AndCondition(cond_2, cond_1))
+        self.assertNotEqual(and_cond, OrCondition(cond_3, cond_2, cond_1))
 
         and_cond._cond_list[1] = AddCondition(sf_2, 1)
         self.assertFalse(and_cond.is_pre_cond())
@@ -351,9 +447,12 @@ class OrConditionTest(unittest.TestCase):
         cond_3 = EqCondition(sf_3, True)
 
         or_cond = OrCondition(cond_1, cond_2)
+        self.assertEqual(or_cond._hash_val, None)
         self.assertEqual(len(or_cond._cond_list), 2)
+        or_cond._hash_val = "test"
         or_cond.add_cond(cond_3)
         self.assertEqual(len(or_cond._cond_list), 3)
+        self.assertEqual(or_cond._hash_val, None)
 
         state = {"sf_1": "a", "sf_2": 6, "sf_3": False}
         self.assertTrue(or_cond.is_satisfied(state))
@@ -368,6 +467,20 @@ class OrConditionTest(unittest.TestCase):
         )
         self.assertEqual(repr(or_cond), "((sf_1 = 1) | (sf_2 < 7) | (sf_3 = 1))")
         self.assertEqual(str(or_cond), "((sf_1 = 1) | (sf_2 < 7) | (sf_3 = 1))")
+
+        hash_sorter = lambda c: hash(c)
+        self.assertEqual(
+            hash(or_cond),
+            hash((type(or_cond), tuple(sorted(or_cond._cond_list, key=hash_sorter)))),
+        )
+        self.assertEqual(
+            or_cond._hash_val,
+            hash((type(or_cond), tuple(sorted(or_cond._cond_list, key=hash_sorter)))),
+        )
+        self.assertEqual(or_cond, or_cond)
+        self.assertEqual(or_cond, OrCondition(cond_3, cond_2, cond_1))
+        self.assertNotEqual(or_cond, OrCondition(cond_2, cond_1))
+        self.assertNotEqual(or_cond, AndCondition(cond_3, cond_2, cond_1))
 
         or_cond._cond_list[1] = AddCondition(sf_2, 1)
         self.assertFalse(or_cond.is_pre_cond())

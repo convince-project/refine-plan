@@ -83,7 +83,7 @@ class Label(object):
         Returns:
             is_equal: Are the two Labels equal?
         """
-        return self._name == other._name and self._cond and other._cond
+        return self._name == other._name and self._cond == other._cond
 
 
 class Condition(object):
