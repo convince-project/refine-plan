@@ -7,7 +7,7 @@ Owner: Charlie Street
 
 from refine_plan.models.state_factor import StateFactor, BoolStateFactor, IntStateFactor
 from refine_plan.models.condition import EqCondition, Label
-from refine_plan.solver.semi_mdp_solver import (
+from refine_plan.algorithms.semi_mdp_solver import (
     _build_prism_program,
     _build_storm_model,
     _check_result,
