@@ -13,6 +13,8 @@ from refine_plan.models.behaviour_tree import (
     FallbackNode,
     BehaviourTree,
 )
+import xml.etree.ElementTree as et
+import tempfile
 import unittest
 
 
@@ -22,8 +24,10 @@ class ActionNodeTest(unittest.TestCase):
         node = ActionNode("action")
         self.assertEqual(node.get_name(), "action")
 
-        with self.assertRaises(NotImplementedError):
-            node.to_BT_XML()
+        xml = node.to_BT_XML()
+        self.assertEqual(len(xml), 0)
+        self.assertEqual(xml.tag, "Action")
+        self.assertEqual(xml.attrib, {"name": "action"})
 
 
 class ConditionNodeTest(unittest.TestCase):
@@ -34,8 +38,10 @@ class ConditionNodeTest(unittest.TestCase):
         self.assertEqual(node.get_name(), "condition")
         self.assertEqual(node.get_cond(), TrueCondition())
 
-        with self.assertRaises(NotImplementedError):
-            node.to_BT_XML()
+        xml = node.to_BT_XML()
+        self.assertEqual(len(xml), 0)
+        self.assertEqual(xml.tag, "Condition")
+        self.assertEqual(xml.attrib, {"name": "condition"})
 
 
 class SequenceNodeTest(unittest.TestCase):
@@ -49,8 +55,19 @@ class SequenceNodeTest(unittest.TestCase):
         node.add_child(ActionNode("act_2"))
         self.assertEqual(len(node._children), 3)
 
-        with self.assertRaises(NotImplementedError):
-            node.to_BT_XML()
+        xml = node.to_BT_XML()
+        self.assertEqual(len(xml), 3)
+        self.assertEqual(xml.tag, "Sequence")
+        self.assertEqual(xml.attrib, {})
+        self.assertEqual(len(xml[0]), 0)
+        self.assertEqual(xml[0].tag, "Condition")
+        self.assertEqual(xml[0].attrib, {"name": "condition"})
+        self.assertEqual(len(xml[1]), 0)
+        self.assertEqual(xml[1].tag, "Action")
+        self.assertEqual(xml[1].attrib, {"name": "action"})
+        self.assertEqual(len(xml[2]), 0)
+        self.assertEqual(xml[2].tag, "Action")
+        self.assertEqual(xml[2].attrib, {"name": "act_2"})
 
         with self.assertRaises(Exception):
             SequenceNode("bad")
@@ -70,9 +87,19 @@ class FallbackNodeTest(unittest.TestCase):
         node.add_child(ActionNode("act_2"))
         self.assertEqual(len(node._children), 3)
 
-        with self.assertRaises(NotImplementedError):
-            node.to_BT_XML()
-
+        xml = node.to_BT_XML()
+        self.assertEqual(len(xml), 3)
+        self.assertEqual(xml.tag, "Fallback")
+        self.assertEqual(xml.attrib, {})
+        self.assertEqual(len(xml[0]), 0)
+        self.assertEqual(xml[0].tag, "Condition")
+        self.assertEqual(xml[0].attrib, {"name": "condition"})
+        self.assertEqual(len(xml[1]), 0)
+        self.assertEqual(xml[1].tag, "Action")
+        self.assertEqual(xml[1].attrib, {"name": "action"})
+        self.assertEqual(len(xml[2]), 0)
+        self.assertEqual(xml[2].tag, "Action")
+        self.assertEqual(xml[2].attrib, {"name": "act_2"})
         with self.assertRaises(Exception):
             FallbackNode("bad")
 
@@ -90,8 +117,44 @@ class BehaviourTreeTest(unittest.TestCase):
         bt = BehaviourTree(root_node)
         self.assertEqual(bt.get_root_node(), root_node)
 
-        with self.assertRaises(Exception):
-            bt.to_BT_XML()
+        tmp = tempfile.NamedTemporaryFile()
+        tree = bt.to_BT_XML(tmp.name)
+        xml = tree.getroot()
+
+        self.assertEqual(len(xml), 1)
+        self.assertEqual(xml.tag, "root")
+        self.assertEqual(xml.attrib, {"main_tree_to_execute": "MainTree"})
+        self.assertEqual(len(xml[0]), 1)
+        self.assertEqual(xml[0].tag, "BehaviorTree")
+        self.assertEqual(xml[0].attrib, {"ID": "MainTree"})
+        self.assertEqual(len(xml[0][0]), 2)
+        self.assertEqual(xml[0][0].tag, "Fallback")
+        self.assertEqual(xml[0][0].attrib, {})
+        self.assertEqual(len(xml[0][0][0]), 0)
+        self.assertEqual(xml[0][0][0].tag, "Condition")
+        self.assertEqual(xml[0][0][0].attrib, {"name": "condition"})
+        self.assertEqual(len(xml[0][0][1]), 0)
+        self.assertEqual(xml[0][0][1].tag, "Action")
+        self.assertEqual(xml[0][0][1].attrib, {"name": "action"})
+
+        tree = et.parse(tmp.name)
+        xml_read = tree.getroot()
+
+        self.assertEqual(len(xml_read), 1)
+        self.assertEqual(xml_read.tag, "root")
+        self.assertEqual(xml_read.attrib, {"main_tree_to_execute": "MainTree"})
+        self.assertEqual(len(xml_read[0]), 1)
+        self.assertEqual(xml_read[0].tag, "BehaviorTree")
+        self.assertEqual(xml_read[0].attrib, {"ID": "MainTree"})
+        self.assertEqual(len(xml_read[0][0]), 2)
+        self.assertEqual(xml_read[0][0].tag, "Fallback")
+        self.assertEqual(xml_read[0][0].attrib, {})
+        self.assertEqual(len(xml_read[0][0][0]), 0)
+        self.assertEqual(xml_read[0][0][0].tag, "Condition")
+        self.assertEqual(xml_read[0][0][0].attrib, {"name": "condition"})
+        self.assertEqual(len(xml_read[0][0][1]), 0)
+        self.assertEqual(xml_read[0][0][1].tag, "Action")
+        self.assertEqual(xml_read[0][0][1].attrib, {"name": "action"})
 
 
 if __name__ == "__main__":

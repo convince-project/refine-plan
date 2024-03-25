@@ -8,6 +8,8 @@ Author: Charlie Street
 Owner: Charlie Street
 """
 
+import xml.etree.ElementTree as et
+
 
 class BTNode(object):
     """Base class for individual BT nodes."""
@@ -48,9 +50,10 @@ class ActionNode(BTNode):
         """Generates the BT.cpp XML string for the action node.
 
         Returns:
-            xml_string: The BT.cpp XML string for the action node
+            xml: The BT.cpp XML for the action node
         """
-        raise NotImplementedError("to_BT_XML not implemented in ActionNode.")
+        # TODO: Make this actually work properly with BT.cpp
+        return et.Element("Action", name=self.get_name())
 
 
 class ConditionNode(BTNode):
@@ -91,9 +94,10 @@ class ConditionNode(BTNode):
         """Generates the BT.cpp XML string for the condition node.
 
         Returns:
-            xml_string: The BT.cpp XML string for the condition node
+            xml: The BT.cpp XML for the condition node
         """
-        raise NotImplementedError("to_BT_XML not implemented in ConditionNode.")
+        # TODO: Make this actually work with BT.cpp
+        return et.Element("Condition", name=self.get_name())
 
 
 class CompositeNode(BTNode):
@@ -155,9 +159,12 @@ class SequenceNode(CompositeNode):
         """Generates the BT.cpp XML string for the sequence node.
 
         Returns:
-            xml_string: The BT.cpp XML string for the sequence node
+            xml: The BT.cpp XML for the sequence node
         """
-        raise NotImplementedError("to_BT_XML not implemented in SequenceNode.")
+        sequence = et.Element("Sequence")
+        for child in self._children:
+            sequence.append(child.to_BT_XML())
+        return sequence
 
 
 class FallbackNode(CompositeNode):
@@ -171,9 +178,12 @@ class FallbackNode(CompositeNode):
         """Generates the BT.cpp XML string for the fallback node.
 
         Returns:
-            xml_string: The BT.cpp XML string for the fallback node
+            xml: The BT.cpp XML for the fallback node
         """
-        raise NotImplementedError("to_BT_XML not implemented in FallbackNode.")
+        fallback = et.Element("Fallback")
+        for child in self._children:
+            fallback.append(child.to_BT_XML())
+        return fallback
 
 
 class BehaviourTree(object):
@@ -209,6 +219,18 @@ class BehaviourTree(object):
             out_file: Optional. If specified, will write the BT XML string to file
 
         Returns:
-            xml_string: The BT.cpp XML string
+            xml: The BT.cpp XML
         """
-        raise NotImplementedError("to_BT_XML not implemented in BehaviourTree.")
+        # The first couple of tags in any BT.cpp file
+        root = et.Element("root", main_tree_to_execute="MainTree")
+        main_tree = et.SubElement(root, "BehaviorTree", ID="MainTree")
+        # Actually add in the nodes proper
+        main_tree.append(self._root_node.to_BT_XML())
+
+        xml = et.ElementTree(root)
+        # Add indentations to XML file so its more readable!
+        et.indent(xml, space="\t", level=0)
+        if out_file is not None:
+            xml.write(out_file)
+
+        return xml
