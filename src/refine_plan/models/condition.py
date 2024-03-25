@@ -809,7 +809,7 @@ class GtCondition(InequalityCondition):
             pyeda_expr: The corresponding pyeda expression
             var_map: A mapping from var_name to condition.
         """
-        var_name = "{}GT{}".format(self._sf.name, self._value)
+        var_name = "{}GT{}".format(self._sf.get_name(), self._value)
         return expr(var_name), {var_name: self}
 
 
@@ -873,7 +873,7 @@ class GeqCondition(InequalityCondition):
             pyeda_expr: The corresponding pyeda expression
             var_map: A mapping from var_name to condition.
         """
-        var_name = "{}GEQ{}".format(self._sf.name, self._value)
+        var_name = "{}GEQ{}".format(self._sf.get_name(), self._value)
         return expr(var_name), {var_name: self}
 
 

@@ -21,6 +21,7 @@ from refine_plan.models.condition import (
 )
 from refine_plan.models.state_factor import StateFactor, IntStateFactor, BoolStateFactor
 from refine_plan.models.state import State
+from pyeda.inter import expr, And, Or, Not
 import unittest
 
 
@@ -81,6 +82,10 @@ class TrueConditionTest(unittest.TestCase):
         self.assertEqual(cond, cond)
         self.assertEqual(cond, TrueCondition())
 
+        pyeda_expr, var_map = cond.to_pyeda_expr()
+        self.assertTrue(pyeda_expr.equivalent(expr(True)))
+        self.assertEqual(var_map, {})
+
 
 class EqConditionTest(unittest.TestCase):
     def test_fuction(self):
@@ -116,6 +121,10 @@ class EqConditionTest(unittest.TestCase):
         self.assertEqual(cond, EqCondition(sf, "b"))
         self.assertNotEqual(cond, EqCondition(sf, "c"))
         self.assertNotEqual(cond, EqCondition(StateFactor("sf", ["a", "b"]), "b"))
+
+        pyeda_expr, var_map = cond.to_pyeda_expr()
+        self.assertTrue(pyeda_expr.equivalent(expr("sfEQb")))
+        self.assertEqual(var_map, {"sfEQb": cond})
 
 
 class NotConditionTest(unittest.TestCase):
@@ -156,6 +165,15 @@ class NotConditionTest(unittest.TestCase):
         self.assertEqual(not_cond, NotCondition(cond))
         self.assertNotEqual(not_cond, cond)
         self.assertNotEqual(not_cond, NotCondition(GtCondition(sf, 7)))
+
+        pyeda_expr, var_map = not_cond.to_pyeda_expr()
+        self.assertTrue(pyeda_expr.equivalent(Not(Not(expr("sfGEQ7")))))
+        self.assertEqual(var_map, {"sfGEQ7": GeqCondition(sf, 7)})
+
+        not_cond = NotCondition(GtCondition(sf, 7))
+        pyeda_expr, var_map = not_cond.to_pyeda_expr()
+        self.assertTrue(pyeda_expr.equivalent(Not(expr("sfGT7"))))
+        self.assertEqual(var_map, {"sfGT7": GtCondition(sf, 7)})
 
 
 class AddConditionTest(unittest.TestCase):
@@ -210,6 +228,9 @@ class AddConditionTest(unittest.TestCase):
         self.assertNotEqual(cond, AddCondition(IntStateFactor("int", 1, 3), 2))
         self.assertNotEqual(cond, AddCondition(sf, 1))
 
+        with self.assertRaises(Exception):
+            cond.to_pyeda_expr()
+
 
 class LtConditionTest(unittest.TestCase):
 
@@ -250,6 +271,10 @@ class LtConditionTest(unittest.TestCase):
         self.assertNotEqual(cond, GtCondition(sf, 7))
         self.assertNotEqual(cond, LtCondition(IntStateFactor("int", 7, 100), 7))
         self.assertNotEqual(cond, LtCondition(sf, 8))
+
+        pyeda_expr, var_map = cond.to_pyeda_expr()
+        self.assertTrue(pyeda_expr.equivalent(Not(expr("sfGEQ7"))))
+        self.assertEqual(var_map, {"sfGEQ7": GeqCondition(sf, 7)})
 
 
 class GtConditionTest(unittest.TestCase):
@@ -292,6 +317,10 @@ class GtConditionTest(unittest.TestCase):
         self.assertNotEqual(cond, GtCondition(IntStateFactor("int", 7, 100), 7))
         self.assertNotEqual(cond, GtCondition(sf, 8))
 
+        pyeda_expr, var_map = cond.to_pyeda_expr()
+        self.assertTrue(pyeda_expr.equivalent(expr("sfGT7")))
+        self.assertEqual(var_map, {"sfGT7": cond})
+
 
 class LeqConditionTest(unittest.TestCase):
 
@@ -332,6 +361,10 @@ class LeqConditionTest(unittest.TestCase):
         self.assertNotEqual(cond, GeqCondition(sf, 7))
         self.assertNotEqual(cond, LeqCondition(IntStateFactor("int", 7, 100), 7))
         self.assertNotEqual(cond, LeqCondition(sf, 8))
+
+        pyeda_expr, var_map = cond.to_pyeda_expr()
+        self.assertTrue(pyeda_expr.equivalent(Not(expr("sfGT7"))))
+        self.assertEqual(var_map, {"sfGT7": GtCondition(sf, 7)})
 
 
 class GeqConditionTest(unittest.TestCase):
@@ -374,16 +407,20 @@ class GeqConditionTest(unittest.TestCase):
         self.assertNotEqual(cond, GeqCondition(IntStateFactor("int", 7, 100), 7))
         self.assertNotEqual(cond, GeqCondition(sf, 8))
 
+        pyeda_expr, var_map = cond.to_pyeda_expr()
+        self.assertTrue(pyeda_expr.equivalent(expr("sfGEQ7")))
+        self.assertEqual(var_map, {"sfGEQ7": cond})
+
 
 class AndConditionTest(unittest.TestCase):
 
     def test_function(self):
-        sf_1 = StateFactor("sf_1", ["a", "b", "c"])
-        sf_2 = IntStateFactor("sf_2", 5, 10)
-        sf_3 = BoolStateFactor("sf_3")
-        cond_1 = EqCondition(sf_1, "b")
-        cond_2 = LtCondition(sf_2, 7)
-        cond_3 = EqCondition(sf_3, True)
+        sf1 = StateFactor("sf1", ["a", "b", "c"])
+        sf2 = IntStateFactor("sf2", 5, 10)
+        sf3 = BoolStateFactor("sf3")
+        cond_1 = EqCondition(sf1, "b")
+        cond_2 = LtCondition(sf2, 7)
+        cond_3 = EqCondition(sf3, True)
 
         and_cond = AndCondition(cond_1, cond_2)
         self.assertEqual(and_cond._hash_val, None)
@@ -393,19 +430,19 @@ class AndConditionTest(unittest.TestCase):
         self.assertEqual(len(and_cond._cond_list), 3)
         self.assertEqual(and_cond._hash_val, None)
 
-        state = {"sf_1": "b", "sf_2": 6, "sf_3": True}
+        state = {"sf1": "b", "sf2": 6, "sf3": True}
         self.assertTrue(and_cond.is_satisfied(state))
-        state["sf_2"] = 7
+        state["sf2"] = 7
         self.assertFalse(and_cond.is_satisfied(state))
 
         self.assertTrue(and_cond.is_pre_cond())
         self.assertFalse(and_cond.is_post_cond())
 
         self.assertEqual(
-            and_cond.to_prism_string(), "((sf_1 = 1) & (sf_2 < 7) & (sf_3 = 1))"
+            and_cond.to_prism_string(), "((sf1 = 1) & (sf2 < 7) & (sf3 = 1))"
         )
-        self.assertEqual(repr(and_cond), "((sf_1 = 1) & (sf_2 < 7) & (sf_3 = 1))")
-        self.assertEqual(str(and_cond), "((sf_1 = 1) & (sf_2 < 7) & (sf_3 = 1))")
+        self.assertEqual(repr(and_cond), "((sf1 = 1) & (sf2 < 7) & (sf3 = 1))")
+        self.assertEqual(str(and_cond), "((sf1 = 1) & (sf2 < 7) & (sf3 = 1))")
 
         hash_sorter = lambda c: hash(c)
         self.assertEqual(
@@ -421,30 +458,55 @@ class AndConditionTest(unittest.TestCase):
         self.assertNotEqual(and_cond, AndCondition(cond_2, cond_1))
         self.assertNotEqual(and_cond, OrCondition(cond_3, cond_2, cond_1))
 
-        and_cond._cond_list[1] = AddCondition(sf_2, 1)
+        pyeda_expr, var_map = and_cond.to_pyeda_expr()
+        self.assertTrue(
+            pyeda_expr.equivalent(
+                And(expr("sf1EQb"), Not(expr("sf2GEQ7")), expr("sf3EQTrue"))
+            ),
+        )
+        self.assertEqual(
+            var_map,
+            {"sf1EQb": cond_1, "sf2GEQ7": GeqCondition(sf2, 7), "sf3EQTrue": cond_3},
+        )
+
+        dup_and_cond = AndCondition(cond_1, cond_1, cond_3)
+        pyeda_expr, var_map = dup_and_cond.to_pyeda_expr()
+        self.assertTrue(
+            pyeda_expr.equivalent(
+                And(expr("sf1EQb"), expr("sf1EQb"), expr("sf3EQTrue"))
+            ),
+        )
+        self.assertEqual(
+            var_map,
+            {"sf1EQb": cond_1, "sf3EQTrue": cond_3},
+        )
+
+        bad_and_cond = AndCondition(
+            cond_1, EqCondition(StateFactor("sf1", ["b"]), "b"), cond_3
+        )
+        with self.assertRaises(AssertionError):
+            bad_and_cond.to_pyeda_expr()
+
+        and_cond._cond_list[1] = AddCondition(sf2, 1)
         self.assertFalse(and_cond.is_pre_cond())
         self.assertTrue(and_cond.is_post_cond())
         self.assertEqual(
             and_cond.to_prism_string(True),
-            "(sf_1' = 1) & (sf_2' = sf_2 + 1) & (sf_3' = 1)",
+            "(sf1' = 1) & (sf2' = sf2 + 1) & (sf3' = 1)",
         )
-        self.assertEqual(
-            repr(and_cond), "(sf_1' = 1) & (sf_2' = sf_2 + 1) & (sf_3' = 1)"
-        )
-        self.assertEqual(
-            str(and_cond), "(sf_1' = 1) & (sf_2' = sf_2 + 1) & (sf_3' = 1)"
-        )
+        self.assertEqual(repr(and_cond), "(sf1' = 1) & (sf2' = sf2 + 1) & (sf3' = 1)")
+        self.assertEqual(str(and_cond), "(sf1' = 1) & (sf2' = sf2 + 1) & (sf3' = 1)")
 
 
 class OrConditionTest(unittest.TestCase):
 
     def test_function(self):
-        sf_1 = StateFactor("sf_1", ["a", "b", "c"])
-        sf_2 = IntStateFactor("sf_2", 5, 10)
-        sf_3 = BoolStateFactor("sf_3")
-        cond_1 = EqCondition(sf_1, "b")
-        cond_2 = LtCondition(sf_2, 7)
-        cond_3 = EqCondition(sf_3, True)
+        sf1 = StateFactor("sf1", ["a", "b", "c"])
+        sf2 = IntStateFactor("sf2", 5, 10)
+        sf3 = BoolStateFactor("sf3")
+        cond_1 = EqCondition(sf1, "b")
+        cond_2 = LtCondition(sf2, 7)
+        cond_3 = EqCondition(sf3, True)
 
         or_cond = OrCondition(cond_1, cond_2)
         self.assertEqual(or_cond._hash_val, None)
@@ -454,19 +516,19 @@ class OrConditionTest(unittest.TestCase):
         self.assertEqual(len(or_cond._cond_list), 3)
         self.assertEqual(or_cond._hash_val, None)
 
-        state = {"sf_1": "a", "sf_2": 6, "sf_3": False}
+        state = {"sf1": "a", "sf2": 6, "sf3": False}
         self.assertTrue(or_cond.is_satisfied(state))
-        state["sf_2"] = 7
+        state["sf2"] = 7
         self.assertFalse(or_cond.is_satisfied(state))
 
         self.assertTrue(or_cond.is_pre_cond())
         self.assertFalse(or_cond.is_post_cond())
 
         self.assertEqual(
-            or_cond.to_prism_string(), "((sf_1 = 1) | (sf_2 < 7) | (sf_3 = 1))"
+            or_cond.to_prism_string(), "((sf1 = 1) | (sf2 < 7) | (sf3 = 1))"
         )
-        self.assertEqual(repr(or_cond), "((sf_1 = 1) | (sf_2 < 7) | (sf_3 = 1))")
-        self.assertEqual(str(or_cond), "((sf_1 = 1) | (sf_2 < 7) | (sf_3 = 1))")
+        self.assertEqual(repr(or_cond), "((sf1 = 1) | (sf2 < 7) | (sf3 = 1))")
+        self.assertEqual(str(or_cond), "((sf1 = 1) | (sf2 < 7) | (sf3 = 1))")
 
         hash_sorter = lambda c: hash(c)
         self.assertEqual(
@@ -482,7 +544,34 @@ class OrConditionTest(unittest.TestCase):
         self.assertNotEqual(or_cond, OrCondition(cond_2, cond_1))
         self.assertNotEqual(or_cond, AndCondition(cond_3, cond_2, cond_1))
 
-        or_cond._cond_list[1] = AddCondition(sf_2, 1)
+        pyeda_expr, var_map = or_cond.to_pyeda_expr()
+        self.assertTrue(
+            pyeda_expr.equivalent(
+                Or(expr("sf1EQb"), Not(expr("sf2GEQ7")), expr("sf3EQTrue"))
+            )
+        )
+        self.assertEqual(
+            var_map,
+            {"sf1EQb": cond_1, "sf2GEQ7": GeqCondition(sf2, 7), "sf3EQTrue": cond_3},
+        )
+
+        dup_or_cond = OrCondition(cond_1, cond_1, cond_3)
+        pyeda_expr, var_map = dup_or_cond.to_pyeda_expr()
+        self.assertTrue(
+            pyeda_expr.equivalent(Or(expr("sf1EQb"), expr("sf1EQb"), expr("sf3EQTrue")))
+        )
+        self.assertEqual(
+            var_map,
+            {"sf1EQb": cond_1, "sf3EQTrue": cond_3},
+        )
+
+        bad_or_cond = OrCondition(
+            cond_1, EqCondition(StateFactor("sf1", ["b"]), "b"), cond_3
+        )
+        with self.assertRaises(AssertionError):
+            bad_or_cond.to_pyeda_expr()
+
+        or_cond._cond_list[1] = AddCondition(sf2, 1)
         self.assertFalse(or_cond.is_pre_cond())
         self.assertFalse(or_cond.is_post_cond())
         with self.assertRaises(Exception):
