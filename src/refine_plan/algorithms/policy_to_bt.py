@@ -231,6 +231,30 @@ class PolicyBTConverter(object):
 
         return sorted(rule_act_pairs, key=lambda ra: scores[ra[1]], reverse=True)
 
+    def _logic_to_algebra(self, logic_ast, lit_map):
+        """Converts a pyeda logical expr as an ast to a sympy algebraic expression.
+
+        This is an auxiliary function which deals with AST recursion, hence the
+        slightly odd input/output types.
+
+        Args:
+            logic_ast: A pyeda expression as an AST computed with to_ast()
+            lit_map: A mapping from literals (e.g. "var1") to integers
+
+        Returns:
+            sympy_str: An algebraic expression (string) which can be sympified
+        """
+
+        if logic_ast[0] == "or" or logic_ast[0] == "and":
+            sub_asts = logic_ast[1:]
+            join_str = " + " if logic_ast[0] == "or" else "*"
+            components = [self._logic_to_algebra(sub, lit_map) for sub in sub_asts]
+            return components.join(join_str)
+        elif logic_ast[0] == "lit":
+            # Add to self._symbols
+            # TODO: Fill in and handle negation!
+            pass
+
     def convert_policy(self, policy, out_file):
         """Convert a Policy into a BehaviourTree and write the BT to file.
 
