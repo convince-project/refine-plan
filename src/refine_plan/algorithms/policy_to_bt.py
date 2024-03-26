@@ -301,6 +301,23 @@ class PolicyBTConverter(object):
 
         return ordered_alg_act_pairs
 
+    def _reduce_sympy_expressions(self, ordered_alg_act_pairs):
+        """Minimises sympy expressions representing rules using GFactor.
+
+        Args:
+            ordered_alg_act_pairs: List of (sympy expression, action/option) pairs
+
+        Returns:
+            min_alg_act_pairs: List of (minimised sympy expr, action/option) pairs
+        """
+        min_alg_act_pairs = []
+
+        for pair in ordered_alg_act_pairs:
+            reduced_expr = gfactor(pair[0], self._symbols)
+            min_alg_act_pairs.append((reduced_expr, pair[1]))
+
+        return min_alg_act_pairs
+
     def convert_policy(self, policy, out_file):
         """Convert a Policy into a BehaviourTree and write the BT to file.
 
@@ -332,7 +349,7 @@ class PolicyBTConverter(object):
         ordered_alg_act_pairs = self._pyeda_rules_to_sympy_algebraic(ordered_ra_pairs)
 
         # Step 8: Run GFactor to factorise each rule
-        # TODO: Fill in
+        min_alg_act_pairs = self._reduce_sympy_expressions(ordered_alg_act_pairs)
 
         # Step 9: Convert the rules into a BT
         bt = None  # TODO: Replace with function once written
