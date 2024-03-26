@@ -24,6 +24,7 @@ Owner: Charlie Street
 """
 
 from refine_plan.models.condition import OrCondition
+from pyeda.boolalg.expr import Complement, Variable
 from refine_plan.models.policy import Policy
 from pyeda.inter import espresso_exprs, Not
 from sympy import Symbol
@@ -154,6 +155,82 @@ class PolicyBTConverter(object):
         # linked at the top of this file
         return {a: Not(act_rule_dict[a].to_dnf()).to_dnf() for a in act_rule_dict}
 
+    def _get_variables_in_dnf_expr(self, rule):
+        """Extract a list of variables used in a pyeda dnf expression/rule.
+
+        Assumes rule is already in DNF.
+        Unlike rule.inputs, duplicate variables are included in the list here.
+
+        The paper suggests duplicates in a rule should be included. They don't
+        do that in their code though, so I'm following the paper and counting
+        duplicates.
+
+        Args:
+            rule: The pyeda expr to extract variables from
+
+        Returns:
+            var_list: A list of variables in the rule (duplicates included)
+
+        Raises:
+            not_dnf_exception: Raised if rule not in DNF
+        """
+
+        if not rule.is_dnf():
+            raise Exception("Rule must be in dnf to extract variables")
+
+        var_list = []
+
+        for lit_set in rule._cover:
+            for lit in lit_set:
+                # There may be negated variables here,
+                # I believe we need to care just about the literals occurring
+                # and not what is done with them
+                if isinstance(lit, Complement):
+                    var_list.append(lit.inputs[0])
+                elif isinstance(lit, Variable):
+                    var_list.append(lit)
+                else:
+                    raise Exception("Literal is not a negation or a variable.")
+
+        return var_list
+
+    def _score_and_sort_rules(self, act_to_horn):
+        """Score and sort rules in descending score order.
+
+        Here the score is the sum of occurrences of each literal in a rule
+        amongst the rule set (duplicates in a single rule counted as per the paper).
+        This is then divided by the number of unique literals in that set.
+
+        Args:
+            act_to_horn: A dictionary from action/option to horn clause
+
+        Returns:
+            ordered_ra_pairs: A list of (horn clause, action pairs), sorted
+        """
+        rule_act_pairs = []
+        var_sets = {}
+        frequencies = {}
+
+        # First, compute the frequencies, literal sets, and rule-action pairs
+        for action in act_to_horn:
+            rule_act_pairs.append((act_to_horn[action], action))
+            var_list = self._get_variables_in_dnf_expr(act_to_horn[action])
+
+            for var in var_list:
+                if var not in frequencies:
+                    frequencies[var] = 0
+                frequencies[var] += 1
+
+            var_sets[action] = set(var_list)
+
+        # Next, compute each rule's score (here dict keys are the corresponding action)
+        scores = {}
+        for action in act_to_horn:
+            sum_of_frequencies = sum([frequencies[var] for var in var_sets[action]])
+            scores[action] = sum_of_frequencies / len(var_sets[action])
+
+        return sorted(rule_act_pairs, key=lambda ra: scores[ra[1]], reverse=True)
+
     def convert_policy(self, policy, out_file):
         """Convert a Policy into a BehaviourTree and write the BT to file.
 
@@ -179,7 +256,7 @@ class PolicyBTConverter(object):
         act_to_horn = self._convert_to_horn_clauses(act_to_min_rule)
 
         # Step 6: Score the rules and sort them in descending order
-        # TODO: Fill in
+        ordered_ra_pairs = self._score_and_sort_rules(act_to_horn)
 
         # Step 7: Convert logical operators & and | into * and + for factorisation
         # TODO: Fill in
