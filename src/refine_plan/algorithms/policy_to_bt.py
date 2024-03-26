@@ -27,7 +27,7 @@ from refine_plan.models.condition import OrCondition
 from pyeda.boolalg.expr import Complement, Variable
 from refine_plan.models.policy import Policy
 from pyeda.inter import espresso_exprs, Not
-from sympy import Symbol
+from sympy import Symbol, sympify
 
 
 class PolicyBTConverter(object):
@@ -186,6 +186,7 @@ class PolicyBTConverter(object):
                 # I believe we need to care just about the literals occurring
                 # and not what is done with them
                 if isinstance(lit, Complement):
+                    assert len(lit.inputs) == 1  # If in DNF, should always pass
                     var_list.append(lit.inputs[0])
                 elif isinstance(lit, Variable):
                     var_list.append(lit)
@@ -237,6 +238,9 @@ class PolicyBTConverter(object):
         This is an auxiliary function which deals with AST recursion, hence the
         slightly odd input/output types.
 
+        The function assumes logic_ast is in DNF, in particularly that only
+        variables are negated.
+
         Args:
             logic_ast: A pyeda expression as an AST computed with to_ast()
             lit_map: A mapping from literals (e.g. "var1") to integers
@@ -252,8 +256,50 @@ class PolicyBTConverter(object):
             return components.join(join_str)
         elif logic_ast[0] == "lit":
             # Add to self._symbols
-            # TODO: Fill in and handle negation!
-            pass
+            lit = lit_map[logic_ast[1]]
+            if isinstance(lit, Complement):
+                # The original authors create auxiliary variables for factorisation
+                # when a variable is negated.
+                # I imagine this is because it's hard to translate the negation
+                # cleanly into the algebraic form?
+                assert len(lit.inputs) == 1
+                var = str(lit.inputs[0])
+                assert var[:3] != "NOT"  # Checking for bad variable names
+                not_var = "NOT{}".format(var)
+                if not_var not in self._symbols:
+                    self._symbols[not_var] = Symbol(not_var)
+                return not_var
+            else:
+                assert str(lit)[:3] != "NOT"  # Checking for bad variable names
+                return str(lit)
+
+    def _pyeda_rules_to_sympy_algebraic(self, ordered_ra_pairs):
+        """Converts a set of pyeda rules into sympy algebraic expressions.
+
+        This function assumes that all variable names are included in
+        self._symbols.
+
+        Args:
+            ordered_ra_pairs: A list of (pyeda rule, action/option) pairs
+
+        Returns:
+            ordered_alg_act_pairs: ordered_ra_pairs where each rule
+                                   is replaced with a sympy expression
+        """
+
+        ordered_alg_act_pairs = []
+
+        for pair in ordered_ra_pairs:
+            assert pair[0].is_dnf()
+            ast = pair[0].to_ast()
+            lit_map, _, _ = pair[0].encode_dnf()
+
+            sympy_str = self._logic_to_algebra(ast, lit_map)
+            sympy_expr = sympify(sympy_str, locals=self._symbols)
+
+            ordered_alg_act_pairs.append((sympy_expr, pair[1]))
+
+        return ordered_alg_act_pairs
 
     def convert_policy(self, policy, out_file):
         """Convert a Policy into a BehaviourTree and write the BT to file.
@@ -283,7 +329,7 @@ class PolicyBTConverter(object):
         ordered_ra_pairs = self._score_and_sort_rules(act_to_horn)
 
         # Step 7: Convert logical operators & and | into * and + for factorisation
-        # TODO: Fill in
+        ordered_alg_act_pairs = self._pyeda_rules_to_sympy_algebraic(ordered_ra_pairs)
 
         # Step 8: Run GFactor to factorise each rule
         # TODO: Fill in
