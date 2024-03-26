@@ -24,10 +24,16 @@ Owner: Charlie Street
 """
 
 from refine_plan.models.condition import OrCondition
+from sympy import Symbol, sympify, Mul, Add, simplify
 from pyeda.boolalg.expr import Complement, Variable
+from refine_plan.models.behaviour_tree import (
+    BehaviourTree,
+    SequenceNode,
+    FallbackNode,
+    ActionNode,
+)
 from refine_plan.models.policy import Policy
 from pyeda.inter import espresso_exprs, Not
-from sympy import Symbol, sympify
 
 
 class PolicyBTConverter(object):
@@ -318,6 +324,63 @@ class PolicyBTConverter(object):
 
         return min_alg_act_pairs
 
+    def _sub_bt_for_rule(self, rule):
+        """Convert a single rule into a sub-behaviour tree.
+
+        Args:
+            rule: A logical rule represented as a sympy algebraic expression
+
+        Returns:
+            bt: The sub behaviour tree
+
+        Raises:
+            bad_operator_exception: Raised if non +/*/symbol expression found
+        """
+
+        # Add = OR; Mul = AND
+        if isinstance(rule, Add) or isinstance(rule, Mul):
+            bt = FallbackNode() if isinstance(rule, Add) else SequenceNode()
+            for child in rule.args:
+                bt.add_child(self._sub_bt_for_rule(child))
+            return bt
+        elif isinstance(rule, Symbol):  # A condition
+            # TODO: Format condition node and handle inverted operators
+            # TODO: Also write NotEqualCondition class where to_pyeda_expr
+            # returns Not(sfEQval) and the var map returns an EqCondition
+            # This mirrors what we do with inequalities to ensure we don't
+            # end up with equivalent expressions being marked as different
+            pass
+        else:
+            raise Exception("Invalid operator found in rule.")
+
+    def _convert_rules_to_bt(self, min_alg_act_pairs):
+        """Converts the ordered rules into the final behaviour tree (BT).
+
+        Note that here the sympy expressions are still in algebraic form, i.e.
+        with + and * instead of | and &, respectively.
+
+        Args:
+            min_alg_act_pairs: List of (sympy expr, action/option pairs)
+
+        Returns:
+            bt: The final behaviour tree
+        """
+
+        # Root node is always a sequence
+        root_node = SequenceNode()
+
+        for pair in min_alg_act_pairs:
+
+            sub_bt = self._compute_sub_bt_for_rule(simplify(pair[0]))
+            # The sub_bt for a rule should always have an OR at the outer level
+            # This corresponds to a fallback node
+            assert isinstance(sub_bt, FallbackNode)
+
+            sub_bt.add_child(ActionNode(pair[1]))  # Add the action at the end
+            root_node.add_child(sub_bt)
+
+        return BehaviourTree(root_node)
+
     def convert_policy(self, policy, out_file):
         """Convert a Policy into a BehaviourTree and write the BT to file.
 
@@ -352,7 +415,7 @@ class PolicyBTConverter(object):
         min_alg_act_pairs = self._reduce_sympy_expressions(ordered_alg_act_pairs)
 
         # Step 9: Convert the rules into a BT
-        bt = None  # TODO: Replace with function once written
+        bt = self._convert_rules_to_bt(min_alg_act_pairs)
 
         # Step 10: Write the BT to file as a BT.cpp XML file
         bt.to_BT_XML(out_file)
