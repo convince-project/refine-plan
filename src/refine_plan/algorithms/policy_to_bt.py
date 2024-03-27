@@ -23,17 +23,9 @@ Author: Charlie Street
 Owner: Charlie Street
 """
 
-from refine_plan.models.condition import (
-    OrCondition,
-    EqCondition,
-    NeqCondition,
-    GtCondition,
-    LeqCondition,
-    GeqCondition,
-    LtCondition,
-)
 from sympy import Symbol, sympify, Mul, Add, simplify
 from pyeda.boolalg.expr import Complement, Variable
+from refine_plan.algorithms.gfactor import gfactor
 from refine_plan.models.behaviour_tree import (
     BehaviourTree,
     SequenceNode,
