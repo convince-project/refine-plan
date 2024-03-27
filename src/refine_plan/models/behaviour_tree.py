@@ -55,6 +55,22 @@ class ActionNode(BTNode):
         # TODO: Make this actually work properly with BT.cpp
         return et.Element("Action", name=self.get_name())
 
+    def __repr__(self):
+        """Printable version of node.
+
+        Returns:
+            repr: Printable version of node
+        """
+        return "Action({})".format(self.get_name())
+
+    def __str__(self):
+        """String version of node.
+
+        Returns:
+            str: String version of node
+        """
+        return "Action({})".format(self.get_name())
+
 
 class ConditionNode(BTNode):
     """Node class for BT condition nodes.
@@ -98,6 +114,22 @@ class ConditionNode(BTNode):
         """
         # TODO: Make this actually work with BT.cpp
         return et.Element("Condition", name=self.get_name())
+
+    def __repr__(self):
+        """Printable version of node.
+
+        Returns:
+            repr: Printable version of node
+        """
+        return "Condition({}; {})".format(self.get_name(), self.get_cond())
+
+    def __str__(self):
+        """String version of node.
+
+        Returns:
+            str: String version of node
+        """
+        return "Condition({}; {})".format(self.get_name(), self.get_cond())
 
 
 class CompositeNode(BTNode):
@@ -166,6 +198,22 @@ class SequenceNode(CompositeNode):
             sequence.append(child.to_BT_XML())
         return sequence
 
+    def __repr__(self):
+        """Printable version of node.
+
+        Returns:
+            repr: Printable version of node
+        """
+        return "Sequence({})".format([repr(c) for c in self._children].join(", "))
+
+    def __str__(self):
+        """String version of node.
+
+        Returns:
+            str: String version of node
+        """
+        return "Sequence({})".format([repr(c) for c in self._children].join(", "))
+
 
 class FallbackNode(CompositeNode):
     """Subclass of CompositeNode for fallback nodes.
@@ -184,6 +232,22 @@ class FallbackNode(CompositeNode):
         for child in self._children:
             fallback.append(child.to_BT_XML())
         return fallback
+
+    def __repr__(self):
+        """Printable version of node.
+
+        Returns:
+            repr: Printable version of node
+        """
+        return "Fallback({})".format([repr(c) for c in self._children].join(", "))
+
+    def __str__(self):
+        """String version of node.
+
+        Returns:
+            str: String version of node
+        """
+        return "Fallback({})".format([repr(c) for c in self._children].join(", "))
 
 
 class BehaviourTree(object):
@@ -234,3 +298,19 @@ class BehaviourTree(object):
             xml.write(out_file)
 
         return xml
+
+    def __repr__(self):
+        """Printable version of tree.
+
+        Returns:
+            repr: Printable version of tree
+        """
+        return repr(self.get_root_node())
+
+    def __str__(self):
+        """String version of tree.
+
+        Returns:
+            str: String version of tree
+        """
+        return str(self.get_root_node())
