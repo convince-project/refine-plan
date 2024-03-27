@@ -25,23 +25,48 @@ Author: Charlie Street
 Owner: Charlie Street
 """
 
-from sympy import sympify, reduced
+from sympy import sympify, reduced, Symbol
 
 
 # TODO: Do I even need the symbol map?
 # TODO: Is every function which assumes DNF correct to assume this?
-def gfactor(formula, symbol_map):
+def gfactor(formula):
     """Runs the GFactor factorisation algorithm.
+
+    This code really just follows the pseudocode in the paper
 
     Args:
         formula: A sympy formula
-        symbol_map: A mapping from variable names to symbols (for Sympy)
 
     Returns:
         factorised: A factorised formula in the format p*q + r
     """
-    # TODO: Fill in
-    pass
+    divisor = _most_common_condition(formula)
+
+    if divisor is None:  # If there is no common condition
+        return formula  # No factorisation can be done
+
+    quotient, remainder = _divide(formula, divisor)
+
+    if isinstance(quotient, Symbol):  # If just a single symbol
+        return _lf(formula, quotient)
+
+    quotient = _make_cube_free(quotient)
+    divisor, remainder = _divide(formula, quotient)
+
+    if divisor == 0:  # I.e. the division didn't work
+        return formula
+
+    if _is_cube_free(divisor):
+        # NOTE: There was a condition here 'if "1" not in q" - not in the paper?
+        quotient = gfactor(quotient)
+        divisor = gfactor(divisor)
+        remainder = gfactor(remainder) if remainder != 0 else remainder
+
+        return quotient * divisor + remainder
+
+    largest_common_cube = _largest_common_cube(divisor)
+    return _lf(formula, largest_common_cube)
 
 
 def _lf(formula, divisor):
@@ -56,8 +81,14 @@ def _lf(formula, divisor):
     Returns:
         factorised: The factorised formula
     """
-    # TODO: Fill in
-    pass
+    quotient, remainder = _divide(formula, divisor)
+
+    quotient = gfactor(quotient)
+
+    if remainder != 0:
+        remainder = gfactor(remainder)
+
+    return divisor * quotient + remainder
 
 
 def _largest_common_cube(formula):
@@ -123,8 +154,15 @@ def _divide(formula, divisor):
         quotient: The quotient of the division
         remainder: The remainder of the division
     """
-    # TODO: Fill in - should be straightforward
-    pass
+    quotient, remainder = reduced(formula, [divisor])
+
+    if "-" in str(remainder):
+        # Helpful tip from the implementation this is based on
+        # This is to handle a bug in sympy apparently
+        return 0, formula
+
+    # quotient is a single-item list
+    return quotient[0], remainder
 
 
 def _most_common_condition(formula):

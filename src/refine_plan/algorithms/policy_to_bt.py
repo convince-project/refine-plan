@@ -322,7 +322,7 @@ class PolicyBTConverter(object):
         min_alg_act_pairs = []
 
         for pair in ordered_alg_act_pairs:
-            reduced_expr = gfactor(pair[0], self._vars_to_symbols)
+            reduced_expr = gfactor(pair[0])
             min_alg_act_pairs.append((reduced_expr, pair[1]))
 
         return min_alg_act_pairs
