@@ -23,7 +23,15 @@ Author: Charlie Street
 Owner: Charlie Street
 """
 
-from refine_plan.models.condition import OrCondition
+from refine_plan.models.condition import (
+    OrCondition,
+    EqCondition,
+    NeqCondition,
+    GtCondition,
+    LeqCondition,
+    GeqCondition,
+    LtCondition,
+)
 from sympy import Symbol, sympify, Mul, Add, simplify
 from pyeda.boolalg.expr import Complement, Variable
 from refine_plan.models.behaviour_tree import (
@@ -31,6 +39,16 @@ from refine_plan.models.behaviour_tree import (
     SequenceNode,
     FallbackNode,
     ActionNode,
+    ConditionNode,
+)
+from refine_plan.models.condition import (
+    OrCondition,
+    EqCondition,
+    NeqCondition,
+    GtCondition,
+    LeqCondition,
+    GeqCondition,
+    LtCondition,
 )
 from refine_plan.models.policy import Policy
 from pyeda.inter import espresso_exprs, Not
@@ -41,7 +59,6 @@ class PolicyBTConverter(object):
 
     Attributes:
         _vars_to_conds: A dictionary from variable names to Condition objects.
-        _conds_to_vars: A dictionary from Condition objects to variable names.
         _vars_to_symbols: A dictionary form variable names to sympy symbols.
     """
 
@@ -52,7 +69,6 @@ class PolicyBTConverter(object):
     def _reset(self):
         """Reset all attributes to None."""
         self._vars_to_conds = None
-        self._conds_to_vars = None
         self._vars_to_symbols = None
 
     def _extract_rules_from_policy(self, policy):
@@ -103,7 +119,6 @@ class PolicyBTConverter(object):
         """
 
         self._vars_to_conds = {}
-        self._conds_to_vars = {}
         self._vars_to_symbols = {}
 
         for action in act_to_var_map:
@@ -117,10 +132,6 @@ class PolicyBTConverter(object):
                     # Given these come from the same policy, this should always pass
                     assert self._vars_to_conds[var] == var_map[var]
                     assert var in self._vars_to_symbols
-
-        # self._conds_to_vars is just the reverse of self._vars_to_conds
-        for var in self._vars_to_conds:
-            self._conds_to_vars[self._vars_to_conds[var]] = var
 
     def _minimise_with_espresso(self, act_to_rule):
         """Minimise each rule using the espresso algorithm.
@@ -261,7 +272,7 @@ class PolicyBTConverter(object):
             components = [self._logic_to_algebra(sub, lit_map) for sub in sub_asts]
             return components.join(join_str)
         elif logic_ast[0] == "lit":
-            # Add to self._symbols
+            # Add to self._vars_to_symbols
             lit = lit_map[logic_ast[1]]
             if isinstance(lit, Complement):
                 # The original authors create auxiliary variables for factorisation
@@ -272,8 +283,8 @@ class PolicyBTConverter(object):
                 var = str(lit.inputs[0])
                 assert var[:3] != "NOT"  # Checking for bad variable names
                 not_var = "NOT{}".format(var)
-                if not_var not in self._symbols:
-                    self._symbols[not_var] = Symbol(not_var)
+                if not_var not in self._vars_to_symbols:
+                    self._vars_to_symbols[not_var] = Symbol(not_var)
                 return not_var
             else:
                 assert str(lit)[:3] != "NOT"  # Checking for bad variable names
@@ -283,7 +294,7 @@ class PolicyBTConverter(object):
         """Converts a set of pyeda rules into sympy algebraic expressions.
 
         This function assumes that all variable names are included in
-        self._symbols.
+        self._vars_to_symbols.
 
         Args:
             ordered_ra_pairs: A list of (pyeda rule, action/option) pairs
@@ -301,7 +312,7 @@ class PolicyBTConverter(object):
             lit_map, _, _ = pair[0].encode_dnf()
 
             sympy_str = self._logic_to_algebra(ast, lit_map)
-            sympy_expr = sympify(sympy_str, locals=self._symbols)
+            sympy_expr = sympify(sympy_str, locals=self._vars_to_symbols)
 
             ordered_alg_act_pairs.append((sympy_expr, pair[1]))
 
@@ -319,10 +330,34 @@ class PolicyBTConverter(object):
         min_alg_act_pairs = []
 
         for pair in ordered_alg_act_pairs:
-            reduced_expr = gfactor(pair[0], self._symbols)
+            reduced_expr = gfactor(pair[0], self._vars_to_symbols)
             min_alg_act_pairs.append((reduced_expr, pair[1]))
 
         return min_alg_act_pairs
+
+    def _build_condition_node(self, var_name):
+        """Build a condition node for a given variable.
+
+        If the variable name is prefixed with NOT, we lookup the suffix, and then
+        negate the condition. Note that the only condition types which will be negated
+        are EqCondition, GtCondition, and GeqCondition, due to definitions in condition.py.
+
+        Args:
+            var_name: The variable name to build the condition node for
+
+        Returns:
+            condition_node: The corresponding condition node
+        """
+        if var_name[:3] == "NOT":  # Undoing the slightly hacky negation symbols
+            cond = self._vars_to_conds[var_name[3:]]
+            if isinstance(cond, EqCondition):
+                return ConditionNode(var_name, NeqCondition(cond._sf, cond._value))
+            elif isinstance(cond, GeqCondition):
+                return ConditionNode(var_name, LtCondition(cond._sf, cond._value))
+            elif isinstance(cond, GtCondition):
+                return ConditionNode(var_name, LeqCondition(cond._sf, cond._value))
+        else:
+            return ConditionNode(var_name, self._vars_to_conds[var_name])
 
     def _sub_bt_for_rule(self, rule):
         """Convert a single rule into a sub-behaviour tree.
@@ -343,13 +378,8 @@ class PolicyBTConverter(object):
             for child in rule.args:
                 bt.add_child(self._sub_bt_for_rule(child))
             return bt
-        elif isinstance(rule, Symbol):  # A condition
-            # TODO: Format condition node and handle inverted operators
-            # TODO: Also write NotEqualCondition class where to_pyeda_expr
-            # returns Not(sfEQval) and the var map returns an EqCondition
-            # This mirrors what we do with inequalities to ensure we don't
-            # end up with equivalent expressions being marked as different
-            pass
+        elif isinstance(rule, Symbol):  # A variable representing a condition
+            return self._build_condition_node(str(rule))
         else:
             raise Exception("Invalid operator found in rule.")
 
