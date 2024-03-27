@@ -18,6 +18,7 @@ from refine_plan.models.condition import (
     AndCondition,
     OrCondition,
     NotCondition,
+    NeqCondition,
 )
 from refine_plan.models.state_factor import StateFactor, IntStateFactor, BoolStateFactor
 from refine_plan.models.state import State
@@ -125,6 +126,48 @@ class EqConditionTest(unittest.TestCase):
         pyeda_expr, var_map = cond.to_pyeda_expr()
         self.assertTrue(pyeda_expr.equivalent(expr("sfEQb")))
         self.assertEqual(var_map, {"sfEQb": cond})
+
+
+class NeqConditionTest(unittest.TestCase):
+    def test_fuction(self):
+        sf = StateFactor("sf", ["a", "b", "c"])
+
+        with self.assertRaises(Exception):
+            NeqCondition(sf, "d")
+
+        cond = NeqCondition(sf, "b")
+
+        self.assertEqual(cond._sf, sf)
+        self.assertEqual(cond._value, "b")
+        self.assertEqual(cond._hash_val, None)
+
+        dummy_state = {"sf": "b"}
+        self.assertFalse(cond.is_satisfied(dummy_state))
+        dummy_state["sf"] = "c"
+        self.assertTrue(cond.is_satisfied(dummy_state))
+        dummy_state["sf"] = "a"
+        self.assertTrue(cond.is_satisfied(dummy_state))
+        dummy_state["sf"] = "d"
+        with self.assertRaises(Exception):
+            cond.is_satisfied(dummy_state)
+
+        self.assertTrue(cond.is_pre_cond())
+        self.assertFalse(cond.is_post_cond())
+        self.assertEqual(cond.to_prism_string(), "(sf != 1)")
+
+        self.assertEqual(repr(cond), "(sf != 1)")
+        self.assertEqual(str(cond), "(sf != 1)")
+
+        self.assertEqual(hash(cond), hash((type(cond), sf, "b")))
+        self.assertEqual(cond._hash_val, hash((type(cond), sf, "b")))
+        self.assertEqual(cond, cond)
+        self.assertEqual(cond, NeqCondition(sf, "b"))
+        self.assertNotEqual(cond, NeqCondition(sf, "c"))
+        self.assertNotEqual(cond, NeqCondition(StateFactor("sf", ["a", "b"]), "b"))
+
+        pyeda_expr, var_map = cond.to_pyeda_expr()
+        self.assertTrue(pyeda_expr.equivalent(Not(expr("sfEQb"))))
+        self.assertEqual(var_map, {"sfEQb": EqCondition(sf, "b")})
 
 
 class NotConditionTest(unittest.TestCase):

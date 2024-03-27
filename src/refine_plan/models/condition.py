@@ -359,6 +359,138 @@ class EqCondition(Condition):
         )
 
 
+class NeqCondition(Condition):
+    """A condition which checks if a state factor is not equal to a value.
+
+    Attributes:
+        _sf: The state factor we're checking
+        _value: The value to check against
+        _hash_val: The cached hash
+    """
+
+    def __init__(self, sf, value):
+        """Initialises attributes.
+
+        Args:
+            sf: The state factor
+            value: The state factor value to check
+
+        Raises:
+            invalid_value: Raised if value is invalid for sf
+        """
+
+        if not sf.is_valid_value(value):
+            raise Exception("NeqCondition: value is an invalid value for state factor")
+
+        self._sf = sf
+        self._value = value
+        self._hash_val = None
+
+    def is_satisfied(self, state, prev_state=None):
+        """Checks if the value of _sf in state matches _value.
+
+        Args:
+            state: The state to check
+            prev_state: Not used here
+
+        Returns:
+            is_satisfied: Is the condition satisfied?
+
+        Raises:
+            invalid_value: Raised if state has an invalid value for _sf
+        """
+
+        sf_name = self._sf.get_name()
+        if not self._sf.is_valid_value(state[sf_name]):
+            raise Exception(
+                "NeqCondition: state has an invalid value for {}".format(sf_name)
+            )
+
+        return state[sf_name] != self._value
+
+    def is_pre_cond(self):
+        """NeqConditions are valid preconditions.
+        Returns:
+            is_pre_cond: Can the condition be used as a precondition?
+        """
+        return True
+
+    def is_post_cond(self):
+        """NeqConditions are not valid postconditions.
+
+        Returns:
+            is_post_cond: Can the condition be used as a postcondition?
+        """
+        return False
+
+    def to_prism_string(self, is_post_cond=False):
+        """Outputs the prism string for this condition.
+
+        Args:
+            is_post_cond: Should the condition be written as a postcondition?
+        """
+        post_cond_part = "'" if is_post_cond else ""
+        return "({}{} != {})".format(
+            self._sf.get_name(), post_cond_part, self._sf.get_idx(self._value)
+        )
+
+    def to_pyeda_expr(self):
+        """Converts the condition into a pyeda logical expression.
+
+        We don't want to create variables like sfNEQval here, as it might
+        get confused as being different to Not(EqCondition), which is equivalent.
+        Therefore, we create a variable for the flipped EQCondition and use
+        a not operator.
+
+        Returns:
+            pyeda_expr: The corresponding pyeda expression
+            var_map: A mapping from var_name to condition.
+        """
+        eq_expr, var_map = EqCondition(self._sf, self._value).to_pyeda_expr()
+        return Not(eq_expr), var_map
+
+    def __repr__(self):
+        """Make the condition human readable.
+
+        Returns:
+            label: A str representation of the label
+        """
+        return self.to_prism_string()
+
+    def __str__(self):
+        """Make the condition human readable.
+
+        Returns:
+            label: A str representation of the label
+        """
+        return self.to_prism_string()
+
+    def __hash__(self):
+        """Overwriting for use in dictionaries etc.
+
+        Returns:
+            hash_val: The hash
+        """
+        if self._hash_val is None:
+            self._hash_val = hash((type(self), self._sf, self._value))
+        return self._hash_val
+
+    def __eq__(self, other):
+        """Overwriting so conditions with identical information are equal.
+
+        Args:
+            other: The other condition
+
+        Returns:
+            is_equal: Are the conditions equal?
+        """
+        return (
+            type(self) == type(other)
+            and self._sf == other._sf
+            and self._value == other._value
+        )
+
+
 class NotCondition(Condition):
     """A condition which negates another condition.
 
