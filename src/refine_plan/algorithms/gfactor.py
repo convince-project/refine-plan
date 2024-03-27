@@ -54,7 +54,7 @@ def gfactor(formula):
     quotient = _make_cube_free(quotient)
     divisor, remainder = _divide(formula, quotient)
 
-    if divisor == 0:  # I.e. the division didn't work
+    if divisor.is_zero:  # I.e. the division didn't work
         return formula
 
     if _is_cube_free(divisor):
@@ -85,7 +85,7 @@ def _lf(formula, divisor):
 
     quotient = gfactor(quotient)
 
-    if remainder != 0:
+    if not remainder.is_zero:
         remainder = gfactor(remainder)
 
     return divisor * quotient + remainder
@@ -107,6 +107,7 @@ def _largest_common_cube(formula):
         most_common_cube: The most common cube (a Sympy formula)
     """
     # TODO: Fill in
+    # Be careful to check that the formula is not just a single cube
     # I think I can do this by just doing the intersection as I traverse
     # forward rather than the two step approach the original authors take
     pass
@@ -124,9 +125,16 @@ def _make_cube_free(formula):
     Returns:
         cube_free_formula: The formula with the largest common cube removed
     """
-    # TODO: Fill in. Should be a quick check and a divide
-    # Maybe add an assertion that the remainder from the division is zero?
-    pass
+    # TODO: Do a sanity check in my head that this is going to be correct.
+    # Or maybe check in the PhD thesis - is the approach here correct?
+    if _is_cube_free(formula):
+        return formula
+
+    largest_common_cube = _largest_common_cube(formula)
+    quotient, remainder = _divide(formula, largest_common_cube)
+    # This should divide perfectly as its a common cube
+    assert remainder.is_zero
+    return quotient
 
 
 def _is_cube_free(formula):
@@ -138,9 +146,9 @@ def _is_cube_free(formula):
     Returns:
         is_cube_free: Are there no common cubes in the formula?
     """
-    # TODO: Fill in - I wonder if just seeing if most common cube returns none
-    # is an easier way to write this?
-    pass
+    # I think it is more efficient to check the largest common cube
+    # TODO: Check this is more efficient
+    return _largest_common_cube(formula) is None
 
 
 def _divide(formula, divisor):
@@ -159,7 +167,7 @@ def _divide(formula, divisor):
     if "-" in str(remainder):
         # Helpful tip from the implementation this is based on
         # This is to handle a bug in sympy apparently
-        return 0, formula
+        return sympify(0), formula
 
     # quotient is a single-item list
     return quotient[0], remainder
