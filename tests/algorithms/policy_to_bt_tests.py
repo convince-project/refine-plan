@@ -8,9 +8,10 @@ Owner: Charlie Street
 from refine_plan.algorithms.policy_to_bt import PolicyBTConverter
 from refine_plan.models.state_factor import StateFactor
 from refine_plan.models.condition import EqCondition
+from pyeda.boolalg.expr import expr, And, Or, Not
 from refine_plan.models.policy import Policy
-from pyeda.boolalg.expr import expr, And, Or
 from refine_plan.models.state import State
+from pyeda.inter import espresso_exprs
 from sympy import Symbol
 import unittest
 
@@ -164,6 +165,116 @@ class BuildInternalMappingsTest(unittest.TestCase):
         self.assertEqual(converter._vars_to_symbols["sf2EQd"], Symbol("sf2EQd"))
         self.assertEqual(converter._vars_to_symbols["sf2EQe"], Symbol("sf2EQe"))
         self.assertEqual(converter._vars_to_symbols["sf2EQf"], Symbol("sf2EQf"))
+
+
+class MinimiseWithEspresso(unittest.TestCase):
+
+    def test_function(self):
+        converter = PolicyBTConverter()
+
+        sf1 = StateFactor("sf1", ["a", "b", "c"])
+        sf2 = StateFactor("sf2", ["d", "e", "f"])
+
+        state_action_map = {}
+        state_action_map[State({sf1: "a", sf2: "d"})] = "a1"
+        state_action_map[State({sf1: "a", sf2: "e"})] = "a2"
+        state_action_map[State({sf1: "a", sf2: "f"})] = "a3"
+        state_action_map[State({sf1: "b", sf2: "d"})] = "a2"
+        state_action_map[State({sf1: "b", sf2: "e"})] = "a3"
+        state_action_map[State({sf1: "b", sf2: "f"})] = "a1"
+        state_action_map[State({sf1: "c", sf2: "d"})] = "a3"
+        state_action_map[State({sf1: "c", sf2: "e"})] = "a2"
+        state_action_map[State({sf1: "c", sf2: "f"})] = "a1"
+
+        policy = Policy(state_action_map)
+        act_to_rule, _ = converter._extract_rules_from_policy(policy)
+
+        act_to_min_rule = converter._minimise_with_espresso(act_to_rule)
+
+        self.assertEqual(len(act_to_min_rule), 3)
+
+        expected_min_rules = {}
+
+        expected_min_rules["a1"] = espresso_exprs(
+            Or(
+                And(expr("sf1EQa"), expr("sf2EQd")),
+                And(expr("sf1EQb"), expr("sf2EQf")),
+                And(expr("sf1EQc"), expr("sf2EQf")),
+            ).to_dnf()
+        )[0]
+
+        expected_min_rules["a2"] = espresso_exprs(
+            Or(
+                And(expr("sf1EQa"), expr("sf2EQe")),
+                And(expr("sf1EQb"), expr("sf2EQd")),
+                And(expr("sf1EQc"), expr("sf2EQe")),
+            ).to_dnf()
+        )[0]
+
+        expected_min_rules["a3"] = espresso_exprs(
+            Or(
+                And(expr("sf1EQa"), expr("sf2EQf")),
+                And(expr("sf1EQb"), expr("sf2EQe")),
+                And(expr("sf1EQc"), expr("sf2EQd")),
+            ).to_dnf()
+        )[0]
+
+        for action in ["a1", "a2", "a3"]:
+            min_rule = act_to_min_rule[action]
+            self.assertTrue(min_rule.equivalent(expected_min_rules[action]))
+            self.assertTrue(min_rule.is_dnf())
+
+
+class ConvertToHornClausesTest(unittest.TestCase):
+    def test_function(self):
+        converter = PolicyBTConverter()
+
+        sf1 = StateFactor("sf1", ["a", "b", "c"])
+        sf2 = StateFactor("sf2", ["d", "e", "f"])
+
+        state_action_map = {}
+        state_action_map[State({sf1: "a", sf2: "d"})] = "a1"
+        state_action_map[State({sf1: "a", sf2: "e"})] = "a2"
+        state_action_map[State({sf1: "a", sf2: "f"})] = "a3"
+        state_action_map[State({sf1: "b", sf2: "d"})] = "a2"
+        state_action_map[State({sf1: "b", sf2: "e"})] = "a3"
+        state_action_map[State({sf1: "b", sf2: "f"})] = "a1"
+        state_action_map[State({sf1: "c", sf2: "d"})] = "a3"
+        state_action_map[State({sf1: "c", sf2: "e"})] = "a2"
+        state_action_map[State({sf1: "c", sf2: "f"})] = "a1"
+
+        policy = Policy(state_action_map)
+        act_to_rule, _ = converter._extract_rules_from_policy(policy)
+
+        act_to_horn = converter._convert_to_horn_clauses(act_to_rule)
+
+        self.assertEqual(len(act_to_horn), 3)
+
+        for action in ["a1", "a2", "a3"]:
+            self.assertTrue(act_to_horn[action].is_dnf())
+            self.assertTrue(act_to_horn[action].equivalent(Not(act_to_rule[action])))
+
+
+class GetVariablesInDNFExprTest(unittest.TestCase):
+
+    def test_function(self):
+
+        rule = Or(
+            And(expr("v1"), expr("v2")), And(expr("v3"), Not(expr("v4"))), expr("v5")
+        )
+        converter = PolicyBTConverter()
+        var_list = converter._get_variables_in_dnf_expr(rule)
+
+        self.assertEqual(len(var_list), 5)
+        self.assertTrue(expr("v1") in var_list)
+        self.assertTrue(expr("v2") in var_list)
+        self.assertTrue(expr("v3") in var_list)
+        self.assertTrue(expr("v4") in var_list)
+        self.assertTrue(expr("v5") in var_list)
+
+        bad_rule = And(expr("v1"), Or(expr("v2"), expr("v3")))
+        with self.assertRaises(Exception):
+            converter._get_variables_in_dnf_expr(bad_rule)
 
 
 if __name__ == "__main__":
