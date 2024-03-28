@@ -204,7 +204,7 @@ class SequenceNode(CompositeNode):
         Returns:
             repr: Printable version of node
         """
-        return "Sequence({})".format([repr(c) for c in self._children].join(", "))
+        return "Sequence({})".format(", ".join([repr(c) for c in self._children]))
 
     def __str__(self):
         """String version of node.
@@ -212,7 +212,7 @@ class SequenceNode(CompositeNode):
         Returns:
             str: String version of node
         """
-        return "Sequence({})".format([repr(c) for c in self._children].join(", "))
+        return "Sequence({})".format(", ".join([str(c) for c in self._children]))
 
 
 class FallbackNode(CompositeNode):
@@ -239,7 +239,7 @@ class FallbackNode(CompositeNode):
         Returns:
             repr: Printable version of node
         """
-        return "Fallback({})".format([repr(c) for c in self._children].join(", "))
+        return "Fallback({})".format(", ".join([repr(c) for c in self._children]))
 
     def __str__(self):
         """String version of node.
@@ -247,7 +247,7 @@ class FallbackNode(CompositeNode):
         Returns:
             str: String version of node
         """
-        return "Fallback({})".format([repr(c) for c in self._children].join(", "))
+        return "Fallback({})".format(", ".join([str(c) for c in self._children]))
 
 
 class BehaviourTree(object):

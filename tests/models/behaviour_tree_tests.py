@@ -29,6 +29,9 @@ class ActionNodeTest(unittest.TestCase):
         self.assertEqual(xml.tag, "Action")
         self.assertEqual(xml.attrib, {"name": "action"})
 
+        self.assertEqual(repr(node), "Action(action)")
+        self.assertEqual(str(node), "Action(action)")
+
 
 class ConditionNodeTest(unittest.TestCase):
 
@@ -42,6 +45,9 @@ class ConditionNodeTest(unittest.TestCase):
         self.assertEqual(len(xml), 0)
         self.assertEqual(xml.tag, "Condition")
         self.assertEqual(xml.attrib, {"name": "condition"})
+
+        self.assertEqual(repr(node), "Condition(condition; true)")
+        self.assertEqual(str(node), "Condition(condition; true)")
 
 
 class SequenceNodeTest(unittest.TestCase):
@@ -75,6 +81,16 @@ class SequenceNodeTest(unittest.TestCase):
         with self.assertRaises(Exception):
             node.add_child("bad")
 
+        self.assertEqual(
+            repr(node),
+            "Sequence(Condition(condition; true), Action(action), Action(act_2))",
+        )
+
+        self.assertEqual(
+            str(node),
+            "Sequence(Condition(condition; true), Action(action), Action(act_2))",
+        )
+
 
 class FallbackNodeTest(unittest.TestCase):
 
@@ -106,6 +122,16 @@ class FallbackNodeTest(unittest.TestCase):
         with self.assertRaises(Exception):
             node.add_child("bad")
 
+        self.assertEqual(
+            repr(node),
+            "Fallback(Condition(condition; true), Action(action), Action(act_2))",
+        )
+
+        self.assertEqual(
+            str(node),
+            "Fallback(Condition(condition; true), Action(action), Action(act_2))",
+        )
+
 
 class BehaviourTreeTest(unittest.TestCase):
 
@@ -116,6 +142,14 @@ class BehaviourTreeTest(unittest.TestCase):
 
         bt = BehaviourTree(root_node)
         self.assertEqual(bt.get_root_node(), root_node)
+
+        self.assertEqual(
+            repr(bt), "Fallback(Condition(condition; true), Action(action))"
+        )
+
+        self.assertEqual(
+            str(bt), "Fallback(Condition(condition; true), Action(action))"
+        )
 
         tmp = tempfile.NamedTemporaryFile()
         tree = bt.to_BT_XML(tmp.name)

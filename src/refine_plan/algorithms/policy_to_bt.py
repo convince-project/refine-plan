@@ -262,7 +262,7 @@ class PolicyBTConverter(object):
             sub_asts = logic_ast[1:]
             join_str = " + " if logic_ast[0] == "or" else "*"
             components = [self._logic_to_algebra(sub, lit_map) for sub in sub_asts]
-            return components.join(join_str)
+            return join_str.join(components)
         elif logic_ast[0] == "lit":
             # Add to self._vars_to_symbols
             lit = lit_map[logic_ast[1]]
