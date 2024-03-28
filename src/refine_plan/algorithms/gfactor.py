@@ -107,7 +107,7 @@ def _largest_common_cube(formula):
     """
 
     # if we have just a single cube (i.e. one conjunction)
-    if isinstance(formula, Mul):
+    if isinstance(formula, Mul) or isinstance(formula, Symbol):
         return formula
 
     assert isinstance(formula, Add)  # Logical OR
@@ -115,17 +115,22 @@ def _largest_common_cube(formula):
     common_cube = None
 
     for cube in formula.args:
-        assert isinstance(cube, Mul)
-        assert all(isinstance(a, Symbol) for a in cube.args)
+        assert isinstance(cube, Mul) or isinstance(cube, Symbol)
+        if isinstance(cube, Mul):
+            assert all(isinstance(a, Symbol) for a in cube.args)
+            cube_vars = set(cube.args)
+        elif isinstance(cube, Symbol):
+            cube_vars = set([cube])
+
         if common_cube is None:
-            common_cube = set(cube.args)
+            common_cube = cube_vars
         else:
-            common_cube = common_cube.intersection(set(cube.args))
+            common_cube = common_cube.intersection(cube_vars)
 
         if len(common_cube) == 0:
             return None
 
-    return Mul(common_cube)  # Make it a conjunction again
+    return Mul(*common_cube)  # Make it a conjunction again
 
 
 def _make_cube_free(formula):
