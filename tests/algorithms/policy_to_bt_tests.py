@@ -5,14 +5,28 @@ Author: Charlie Street
 Owner: Charlie Street
 """
 
+from refine_plan.models.state_factor import StateFactor, IntStateFactor
 from refine_plan.algorithms.policy_to_bt import PolicyBTConverter
-from refine_plan.models.state_factor import StateFactor
-from refine_plan.models.condition import EqCondition
 from pyeda.boolalg.expr import expr, And, Or, Not
+from refine_plan.models.behaviour_tree import (
+    ConditionNode,
+    SequenceNode,
+    FallbackNode,
+    BehaviourTree,
+    ActionNode,
+)
 from refine_plan.models.policy import Policy
 from refine_plan.models.state import State
+from refine_plan.models.condition import (
+    EqCondition,
+    GtCondition,
+    GeqCondition,
+    NeqCondition,
+    LeqCondition,
+    LtCondition,
+)
 from pyeda.inter import espresso_exprs
-from sympy import Symbol, Add
+from sympy import Symbol, Add, sympify
 import unittest
 
 
@@ -360,6 +374,276 @@ class PyedaRulesToSympyAlgebraicTest(unittest.TestCase):
 
 
 class ReduceSympyExpressionsTest(unittest.TestCase):
+
+    def test_function(self):
+        # TODO: Fill in
+        self.fail()
+
+
+class BuildConditionNodeTest(unittest.TestCase):
+
+    def test_function(self):
+        converter = PolicyBTConverter()
+        converter._vars_to_conds = {}
+
+        sf = IntStateFactor("sf", 0, 5)
+
+        converter._vars_to_conds["sfEQ1"] = EqCondition(sf, 1)
+        converter._vars_to_conds["sfGT1"] = GtCondition(sf, 1)
+        converter._vars_to_conds["sfGEQ1"] = GeqCondition(sf, 1)
+
+        node = converter._build_condition_node("sfEQ1")
+        self.assertTrue(isinstance(node, ConditionNode))
+        self.assertEqual(node.get_name(), "sfEQ1")
+        self.assertEqual(node.get_cond(), EqCondition(sf, 1))
+
+        node = converter._build_condition_node("sfGT1")
+        self.assertTrue(isinstance(node, ConditionNode))
+        self.assertEqual(node.get_name(), "sfGT1")
+        self.assertEqual(node.get_cond(), GtCondition(sf, 1))
+
+        node = converter._build_condition_node("sfGEQ1")
+        self.assertTrue(isinstance(node, ConditionNode))
+        self.assertEqual(node.get_name(), "sfGEQ1")
+        self.assertEqual(node.get_cond(), GeqCondition(sf, 1))
+
+        node = converter._build_condition_node("NOTsfEQ1")
+        self.assertTrue(isinstance(node, ConditionNode))
+        self.assertEqual(node.get_name(), "sfNEQ1")
+        self.assertEqual(node.get_cond(), NeqCondition(sf, 1))
+
+        node = converter._build_condition_node("NOTsfGT1")
+        self.assertTrue(isinstance(node, ConditionNode))
+        self.assertEqual(node.get_name(), "sfLEQ1")
+        self.assertEqual(node.get_cond(), LeqCondition(sf, 1))
+
+        node = converter._build_condition_node("NOTsfGEQ1")
+        self.assertTrue(isinstance(node, ConditionNode))
+        self.assertEqual(node.get_name(), "sfLT1")
+        self.assertEqual(node.get_cond(), LtCondition(sf, 1))
+
+
+class SubBTForRuleTest(unittest.TestCase):
+
+    def test_function(self):
+
+        converter = PolicyBTConverter()
+        symbols = ["sfEQ1", "sfGT3", "sfEQ2", "sfGEQ4", "sfEQ4", "NOTsfGT3"]
+        converter._vars_to_symbols = {s: Symbol(s) for s in symbols}
+
+        sf = IntStateFactor("sf", 1, 5)
+
+        converter._vars_to_conds = {
+            "sfEQ1": EqCondition(sf, 1),
+            "sfGT3": GtCondition(sf, 3),
+            "sfEQ2": EqCondition(sf, 2),
+            "sfGEQ4": GeqCondition(sf, 4),
+            "sfEQ4": EqCondition(sf, 4),
+        }
+
+        rule = sympify(
+            "sfEQ1 + NOTsfGT3*sfEQ2 + sfGEQ4*sfEQ4", locals=converter._vars_to_symbols
+        )
+        bt = converter._sub_bt_for_rule(rule)
+
+        self.assertTrue(isinstance(bt, FallbackNode))
+        self.assertEqual(len(bt._children), 3)
+
+        for i in range(3):
+            if "sfEQ1" in str(rule.args[i]):
+                self.assertTrue(isinstance(bt._children[i], ConditionNode))
+                self.assertEqual(bt._children[i].get_name(), "sfEQ1")
+                self.assertEqual(bt._children[i].get_cond(), EqCondition(sf, 1))
+            elif "NOTsfGT3" in str(rule.args[i]):
+                self.assertTrue(isinstance(bt._children[i], SequenceNode))
+                self.assertEqual(len(bt._children[i]._children), 2)
+                self.assertTrue(isinstance(bt._children[i]._children[0], ConditionNode))
+                self.assertTrue(isinstance(bt._children[i]._children[1], ConditionNode))
+                if str(rule.args[i].args[0])[:3] == "NOT":
+                    leq_node = 0
+                    eq_node = 1
+                else:
+                    leq_node = 1
+                    eq_node = 0
+                self.assertEqual(
+                    bt._children[i]._children[leq_node].get_name(), "sfLEQ3"
+                )
+                self.assertEqual(
+                    bt._children[i]._children[leq_node].get_cond(), LeqCondition(sf, 3)
+                )
+                self.assertEqual(bt._children[i]._children[eq_node].get_name(), "sfEQ2")
+                self.assertEqual(
+                    bt._children[i]._children[eq_node].get_cond(), EqCondition(sf, 2)
+                )
+            elif "sfGEQ4" in str(rule.args[i]):
+                self.assertTrue(isinstance(bt._children[i], SequenceNode))
+                self.assertEqual(len(bt._children[i]._children), 2)
+                self.assertTrue(isinstance(bt._children[i]._children[0], ConditionNode))
+                self.assertTrue(isinstance(bt._children[i]._children[1], ConditionNode))
+                if str(rule.args[i].args[0]) == "sfGEQ4":
+                    geq_node = 0
+                    eq_node = 1
+                else:
+                    geq_node = 1
+                    eq_node = 0
+                self.assertEqual(
+                    bt._children[i]._children[geq_node].get_name(), "sfGEQ4"
+                )
+                self.assertEqual(
+                    bt._children[i]._children[geq_node].get_cond(), GeqCondition(sf, 4)
+                )
+                self.assertEqual(bt._children[i]._children[eq_node].get_name(), "sfEQ4")
+                self.assertEqual(
+                    bt._children[i]._children[eq_node].get_cond(), EqCondition(sf, 4)
+                )
+
+
+class ConvertRulesToBTTest(unittest.TestCase):
+
+    def test_function(self):
+        converter = PolicyBTConverter()
+        symbols = [
+            "sfEQ1",
+            "sfGT3",
+            "sfEQ2",
+            "sfGEQ4",
+            "sfEQ4",
+            "NOTsfGT3",
+            "sfGEQ0",
+            "sfEQ5",
+        ]
+        converter._vars_to_symbols = {s: Symbol(s) for s in symbols}
+
+        sf = IntStateFactor("sf", 0, 5)
+
+        converter._vars_to_conds = {
+            "sfEQ1": EqCondition(sf, 1),
+            "sfGT3": GtCondition(sf, 3),
+            "sfEQ2": EqCondition(sf, 2),
+            "sfGEQ4": GeqCondition(sf, 4),
+            "sfEQ4": EqCondition(sf, 4),
+            "sfGEQ0": GeqCondition(sf, 0),
+            "sfEQ5": EqCondition(sf, 5),
+        }
+
+        rule_1 = sympify(
+            "sfEQ1 + NOTsfGT3*sfEQ2 + sfGEQ4*sfEQ4", locals=converter._vars_to_symbols
+        )
+        rule_2 = sympify("sfGEQ0*sfEQ5", locals=converter._vars_to_symbols)
+
+        min_alg_act_pairs = [(rule_1, "a1"), (rule_2, "a2")]
+
+        bt = converter._convert_rules_to_bt(min_alg_act_pairs)
+        self.assertTrue(isinstance(bt, BehaviourTree))
+
+        root = bt.get_root_node()
+        self.assertTrue(isinstance(root, SequenceNode))
+        self.assertEqual(len(root._children), 2)
+
+        sub_1 = root._children[0]
+
+        self.assertTrue(isinstance(sub_1, FallbackNode))
+        self.assertEqual(len(sub_1._children), 4)
+
+        for i in range(3):
+            if "sfEQ1" in str(rule_1.args[i]):
+                self.assertTrue(isinstance(sub_1._children[i], ConditionNode))
+                self.assertEqual(sub_1._children[i].get_name(), "sfEQ1")
+                self.assertEqual(sub_1._children[i].get_cond(), EqCondition(sf, 1))
+            elif "NOTsfGT3" in str(rule_1.args[i]):
+                self.assertTrue(isinstance(sub_1._children[i], SequenceNode))
+                self.assertEqual(len(sub_1._children[i]._children), 2)
+                self.assertTrue(
+                    isinstance(sub_1._children[i]._children[0], ConditionNode)
+                )
+                self.assertTrue(
+                    isinstance(sub_1._children[i]._children[1], ConditionNode)
+                )
+                if str(rule_1.args[i].args[0])[:3] == "NOT":
+                    leq_node = 0
+                    eq_node = 1
+                else:
+                    leq_node = 1
+                    eq_node = 0
+                self.assertEqual(
+                    sub_1._children[i]._children[leq_node].get_name(), "sfLEQ3"
+                )
+                self.assertEqual(
+                    sub_1._children[i]._children[leq_node].get_cond(),
+                    LeqCondition(sf, 3),
+                )
+                self.assertEqual(
+                    sub_1._children[i]._children[eq_node].get_name(), "sfEQ2"
+                )
+                self.assertEqual(
+                    sub_1._children[i]._children[eq_node].get_cond(), EqCondition(sf, 2)
+                )
+            elif "sfGEQ4" in str(rule_1.args[i]):
+                self.assertTrue(isinstance(sub_1._children[i], SequenceNode))
+                self.assertEqual(len(sub_1._children[i]._children), 2)
+                self.assertTrue(
+                    isinstance(sub_1._children[i]._children[0], ConditionNode)
+                )
+                self.assertTrue(
+                    isinstance(sub_1._children[i]._children[1], ConditionNode)
+                )
+                if str(rule_1.args[i].args[0]) == "sfGEQ4":
+                    geq_node = 0
+                    eq_node = 1
+                else:
+                    geq_node = 1
+                    eq_node = 0
+                self.assertEqual(
+                    sub_1._children[i]._children[geq_node].get_name(), "sfGEQ4"
+                )
+                self.assertEqual(
+                    sub_1._children[i]._children[geq_node].get_cond(),
+                    GeqCondition(sf, 4),
+                )
+                self.assertEqual(
+                    sub_1._children[i]._children[eq_node].get_name(), "sfEQ4"
+                )
+                self.assertEqual(
+                    sub_1._children[i]._children[eq_node].get_cond(), EqCondition(sf, 4)
+                )
+
+        self.assertTrue(isinstance(sub_1._children[3], ActionNode))
+        self.assertEqual(sub_1._children[3].get_name(), "a1")
+
+        sub_2 = root._children[1]
+
+        self.assertTrue(isinstance(sub_2, FallbackNode))
+        self.assertEqual(len(sub_2._children), 2)
+
+        self.assertTrue(isinstance(sub_2._children[0], SequenceNode))
+        self.assertEqual(len(sub_2._children[0]._children), 2)
+        geq_node = 0
+        eq_node = 1
+        if str(rule_2.args[0]) == "sfEQ5":
+            eq_node = 0
+            geq_node = 1
+
+        self.assertTrue(
+            isinstance(sub_2._children[0]._children[geq_node], ConditionNode)
+        )
+        self.assertEqual(sub_2._children[0]._children[geq_node].get_name(), "sfGEQ0")
+        self.assertEqual(
+            sub_2._children[0]._children[geq_node].get_cond(), GeqCondition(sf, 0)
+        )
+
+        self.assertTrue(
+            isinstance(sub_2._children[0]._children[eq_node], ConditionNode)
+        )
+        self.assertEqual(sub_2._children[0]._children[eq_node].get_name(), "sfEQ5")
+        self.assertEqual(
+            sub_2._children[0]._children[eq_node].get_cond(), EqCondition(sf, 5)
+        )
+
+        self.assertTrue(isinstance(sub_2._children[1], ActionNode))
+        self.assertEqual(sub_2._children[1].get_name(), "a2")
+
+
+class ConvertPolicyTest(unittest.TestCase):
 
     def test_function(self):
         # TODO: Fill in

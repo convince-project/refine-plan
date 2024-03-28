@@ -331,12 +331,17 @@ class PolicyBTConverter(object):
         """
         if var_name[:3] == "NOT":  # Undoing the slightly hacky negation symbols
             cond = self._vars_to_conds[var_name[3:]]
+            # Give the nodes nice names at least
             if isinstance(cond, EqCondition):
-                return ConditionNode(var_name, NeqCondition(cond._sf, cond._value))
+                new_name = "{}NEQ{}".format(cond._sf.get_name(), cond._value)
+                new_cond = NeqCondition(cond._sf, cond._value)
             elif isinstance(cond, GeqCondition):
-                return ConditionNode(var_name, LtCondition(cond._sf, cond._value))
+                new_name = "{}LT{}".format(cond._sf.get_name(), cond._value)
+                new_cond = LtCondition(cond._sf, cond._value)
             elif isinstance(cond, GtCondition):
-                return ConditionNode(var_name, LeqCondition(cond._sf, cond._value))
+                new_name = "{}LEQ{}".format(cond._sf.get_name(), cond._value)
+                new_cond = LeqCondition(cond._sf, cond._value)
+            return ConditionNode(new_name, new_cond)
         else:
             return ConditionNode(var_name, self._vars_to_conds[var_name])
 
@@ -382,10 +387,14 @@ class PolicyBTConverter(object):
 
         for pair in min_alg_act_pairs:
 
-            sub_bt = self._compute_sub_bt_for_rule(simplify(pair[0]))
+            sub_bt = self._sub_bt_for_rule(simplify(pair[0]))
             # The sub_bt for a rule should always have an OR at the outer level
             # This corresponds to a fallback node
-            assert isinstance(sub_bt, FallbackNode)
+            # It may be that our final DNF rule is just a single conjunction
+            # So we have to add the fallback node on ourselves (I think)
+            # assert isinstance(sub_bt, FallbackNode)
+            if not isinstance(sub_bt, FallbackNode):
+                sub_bt = FallbackNode(sub_bt)
 
             sub_bt.add_child(ActionNode(pair[1]))  # Add the action at the end
             root_node.add_child(sub_bt)
