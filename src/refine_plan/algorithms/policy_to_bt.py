@@ -292,7 +292,6 @@ class PolicyBTConverter(object):
 
         for pair in ordered_ra_pairs:
             assert pair[0].is_dnf()
-
             sympy_str = self._logic_to_algebra(pair[0])
             sympy_expr = sympify(sympy_str, locals=self._vars_to_symbols)
 

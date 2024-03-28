@@ -12,7 +12,7 @@ from pyeda.boolalg.expr import expr, And, Or, Not
 from refine_plan.models.policy import Policy
 from refine_plan.models.state import State
 from pyeda.inter import espresso_exprs
-from sympy import Symbol
+from sympy import Symbol, Add
 import unittest
 
 
@@ -315,6 +315,55 @@ class LogicToAlgebraTest(unittest.TestCase):
         self.assertEqual(sympy_str, "v3 + NOTv1*v2 + v4*v5")
 
         self.assertEqual(converter._vars_to_symbols, {"NOTv1": Symbol("NOTv1")})
+
+
+class PyedaRulesToSympyAlgebraicTest(unittest.TestCase):
+
+    def test_function(self):
+
+        converter = PolicyBTConverter()
+        converter._vars_to_symbols = {}
+        for i in range(1, 6):
+            var_name = "v{}".format(i)
+            converter._vars_to_symbols[var_name] = Symbol(var_name)
+
+        ordered_ra_pairs = []
+        ordered_ra_pairs.append(
+            (
+                Or(And(Not(expr("v1")), expr("v2")), And(Not(expr("v2")), expr("v3"))),
+                "a1",
+            )
+        )
+        ordered_ra_pairs.append((Or(expr("v3"), expr("v4")), "a2"))
+        ordered_ra_pairs.append((Or(And(expr("v3"), expr("v4")), expr("v5")), "a3"))
+
+        ordered_alg_act_pairs = converter._pyeda_rules_to_sympy_algebraic(
+            ordered_ra_pairs
+        )
+
+        self.assertEqual(len(ordered_alg_act_pairs), 3)
+        self.assertTrue(isinstance(ordered_alg_act_pairs[0][0], Add))
+        self.assertEqual(str(ordered_alg_act_pairs[0][0]), "NOTv1*v2 + NOTv2*v3")
+        self.assertEqual(ordered_alg_act_pairs[0][1], "a1")
+        self.assertEqual(str(ordered_alg_act_pairs[1][0]), "v3 + v4")
+        self.assertTrue(isinstance(ordered_alg_act_pairs[1][0], Add))
+        self.assertEqual(ordered_alg_act_pairs[1][1], "a2")
+        self.assertEqual(str(ordered_alg_act_pairs[2][0]), "v3*v4 + v5")
+        self.assertTrue(isinstance(ordered_alg_act_pairs[2][0], Add))
+        self.assertEqual(ordered_alg_act_pairs[2][1], "a3")
+
+        self.assertEqual(len(converter._vars_to_symbols), 7)
+        self.assertTrue("NOTv1" in converter._vars_to_symbols)
+        self.assertEqual(converter._vars_to_symbols["NOTv1"], Symbol("NOTv1"))
+        self.assertTrue("NOTv2" in converter._vars_to_symbols)
+        self.assertEqual(converter._vars_to_symbols["NOTv2"], Symbol("NOTv2"))
+
+
+class ReduceSympyExpressionsTest(unittest.TestCase):
+
+    def test_function(self):
+        # TODO: Fill in
+        self.fail()
 
 
 if __name__ == "__main__":
