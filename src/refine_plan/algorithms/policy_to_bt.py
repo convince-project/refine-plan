@@ -23,8 +23,8 @@ Author: Charlie Street
 Owner: Charlie Street
 """
 
+from pyeda.boolalg.expr import Complement, Variable, AndOp, OrOp
 from sympy import Symbol, sympify, Mul, Add, simplify
-from pyeda.boolalg.expr import Complement, Variable
 from refine_plan.algorithms.gfactor import gfactor
 from refine_plan.models.behaviour_tree import (
     BehaviourTree,
@@ -241,46 +241,38 @@ class PolicyBTConverter(object):
 
         return sorted(rule_act_pairs, key=lambda ra: scores[ra[1]], reverse=True)
 
-    def _logic_to_algebra(self, logic_ast, lit_map):
+    def _logic_to_algebra(self, logical_rule):
         """Converts a pyeda logical expr as an ast to a sympy algebraic expression.
 
-        This is an auxiliary function which deals with AST recursion, hence the
-        slightly odd input/output types.
-
-        The function assumes logic_ast is in DNF, in particularly that only
+        The function assumes logical_rule is in DNF, in particularly that only
         variables are negated.
 
         Args:
-            logic_ast: A pyeda expression as an AST computed with to_ast()
-            lit_map: A mapping from literals (e.g. "var1") to integers
+            logical_rule: A logical rule as a pyeda expression
 
         Returns:
             sympy_str: An algebraic expression (string) which can be sympified
         """
 
-        if logic_ast[0] == "or" or logic_ast[0] == "and":
-            sub_asts = logic_ast[1:]
-            join_str = " + " if logic_ast[0] == "or" else "*"
-            components = [self._logic_to_algebra(sub, lit_map) for sub in sub_asts]
+        if isinstance(logical_rule, OrOp) or isinstance(logical_rule, AndOp):
+            join_str = " + " if isinstance(logical_rule, OrOp) else "*"
+            components = [self._logic_to_algebra(sub) for sub in logical_rule.xs]
             return join_str.join(components)
-        elif logic_ast[0] == "lit":
-            # Add to self._vars_to_symbols
-            lit = lit_map[logic_ast[1]]
-            if isinstance(lit, Complement):
-                # The original authors create auxiliary variables for factorisation
-                # when a variable is negated.
-                # I imagine this is because it's hard to translate the negation
-                # cleanly into the algebraic form?
-                assert len(lit.inputs) == 1
-                var = str(lit.inputs[0])
-                assert var[:3] != "NOT"  # Checking for bad variable names
-                not_var = "NOT{}".format(var)
-                if not_var not in self._vars_to_symbols:
-                    self._vars_to_symbols[not_var] = Symbol(not_var)
-                return not_var
-            else:
-                assert str(lit)[:3] != "NOT"  # Checking for bad variable names
-                return str(lit)
+        elif isinstance(logical_rule, Complement):
+            # The original authors create auxiliary variables for factorisation
+            # when a variable is negated.
+            # I imagine this is because it's hard to translate the negation
+            # cleanly into the algebraic form?
+            assert len(logical_rule.inputs) == 1
+            var = str(logical_rule.inputs[0])
+            assert var[:3] != "NOT"  # Checking for bad variable names
+            not_var = "NOT{}".format(var)
+            if not_var not in self._vars_to_symbols:
+                self._vars_to_symbols[not_var] = Symbol(not_var)
+            return not_var
+        elif isinstance(logical_rule, Variable):
+            assert str(logical_rule)[:3] != "NOT"  # Checking for bad variable names
+            return str(logical_rule)
 
     def _pyeda_rules_to_sympy_algebraic(self, ordered_ra_pairs):
         """Converts a set of pyeda rules into sympy algebraic expressions.
@@ -300,10 +292,8 @@ class PolicyBTConverter(object):
 
         for pair in ordered_ra_pairs:
             assert pair[0].is_dnf()
-            ast = pair[0].to_ast()
-            lit_map, _, _ = pair[0].encode_dnf()
 
-            sympy_str = self._logic_to_algebra(ast, lit_map)
+            sympy_str = self._logic_to_algebra(pair[0])
             sympy_expr = sympify(sympy_str, locals=self._vars_to_symbols)
 
             ordered_alg_act_pairs.append((sympy_expr, pair[1]))

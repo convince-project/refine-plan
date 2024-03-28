@@ -277,5 +277,45 @@ class GetVariablesInDNFExprTest(unittest.TestCase):
             converter._get_variables_in_dnf_expr(bad_rule)
 
 
+class ScoreAndSortRulesTest(unittest.TestCase):
+
+    def test_function(self):
+        act_to_horn = {
+            "a1": Or(
+                And(Not(expr("v1")), Not(expr("v3"))),
+                And(Not(expr("v3")), Not(expr("v2"))),
+            ),
+            "a2": And(Not(expr("v2")), Not(expr("v4"))),
+            "a3": And(Not(expr("v3")), Not(expr("v1"))),
+        }
+
+        converter = PolicyBTConverter()
+        ordered_ra_pairs = converter._score_and_sort_rules(act_to_horn)
+
+        self.assertEqual(len(ordered_ra_pairs), 3)
+
+        self.assertEqual(ordered_ra_pairs[0][1], "a3")
+        self.assertTrue(ordered_ra_pairs[0][0].equivalent(act_to_horn["a3"]))
+        self.assertEqual(ordered_ra_pairs[1][1], "a1")
+        self.assertTrue(ordered_ra_pairs[1][0].equivalent(act_to_horn["a1"]))
+        self.assertEqual(ordered_ra_pairs[2][1], "a2")
+        self.assertTrue(ordered_ra_pairs[2][0].equivalent(act_to_horn["a2"]))
+
+
+class LogicToAlgebraTest(unittest.TestCase):
+
+    def test_function(self):
+
+        test_expr = Or(
+            And(Not(expr("v1")), expr("v2")), expr("v3"), And(expr("v4"), expr("v5"))
+        )
+        converter = PolicyBTConverter()
+        converter._vars_to_symbols = {}
+        sympy_str = converter._logic_to_algebra(test_expr)
+        self.assertEqual(sympy_str, "v3 + NOTv1*v2 + v4*v5")
+
+        self.assertEqual(converter._vars_to_symbols, {"NOTv1": Symbol("NOTv1")})
+
+
 if __name__ == "__main__":
     unittest.main()
