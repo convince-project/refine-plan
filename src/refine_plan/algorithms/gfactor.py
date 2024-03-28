@@ -25,11 +25,9 @@ Author: Charlie Street
 Owner: Charlie Street
 """
 
-from sympy import sympify, reduced, Symbol
+from sympy import sympify, reduced, Symbol, Add, Mul
 
 
-# TODO: Do I even need the symbol map?
-# TODO: Is every function which assumes DNF correct to assume this?
 def gfactor(formula):
     """Runs the GFactor factorisation algorithm.
 
@@ -104,13 +102,30 @@ def _largest_common_cube(formula):
         formula: The formula we're searching through
 
     Returns:
-        most_common_cube: The most common cube (a Sympy formula)
+        largest_common_cube: The largest common cube (a Sympy formula)
+                             or None if no common cube exists
     """
-    # TODO: Fill in
-    # Be careful to check that the formula is not just a single cube
-    # I think I can do this by just doing the intersection as I traverse
-    # forward rather than the two step approach the original authors take
-    pass
+
+    # if we have just a single cube (i.e. one conjunction)
+    if isinstance(formula, Mul):
+        return formula
+
+    assert isinstance(formula, Add)  # Logical OR
+
+    common_cube = None
+
+    for cube in formula.args:
+        assert isinstance(cube, Mul)
+        assert all(isinstance(a, Symbol) for a in cube.args)
+        if common_cube is None:
+            common_cube = set(cube.args)
+        else:
+            common_cube = common_cube.intersection(set(cube.args))
+
+        if len(common_cube) == 0:
+            return None
+
+    return Mul(common_cube)  # Make it a conjunction again
 
 
 def _make_cube_free(formula):
@@ -125,8 +140,6 @@ def _make_cube_free(formula):
     Returns:
         cube_free_formula: The formula with the largest common cube removed
     """
-    # TODO: Do a sanity check in my head that this is going to be correct.
-    # Or maybe check in the PhD thesis - is the approach here correct?
     if _is_cube_free(formula):
         return formula
 
@@ -134,6 +147,7 @@ def _make_cube_free(formula):
     quotient, remainder = _divide(formula, largest_common_cube)
     # This should divide perfectly as its a common cube
     assert remainder.is_zero
+    assert _is_cube_free(quotient)
     return quotient
 
 
@@ -147,7 +161,6 @@ def _is_cube_free(formula):
         is_cube_free: Are there no common cubes in the formula?
     """
     # I think it is more efficient to check the largest common cube
-    # TODO: Check this is more efficient
     return _largest_common_cube(formula) is None
 
 
@@ -173,11 +186,37 @@ def _divide(formula, divisor):
     return quotient[0], remainder
 
 
+def _get_variables_in_formula(formula):
+    """Gets a list of all variables in a sympy formula.
+
+    This returns duplicates of variables (i.e. its a list not a set)
+
+    Args:
+        formula: The sympy expression
+
+    Returns:
+        variables: The list of variables (symbols) in the formula
+    """
+
+    if isinstance(formula, Add) or isinstance(formula, Mul):
+        variables = []
+        for sub_formula in formula.args:
+            variables += _get_variables_in_formula(sub_formula)
+        return variables
+    elif isinstance(formula, Symbol):
+        return [formula]
+
+
 def _most_common_condition(formula):
     """Find the most condition in a formula.
 
     Finds the variable (which represents a logical condition) which
     appears in the most conjunctions.
+
+    The assumption here I think is that the expression is DNF.
+    And that a variable only appears once in a conjunction.
+    Given our sympy expressions are logical expressions, this should always
+    be satisfied.
 
     Args:
         formula: The formula to search through
@@ -185,5 +224,17 @@ def _most_common_condition(formula):
     Returns:
         most_common_condition: The most common condition, or None if there isn't one
     """
-    # TODO: Fill in
-    pass
+    variables = _get_variables_in_formula(formula)
+    frequencies = {}
+
+    for var in variables:
+        if var not in frequencies:
+            frequencies[var] = 0
+        frequencies[var] += 1
+
+    mcc = max(frequencies, key=frequencies.get)
+
+    if frequencies[mcc] > 1:
+        return mcc
+    else:
+        return None
