@@ -56,8 +56,9 @@ def gfactor(formula):
         return formula
 
     if _is_cube_free(divisor):
-        # NOTE: There was a condition here 'if "1" not in q" - not in the paper?
-        quotient = gfactor(quotient)
+        # Condition found in implementation I'm referencing - can't hurt
+        if quotient != 1:
+            quotient = gfactor(quotient)
         divisor = gfactor(divisor)
         remainder = gfactor(remainder) if remainder != 0 else remainder
 
@@ -238,7 +239,6 @@ def _most_common_condition(formula):
         frequencies[var] += 1
 
     mcc = max(frequencies, key=frequencies.get)
-
     if frequencies[mcc] > 1:
         return mcc
     else:
