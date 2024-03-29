@@ -135,15 +135,61 @@ class MakeCubeFreeTest(unittest.TestCase):
 class LFTest(unittest.TestCase):
 
     def test_function(self):
-        # TODO: Fill in
-        self.fail()
+        symbols = {"v{}".format(i): Symbol("v{}".format(i)) for i in range(1, 6)}
+
+        formula = sympify("v3*v2*v1 + v1*v2*v4 + v1*v5*v2 + v4*v5", locals=symbols)
+        divisor = sympify("v1*v2", locals=symbols)
+
+        reduced = _lf(formula, divisor)
+
+        self.assertEqual(str(reduced), "v1*v2*(v3 + v4 + v5) + v4*v5")
+
+        formula = sympify("v3*v2*v1 + v1*v2*v4 + v1*v5*v2", locals=symbols)
+        divisor = sympify("v1*v2", locals=symbols)
+
+        reduced = _lf(formula, divisor)
+
+        self.assertEqual(str(reduced), "v1*v2*(v3 + v4 + v5)")
 
 
 class GFactorTest(unittest.TestCase):
 
     def test_function(self):
-        # TODO: Fill in
-        self.fail()
+        symbols = {"v{}".format(i): Symbol("v{}".format(i)) for i in range(1, 10)}
+
+        formula = sympify("v3*v2*v1 + v1*v2*v4 + v1*v5*v2 + v4*v5", locals=symbols)
+
+        reduced = gfactor(formula)
+        self.assertEqual(str(reduced), "v1*v2*(v3 + v4 + v5) + v4*v5")
+
+        # Using all the examples from the BT-Factor paper experiments
+        formula = sympify("v5 + v7 + v8", locals=symbols)
+        reduced = gfactor(formula)
+        self.assertEqual(str(reduced), "v5 + v7 + v8")
+
+        formula = sympify("v8 + v2*v3*v5 + v2*v7 + v9", locals=symbols)
+        reduced = gfactor(formula)
+        self.assertEqual(str(reduced), "v2*(v3*v5 + v7) + v8 + v9")
+
+        formula = sympify("v2*v3*v4*v6 + v2*v7 + v8", locals=symbols)
+        reduced = gfactor(formula)
+        self.assertEqual(str(reduced), "v2*(v3*v4*v6 + v7) + v8")
+
+        formula = sympify("v3*v4*v5*v6 + v7", locals=symbols)
+        reduced = gfactor(formula)
+        self.assertEqual(str(reduced), "v3*v4*v5*v6 + v7")
+
+        formula = sympify("v4*v6 + v6*v9 + v7 + v8", locals=symbols)
+        reduced = gfactor(formula)
+        self.assertEqual(str(reduced), "v6*(v4 + v9) + v7 + v8")
+
+        formula = sympify("v10 + v2*v3*v4*v5 + v2*v7 + v8 + v9", locals=symbols)
+        reduced = gfactor(formula)
+        self.assertEqual(str(reduced), "v10 + v2*(v3*v4*v5 + v7) + v8 + v9")
+
+        formula = sympify("v1 + v2", locals=symbols)
+        reduced = gfactor(formula)
+        self.assertEqual(str(reduced), "v1 + v2")
 
 
 if __name__ == "__main__":
