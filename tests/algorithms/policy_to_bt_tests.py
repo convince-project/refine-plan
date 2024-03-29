@@ -28,6 +28,7 @@ from refine_plan.models.condition import (
 from pyeda.inter import espresso_exprs
 from sympy import Symbol, Add, sympify
 import unittest
+import os
 
 
 class ResetTest(unittest.TestCase):
@@ -376,8 +377,69 @@ class PyedaRulesToSympyAlgebraicTest(unittest.TestCase):
 class ReduceSympyExpressionsTest(unittest.TestCase):
 
     def test_function(self):
-        # TODO: Fill in
-        self.fail()
+        converter = PolicyBTConverter()
+        converter._vars_to_symbols = {
+            "v{}".format(i): Symbol("v{}".format(i)) for i in range(1, 10)
+        }
+
+        ordered_alg_act_pairs = []
+        ordered_alg_act_pairs.append(
+            (sympify("v5 + v7 + v8", locals=converter._vars_to_symbols), "a1")
+        )
+        ordered_alg_act_pairs.append(
+            (
+                sympify(
+                    "v8 + v2*v3*v5 + v2*v7 + v9", locals=converter._vars_to_symbols
+                ),
+                "a2",
+            )
+        )
+        ordered_alg_act_pairs.append(
+            (
+                sympify("v2*v3*v4*v6 + v2*v7 + v8", locals=converter._vars_to_symbols),
+                "a3",
+            )
+        )
+        ordered_alg_act_pairs.append(
+            (sympify("v3*v4*v5*v6 + v7", locals=converter._vars_to_symbols), "a4")
+        )
+        ordered_alg_act_pairs.append(
+            (
+                sympify("v4*v6 + v6*v9 + v7 + v8", locals=converter._vars_to_symbols),
+                "a5",
+            )
+        )
+        ordered_alg_act_pairs.append(
+            (
+                sympify(
+                    "v10 + v2*v3*v4*v5 + v2*v7 + v8 + v9",
+                    locals=converter._vars_to_symbols,
+                ),
+                "a6",
+            )
+        )
+        ordered_alg_act_pairs.append(
+            (sympify("v1 + v2", locals=converter._vars_to_symbols), "a7")
+        )
+
+        min_alg_act_pairs = converter._reduce_sympy_expressions(ordered_alg_act_pairs)
+        self.assertEqual(len(min_alg_act_pairs), 7)
+        self.assertEqual(str(min_alg_act_pairs[0][0]), "v5 + v7 + v8")
+        self.assertEqual(min_alg_act_pairs[0][1], "a1")
+        self.assertEqual(str(min_alg_act_pairs[1][0]), "v2*(v3*v5 + v7) + v8 + v9")
+        self.assertEqual(min_alg_act_pairs[1][1], "a2")
+        self.assertEqual(str(min_alg_act_pairs[2][0]), "v2*(v3*v4*v6 + v7) + v8")
+        self.assertEqual(min_alg_act_pairs[2][1], "a3")
+        self.assertEqual(str(min_alg_act_pairs[3][0]), "v3*v4*v5*v6 + v7")
+        self.assertEqual(min_alg_act_pairs[3][1], "a4")
+        self.assertEqual(str(min_alg_act_pairs[4][0]), "v6*(v4 + v9) + v7 + v8")
+        self.assertEqual(min_alg_act_pairs[4][1], "a5")
+        self.assertEqual(
+            str(min_alg_act_pairs[5][0]), "v10 + v2*(v3*v4*v5 + v7) + v8 + v9"
+        )
+        self.assertEqual(min_alg_act_pairs[5][1], "a6")
+        self.assertEqual(str(min_alg_act_pairs[6][0]), "v1 + v2")
+        self.assertEqual(min_alg_act_pairs[6][1], "a7")
 
 
 class BuildConditionNodeTest(unittest.TestCase):
@@ -646,8 +708,40 @@ class ConvertRulesToBTTest(unittest.TestCase):
 class ConvertPolicyTest(unittest.TestCase):
 
     def test_function(self):
-        # TODO: Fill in
-        self.fail()
+        converter = PolicyBTConverter()
+
+        sf1 = StateFactor("sf1", ["a", "b", "c"])
+        sf2 = StateFactor("sf2", ["d", "e", "f"])
+
+        state_action_map = {}
+        state_action_map[State({sf1: "a", sf2: "d"})] = "a1"
+        state_action_map[State({sf1: "a", sf2: "e"})] = "a2"
+        state_action_map[State({sf1: "a", sf2: "f"})] = "a3"
+        state_action_map[State({sf1: "b", sf2: "d"})] = "a2"
+        state_action_map[State({sf1: "b", sf2: "e"})] = "a3"
+        state_action_map[State({sf1: "b", sf2: "f"})] = "a1"
+        state_action_map[State({sf1: "c", sf2: "d"})] = "a3"
+        state_action_map[State({sf1: "c", sf2: "e"})] = "a2"
+        state_action_map[State({sf1: "c", sf2: "f"})] = "a1"
+
+        policy = Policy(state_action_map)
+        out_file = "/tmp/test_bt.xml"
+
+        bt = converter.convert_policy(policy, out_file)
+
+        self.assertTrue(os.path.exists("/tmp/test_bt.xml"))
+        os.unlink("/tmp/test_bt.xml")
+
+        # Now test the BT bt checking which action is returned for each state
+        self.assertEqual(bt.tick_at_state(State({sf1: "a", sf2: "d"})), "a1")
+        self.assertEqual(bt.tick_at_state(State({sf1: "a", sf2: "e"})), "a2")
+        self.assertEqual(bt.tick_at_state(State({sf1: "a", sf2: "f"})), "a3")
+        self.assertEqual(bt.tick_at_state(State({sf1: "b", sf2: "d"})), "a2")
+        self.assertEqual(bt.tick_at_state(State({sf1: "b", sf2: "e"})), "a3")
+        self.assertEqual(bt.tick_at_state(State({sf1: "b", sf2: "f"})), "a1")
+        self.assertEqual(bt.tick_at_state(State({sf1: "c", sf2: "d"})), "a3")
+        self.assertEqual(bt.tick_at_state(State({sf1: "c", sf2: "e"})), "a2")
+        self.assertEqual(bt.tick_at_state(State({sf1: "c", sf2: "f"})), "a1")
 
 
 if __name__ == "__main__":

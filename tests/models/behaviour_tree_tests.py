@@ -5,7 +5,8 @@ Author: Charlie Street
 Owner: Charlie Street
 """
 
-from refine_plan.models.condition import TrueCondition
+from refine_plan.models.condition import TrueCondition, EqCondition
+from refine_plan.models.state_factor import StateFactor
 from refine_plan.models.behaviour_tree import (
     ActionNode,
     ConditionNode,
@@ -13,6 +14,7 @@ from refine_plan.models.behaviour_tree import (
     FallbackNode,
     BehaviourTree,
 )
+from refine_plan.models.state import State
 import xml.etree.ElementTree as et
 import tempfile
 import unittest
@@ -32,6 +34,8 @@ class ActionNodeTest(unittest.TestCase):
         self.assertEqual(repr(node), "Action(action)")
         self.assertEqual(str(node), "Action(action)")
 
+        self.assertEqual(node.tick_at_state("whatever"), "action")
+
 
 class ConditionNodeTest(unittest.TestCase):
 
@@ -48,6 +52,13 @@ class ConditionNodeTest(unittest.TestCase):
 
         self.assertEqual(repr(node), "Condition(condition; true)")
         self.assertEqual(str(node), "Condition(condition; true)")
+
+        sf = StateFactor("sf", ["a", "b", "c"])
+        node = ConditionNode("condition", EqCondition(sf, "b"))
+
+        self.assertFalse(node.tick_at_state(State({sf: "a"})))
+        self.assertTrue(node.tick_at_state(State({sf: "b"})))
+        self.assertFalse(node.tick_at_state(State({sf: "c"})))
 
 
 class SequenceNodeTest(unittest.TestCase):
@@ -91,6 +102,19 @@ class SequenceNodeTest(unittest.TestCase):
             "Sequence(Condition(condition; true), Action(action), Action(act_2))",
         )
 
+        sf = StateFactor("sf", ["a", "b", "c"])
+        node = ConditionNode("condition", EqCondition(sf, "b"))
+
+        sequence = SequenceNode(node, node)
+        self.assertFalse(sequence.tick_at_state(State({sf: "a"})))
+        self.assertTrue(sequence.tick_at_state(State({sf: "b"})))
+        self.assertFalse(sequence.tick_at_state(State({sf: "c"})))
+
+        sequence = SequenceNode(node, ActionNode("action"))
+        self.assertFalse(sequence.tick_at_state(State({sf: "a"})))
+        self.assertEqual(sequence.tick_at_state(State({sf: "b"})), "action")
+        self.assertFalse(sequence.tick_at_state(State({sf: "c"})))
+
 
 class FallbackNodeTest(unittest.TestCase):
 
@@ -131,6 +155,20 @@ class FallbackNodeTest(unittest.TestCase):
             str(node),
             "Fallback(Condition(condition; true), Action(action), Action(act_2))",
         )
+
+        sf = StateFactor("sf", ["a", "b", "c"])
+        node = ConditionNode("condition", EqCondition(sf, "b"))
+        node_2 = ConditionNode("condition", EqCondition(sf, "c"))
+
+        fallback = FallbackNode(node, node_2)
+        self.assertFalse(fallback.tick_at_state(State({sf: "a"})))
+        self.assertTrue(fallback.tick_at_state(State({sf: "b"})))
+        self.assertTrue(fallback.tick_at_state(State({sf: "c"})))
+
+        fallback = FallbackNode(node, node_2, ActionNode("action"))
+        self.assertEqual(fallback.tick_at_state(State({sf: "a"})), "action")
+        self.assertTrue(fallback.tick_at_state(State({sf: "b"})))
+        self.assertTrue(fallback.tick_at_state(State({sf: "c"})))
 
 
 class BehaviourTreeTest(unittest.TestCase):
@@ -189,6 +227,34 @@ class BehaviourTreeTest(unittest.TestCase):
         self.assertEqual(len(xml_read[0][0][1]), 0)
         self.assertEqual(xml_read[0][0][1].tag, "Action")
         self.assertEqual(xml_read[0][0][1].attrib, {"name": "action"})
+
+        sf = StateFactor("sf", ["a", "b", "c"])
+        node = ConditionNode("condition", EqCondition(sf, "b"))
+        node_2 = ConditionNode("condition", EqCondition(sf, "c"))
+
+        fallback = FallbackNode(node, node_2)
+        bt = BehaviourTree(fallback)
+        self.assertFalse(bt.tick_at_state(State({sf: "a"})))
+        self.assertTrue(bt.tick_at_state(State({sf: "b"})))
+        self.assertTrue(bt.tick_at_state(State({sf: "c"})))
+
+        fallback = FallbackNode(node, node_2, ActionNode("action"))
+        bt = BehaviourTree(fallback)
+        self.assertEqual(bt.tick_at_state(State({sf: "a"})), "action")
+        self.assertTrue(bt.tick_at_state(State({sf: "b"})))
+        self.assertTrue(bt.tick_at_state(State({sf: "c"})))
+
+        sequence = SequenceNode(node, node)
+        bt = BehaviourTree(sequence)
+        self.assertFalse(bt.tick_at_state(State({sf: "a"})))
+        self.assertTrue(bt.tick_at_state(State({sf: "b"})))
+        self.assertFalse(bt.tick_at_state(State({sf: "c"})))
+
+        sequence = SequenceNode(node, ActionNode("action"))
+        bt = BehaviourTree(sequence)
+        self.assertFalse(bt.tick_at_state(State({sf: "a"})))
+        self.assertEqual(bt.tick_at_state(State({sf: "b"})), "action")
+        self.assertFalse(bt.tick_at_state(State({sf: "c"})))
 
 
 if __name__ == "__main__":

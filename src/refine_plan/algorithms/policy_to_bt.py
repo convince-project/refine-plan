@@ -401,12 +401,15 @@ class PolicyBTConverter(object):
 
         return BehaviourTree(root_node)
 
-    def convert_policy(self, policy, out_file):
+    def convert_policy(self, policy, out_file=None):
         """Convert a Policy into a BehaviourTree and write the BT to file.
 
         Args:
             policy: A deterministic, memoryless policy
-            out_file: The output file for the BT
+            out_file: Optional. The output file for the BT
+
+        Returns:
+            bt: The converted BT
         """
 
         # Step 1: Reset all internal data structures
@@ -438,4 +441,8 @@ class PolicyBTConverter(object):
         bt = self._convert_rules_to_bt(min_alg_act_pairs)
 
         # Step 10: Write the BT to file as a BT.cpp XML file
-        bt.to_BT_XML(out_file)
+        if out_file is not None:
+            bt.to_BT_XML(out_file)
+
+        # Step 11: Return BT
+        return bt

@@ -55,6 +55,20 @@ class ActionNode(BTNode):
         # TODO: Make this actually work properly with BT.cpp
         return et.Element("Action", name=self.get_name())
 
+    def tick_at_state(self, state):
+        """Computes node return value if ticked in a given state.
+
+        This function ignores any node memory, and should only be used
+        to check correspondence with a Markov policy.
+
+        Args:
+            state: The state to check
+
+        Returns:
+            tick_return: The return value of this node being ticked (action name)
+        """
+        return self.get_name()
+
     def __repr__(self):
         """Printable version of node.
 
@@ -114,6 +128,20 @@ class ConditionNode(BTNode):
         """
         # TODO: Make this actually work with BT.cpp
         return et.Element("Condition", name=self.get_name())
+
+    def tick_at_state(self, state):
+        """Computes node return value if ticked in a given state.
+
+        This function ignores any node memory, and should only be used
+        to check correspondence with a Markov policy.
+
+        Args:
+            state: The state to check
+
+        Returns:
+            tick_return: The return value of this node being ticked (True or False)
+        """
+        return self.get_cond().is_satisfied(state)
 
     def __repr__(self):
         """Printable version of node.
@@ -198,6 +226,28 @@ class SequenceNode(CompositeNode):
             sequence.append(child.to_BT_XML())
         return sequence
 
+    def tick_at_state(self, state):
+        """Computes node return value if ticked in a given state.
+
+        This function ignores any node memory, and should only be used
+        to check correspondence with a Markov policy.
+
+        Args:
+            state: The state to check
+
+        Returns:
+            tick_return: The return value of this node being ticked
+        """
+        for child in self._children:
+            child_return = child.tick_at_state(state)
+
+            if isinstance(child_return, str):  # Action (equivalent to RUNNING)
+                return child_return
+            elif not child_return:  # returns False
+                return False
+
+        return True
+
     def __repr__(self):
         """Printable version of node.
 
@@ -232,6 +282,31 @@ class FallbackNode(CompositeNode):
         for child in self._children:
             fallback.append(child.to_BT_XML())
         return fallback
+
+    def tick_at_state(self, state):
+        """Computes node return value if ticked in a given state.
+
+        This function ignores any node memory, and should only be used
+        to check correspondence with a Markov policy.
+
+        This is because it won't work if we have two actions in sequence...
+        The convert_policy functionality ensures this will never happen.
+
+        Args:
+            state: The state to check
+
+        Returns:
+            tick_return: The return value of this node being ticked
+        """
+        for child in self._children:
+            child_return = child.tick_at_state(state)
+
+            if isinstance(child_return, str):  # Action (equivalent to RUNNING)
+                return child_return
+            elif child_return:  # returns True
+                return True
+
+        return False
 
     def __repr__(self):
         """Printable version of node.
@@ -298,6 +373,23 @@ class BehaviourTree(object):
             xml.write(out_file)
 
         return xml
+
+    def tick_at_state(self, state):
+        """Computes node return value if ticked in a given state.
+
+        This function ignores any node memory, and should only be used
+        to check correspondence with a Markov policy.
+
+        This is because it won't work if we have two actions in sequence in the fallback.
+        The convert_policy functionality ensures this will never happen.
+
+        Args:
+            state: The state to check
+
+        Returns:
+            tick_return: The return value of this node being ticked
+        """
+        return self.get_root_node().tick_at_state(state)
 
     def __repr__(self):
         """Printable version of tree.
