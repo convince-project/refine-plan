@@ -140,6 +140,14 @@ class Condition(object):
         """
         raise NotImplementedError()
 
+    def range_of_values(self):
+        """Returns the range of values that can be satisfied with this condition.
+
+        Returns:
+            range: A list of dictionaries from state factor to a list of values
+        """
+        raise NotImplementedError()
+
 
 class TrueCondition(Condition):
     """A condition which is always true."""
@@ -192,6 +200,14 @@ class TrueCondition(Condition):
             var_map: A mapping from var_name to condition.
         """
         return expr(True), {}
+
+    def range_of_values(self):
+        """Raises exception as it is impossible to return everything.
+
+        Raises:
+            cant_return_everything: Raised as there is no range as its everything
+        """
+        raise Exception("Can't return range for TrueCondition")
 
     def __repr__(self):
         """Make the condition human readable.
@@ -316,6 +332,14 @@ class EqCondition(Condition):
         """
         var_name = "{}EQ{}".format(self._sf.get_name(), self._value)
         return expr(var_name), {var_name: self}
+
+    def range_of_values(self):
+        """Return the one value that satisfies this condition.
+
+        Returns:
+            range: The range of values (the one value) that satisfies the condition
+        """
+        return [{self._sf: self._value}]
 
     def __repr__(self):
         """Make the condition human readable.
@@ -449,6 +473,17 @@ class NeqCondition(Condition):
         eq_expr, var_map = EqCondition(self._sf, self._value).to_pyeda_expr()
         return Not(eq_expr), var_map
 
+    def range_of_values(self):
+        """Returns the state factor values without self._value.
+
+        Returns:
+            range: The range of values that satisfy the condition.
+        """
+
+        sf_values = set(self._sf.get_valid_values())
+        sf_values.difference_update(set([self._value]))
+        return [{self._sf: list(sf_values)}]
+
     def __repr__(self):
         """Make the condition human readable.
 
@@ -564,6 +599,10 @@ class NotCondition(Condition):
         """
         cond_expr, var_map = self._cond.to_pyeda_expr()
         return Not(cond_expr), var_map
+
+    def range_of_values(self):
+        """Raises NotImplementedError as not needed currently."""
+        raise NotImplementedError("range_of_values not implemented in NotCondition.")
 
     def __repr__(self):
         """Make the condition human readable.
@@ -700,6 +739,13 @@ class AddCondition(Condition):
     def to_pyeda_expr(self):
         """Throws exception as AddConditions are only postconditions."""
         raise Exception("No pyeda expression for AddCondition as postcondition.")
+
+    def range_of_values(self):
+        """Raises Exception as not applicable to AddConditions.
+
+        Raises:
+            not_for_post_cond: Raised as function doesn't apply to postconditions"""
+        raise Exception("range_of_values can't be used for postconditions.")
 
     def __repr__(self):
         """Make the condition human readable.
@@ -838,6 +884,17 @@ class InequalityCondition(Condition):
         return "({} {} {})".format(
             self._sf.get_name(), self._comp_str, self._sf.get_idx(self._value)
         )
+
+    def range_of_values(self):
+        """Returns the values which satisfy the inequality.
+
+        Returns:
+            range: The range of values which satisfy this inequality
+        """
+        sf_vals = self._sf.get_valid_values()
+
+        satisfying = filter(sf_vals, lambda v: self._comp_fn(v, self._value))
+        return [{self._sf: list(satisfying)}]
 
     def __repr__(self):
         """Make the condition human readable.
@@ -1121,6 +1178,10 @@ class AndCondition(Condition):
 
         return And(*expr_list), var_map
 
+    def range_of_values(self):
+        """Raises NotImplementedError as not needed currently."""
+        raise NotImplementedError("range_of_values not implemented in AndCondition.")
+
     def __repr__(self):
         """Make the condition human readable.
 
@@ -1279,6 +1340,10 @@ class OrCondition(Condition):
                     assert var_map[var] == sub_var_map[var]
 
         return Or(*expr_list), var_map
+
+    def range_of_values(self):
+        """Raises NotImplementedError as not needed currently."""
+        raise NotImplementedError("range_of_values not implemented in OrCondition.")
 
     def __repr__(self):
         """Make the condition human readable.
