@@ -24,6 +24,7 @@ Owner: Charlie Street
 """
 
 from pyeda.boolalg.expr import Complement, Variable, AndOp, OrOp
+from refine_plan.models.state_factor import IntStateFactor
 from sympy import Symbol, sympify, Mul, Add, simplify
 from refine_plan.algorithms.gfactor import gfactor
 from refine_plan.models.behaviour_tree import (
@@ -33,6 +34,8 @@ from refine_plan.models.behaviour_tree import (
     ActionNode,
     ConditionNode,
 )
+from refine_plan.models.policy import Policy
+from pyeda.inter import espresso_exprs, Not
 from refine_plan.models.condition import (
     OrCondition,
     EqCondition,
@@ -42,8 +45,6 @@ from refine_plan.models.condition import (
     GeqCondition,
     LtCondition,
 )
-from refine_plan.models.policy import Policy
-from pyeda.inter import espresso_exprs, Not
 
 
 class PolicyBTConverter(object):
@@ -315,6 +316,280 @@ class PolicyBTConverter(object):
             min_alg_act_pairs.append((reduced_expr, pair[1]))
 
         return min_alg_act_pairs
+
+    def _sf_vals_covered_by_symbols(self, symbols, is_and):
+        """Get the values for state factors covered by a number of symbols.
+
+        Args:
+            symbols: A list of sympy symbols
+            is_and: Are the symbols part of a conjunction (Mul) or not (Add)
+
+        sf_val_dict: A dictionary from state factor to (num_symbols, vals_covered)
+        """
+        sf_val_dict = {}
+
+        for symb in symbols:
+            if str(symb) in self._vars_to_conds:
+                cond = self._vars_to_conds[str(symb)]
+            else:
+                assert str(symb)[3:] in self._vars_to_conds  # NOT prefix
+                cond = self._vars_to_conds[str(symb)[3:]]
+                if isinstance(cond, EqCondition):  # Flipping the conditions
+                    cond = NeqCondition(cond._sf, cond._value)
+                elif isinstance(cond, GtCondition):
+                    cond = LeqCondition(cond._sf, cond._value)
+                elif isinstance(cond, GeqCondition):
+                    cond = LtCondition(cond._sf, cond._value)
+                else:  # It should only ever be Eq, Gt, or Geq in vars_to-conds
+                    raise Exception("Invalid condition for symbol")
+
+            val_range = cond.range_of_values()
+            assert len(val_range) == 1 and len(val_range[0]) == 1
+            assert cond._sf in val_range[0]
+            if cond._sf not in sf_val_dict:
+                sf_val_dict[cond._sf] = ([], set([]))
+
+            if is_and:  # If and, do intersection
+                sf_val_dict[cond._sf] = (
+                    sf_val_dict[cond._sf][0] + [symb],
+                    sf_val_dict[cond._sf][1].intersection(val_range[0][cond._sf]),
+                )
+            else:  # If or, do union
+                sf_val_dict[cond._sf] = (
+                    sf_val_dict[cond._sf][0] + [symb],
+                    sf_val_dict[cond._sf][1].union(val_range[0][cond._sf]),
+                )
+
+        return sf_val_dict
+
+    def _cond_to_symbol(self, cond):
+        """Convert a condition into a symbol.
+
+        Also adds this to self._var_to_conds, and adds symbols to
+        self._vars_to_symbols.
+
+        If the condition is a Neq, Lt, or Leq condition, two symbols will be added,
+        i.e. for NeqCondition(sf, 5), we'll add sfEQ5 and NOTsfEQ5 to vars_to_symbols,
+        but the NOTsfEQ5 symbol will be returned.
+
+        Args:
+            cond: The condition
+
+        Returns:
+            symbol: The corresponding symbol
+        """
+        _, var_map = cond.to_pyeda_expr()
+        assert len(var_map) == 1
+        var_name = list(var_map.keys())[0]
+
+        if var_name in self._vars_to_conds:  # Add new condition
+            assert self._vars_to_conds[var_name] == var_map[var_name]
+        else:
+            self._vars_to_conds[var_name] = var_map[var_name]
+
+        symbol = Symbol(var_name)
+        if var_name in self._vars_to_symbols:
+            assert self._vars_to_symbols[var_name] == symbol
+        else:
+            self._vars_to_symbols[var_name] = symbol
+
+        if cond != var_map[var_name]:  # If negated condition
+            symbol = Symbol("NOT{}".format(var_name))
+            if str(symbol) in self._vars_to_symbols:
+                assert self._vars_to_symbols[str(symbol)] == symbol
+            else:
+                self._vars_to_symbols[str(symbol)] = symbol
+
+        return symbol
+
+    def _simplify_int_vals(self, sf, symbs_for_sf, vals_covered):
+        """Simplify expressions which use integer values with > and >=.
+
+        We only group int values together if it will reduce the number of expressions.
+
+        Args:
+            sf: The state factor
+            symbs_for_sf: The existing symbols for that sf in the expression
+            vals_covered: The sf values covered by the existing symbols
+
+        Returns:
+            int_simple: A simplified expression, or None if simplification can't be done
+        """
+
+        int_groups = []
+        for val in sorted(list(vals_covered)):
+            if int_groups == [] or val != int_groups[-1][-1] + 1:
+                int_groups.append([val])
+            else:
+                int_groups[-1].append(val)
+
+        int_simple_conds = []
+        valid_values = sf.get_valid_values()
+        for group in int_groups:
+            if len(group) <= 2:  # We'll just keep these the same, no benefit
+                int_simple_conds += [EqCondition(sf, val) for val in group]
+            else:  # Check for ends of state factor to reduce expressions
+                if group[-1] != valid_values[-1]:
+                    int_simple_conds.append(GeqCondition(sf, group[0]))
+                if group[0] != valid_values[0]:
+                    int_simple_conds.append(LeqCondition(sf, group[-1]))
+
+        if len(int_simple_conds) >= len(symbs_for_sf):  # Can't reduce expressions
+            return None
+
+        int_simple_args = []
+        for cond in int_simple_conds:  # Now build the symbols etc.
+            int_simple_args.append(self._cond_to_symbol(cond))
+
+        return Add(*int_simple_args)
+
+    def _build_or_condition(self, sf, vals_covered):
+        """Builds an or (i.e. an Add/+ in sympy) condition which captures vals_covered.
+
+        The Add() object has an arg for each value in vals_covered.
+        I.e. if the vals_covered are [v1, v2, v3], we make v1 + v2 + v3.
+
+        Also adds to the class bookeeping structures.
+
+        Args:
+            sf: The state factor
+            vals_covered: The values we have covered by the state factor previously
+
+        Returns:
+            sympy_add: The sympy Add() object capturing the OR condition
+        """
+
+        symbols = [self._cond_to_symbol(EqCondition(sf, val)) for val in vals_covered]
+        return Add(*symbols)
+
+    def _build_and_not_condition(self, sf, vals_covered):
+        """Builds an and (i.e. an Mul/* in sympy) condition which captures vals_covered.
+
+        The Mul() object has an arg for each value not in vals_covered.
+        I.e. if the vals_covered are [v1, v2, v3], and the sf has vals [v1:5],
+        we make the condition NOTv4 * NOTv5
+
+        Also adds to the class bookeeping structures.
+
+        Args:
+            sf: The state factor
+            vals_covered: The values we have covered by the state factor previously
+
+        Returns:
+            sympy_mul: The sympy Mul() object capturing the AND condition
+        """
+        not_covered = set(sf.get_valid_values()).difference(set(vals_covered))
+        symbols = [self._cond_to_symbol(NeqCondition(sf, val)) for val in not_covered]
+        return Mul(*symbols)
+
+    def _simplify_symbols(self, symbols, is_and):
+        """Simplify a list of sympy symbols into more compact expressions.
+
+        Args:
+            symbols: A list of sympy symbols
+            is_and: Are the symbols part of a conjunction (Mul) or not (Add)
+
+        Returns:
+            simplified: A list of simplified sympy expressions
+        """
+
+        sf_val_dict = self._sf_vals_covered_by_symbols(symbols, is_and)
+        simplified = []
+
+        for sf in sf_val_dict:
+            symbs_for_sf = sf_val_dict[sf][0]
+            vals_covered = sf_val_dict[sf][1]
+
+            if len(vals_covered) == 0:
+                simplified.append(sympify(0))  # False
+            elif len(vals_covered) == len(sf.get_valid_values()):
+                simplified.append(sympify(1))  # True
+            else:
+                if isinstance(sf, IntStateFactor):
+                    int_simple = self._simplify_int_vals(sf, symbs_for_sf, vals_covered)
+                    if int_simple is not None:
+                        simplified.append(int_simple)
+                        continue
+
+                # If we were to represent as a +
+                or_len = len(vals_covered)
+                # If we were to represent as a *
+                and_not_len = len(sf.get_valid_values()) - len(vals_covered)
+
+                if or_len <= and_not_len and or_len < len(symbs_for_sf):
+                    simplified.append(self._build_or_condition(sf, vals_covered))
+                elif and_not_len < or_len and and_not_len < len(symbs_for_sf):
+                    simplified.append(self._build_and_not_condition(sf, vals_covered))
+                else:
+                    simplified += symbs_for_sf
+        return simplified
+
+    def _simplify_using_state_factor_info(self, expression):
+        """Simplify an expression using state factor info.
+
+        This comes in three forms:
+            If we have a sub-expression which evaluates to True/False, we replace it with that.
+            This means we have something like v1 V v2 for all vi in a state factor.
+            For non integer state factors, we see if an expression can be made using fewer variables.
+            For example, if we have a state factor with values [v1, v2, v3], !v1 && !v2 can be written
+            as v3.
+            Finally for integer state factors, we test if we can use a >, >=, < or <= to
+            rewrite an expression.
+
+        Args:
+            expression: The sympy expression
+
+        Returns:
+            simple_expression: The simplified expression
+        """
+
+        if isinstance(expression, Symbol):  # We can't do any simplification here
+            return expression
+        elif isinstance(expression, Add) or isinstance(expression, Mul):
+            symbol_args = []  # Args which are symbols (leaves of the AST)
+            comp_args = []  # Args which are composite symbol (e.g. add/mul)
+
+            for arg in expression.args:
+                if isinstance(arg, Symbol):
+                    symbol_args.append(arg)
+                else:  # Recursive call on composite expressions
+                    comp_args.append(self._simplify_using_state_factor_info(arg))
+
+                # Simplify the symbols into nicer expressions
+                simplified_args = self._simplify_symbols(
+                    symbol_args, isinstance(expression, Mul)
+                )
+
+                new_args = simplified_args + comp_args
+
+                # Create simplified expression
+                if isinstance(expression, Add):
+                    return Add(*new_args)
+                else:
+                    return Mul(*new_args)
+        else:
+            raise Exception(
+                "Invalid Sympy expression passed to _simplify_using_state_factor_info"
+            )
+
+    def _simplify_expressions_using_state_factors(self, min_alg_act_pairs):
+        """Uses state factor info to remove tautologies/simplify expressions.
+
+        Assumes expressions have already been factorised with GFactor.
+
+        Args:
+            min_alg_act_pairs: List of (minimised sympy expr, action/option) pairs
+
+        Returns:
+            simple_alg_act_pairs: A list of (simplified sympy expr, action/option) pairs
+        """
+        simple_alg_act_pairs = []
+
+        for pair in min_alg_act_pairs:
+            simple_expr = self._simplify_using_state_factor_info(pair[0])
+            simple_alg_act_pairs.append((simple_expr, pair[1]))
+
+        return simple_alg_act_pairs
 
     def _build_condition_node(self, var_name):
         """Build a condition node for a given variable.
