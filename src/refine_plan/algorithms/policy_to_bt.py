@@ -561,18 +561,18 @@ class PolicyBTConverter(object):
                 else:  # Recursive call on composite expressions
                     comp_args.append(self._simplify_using_state_factor_info(arg))
 
-                # Simplify the symbols into nicer expressions
-                simplified_args = self._simplify_symbols(
-                    symbol_args, isinstance(expression, Mul)
-                )
+            # Simplify the symbols into nicer expressions
+            simplified_args = self._simplify_symbols(
+                symbol_args, isinstance(expression, Mul)
+            )
 
-                new_args = simplified_args + comp_args
+            new_args = simplified_args + comp_args
 
-                # Create simplified expression
-                if isinstance(expression, Add):
-                    return Add(*new_args)
-                else:
-                    return Mul(*new_args)
+            # Create simplified expression
+            if isinstance(expression, Add):
+                return Add(*new_args)
+            else:
+                return Mul(*new_args)
         else:
             raise Exception(
                 "Invalid Sympy expression passed to _simplify_using_state_factor_info"

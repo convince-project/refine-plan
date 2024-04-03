@@ -867,6 +867,42 @@ class SimplifySymbolsTest(unittest.TestCase):
         self.assertEqual(converter._vars_to_symbols["NOTsf1EQb"], Symbol("NOTsf1EQb"))
 
 
+class SimplifySymbolsTest(unittest.TestCase):
+
+    def test_function(self):
+        # TODO: Fill in
+        self.fail()
+
+
+class SimplifyExpressionsUsingStateFactorsTest(unittest.TestCase):
+
+    def test_function(self):
+        converter = PolicyBTConverter()
+
+        sf = StateFactor("sf", ["a", "b", "c"])
+
+        converter._vars_to_conds = {
+            "sfEQa": EqCondition(sf, "a"),
+            "sfEQb": EqCondition(sf, "b"),
+            "sfEQc": EqCondition(sf, "c"),
+        }
+        converter._vars_to_symbols = {
+            "sfEQa": Symbol("sfEQa"),
+            "sfEQb": Symbol("sfEQb"),
+            "sfEQc": Symbol("sfEQc"),
+        }
+
+        expr_1 = sympify("sfEQa + sfEQb + sfEQc", locals=converter._vars_to_symbols)
+        expr_2 = sympify("sfEQa * sfEQb * sfEQc", locals=converter._vars_to_symbols)
+        min_alg_act_pairs = [(expr_1, "a1"), (expr_2, "a2")]
+
+        simple_alg_act_pairs = converter._simplify_expressions_using_state_factors(
+            min_alg_act_pairs
+        )
+
+        self.assertEqual(simple_alg_act_pairs, [(sympify(1), "a1"), (sympify(0), "a2")])
+
+
 class BuildConditionNodeTest(unittest.TestCase):
 
     def test_function(self):
