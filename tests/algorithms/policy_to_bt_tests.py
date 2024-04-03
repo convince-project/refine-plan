@@ -718,6 +718,155 @@ class BuildAndNotConditionTest(unittest.TestCase):
         )
 
 
+class SimplifySymbolsTest(unittest.TestCase):
+
+    def test_one(self):
+
+        converter = PolicyBTConverter()
+
+        sf1 = StateFactor("sf1", ["a", "b", "c"])
+        sf2 = IntStateFactor("sf2", 5, 10)
+
+        converter._vars_to_conds = {
+            "sf1EQa": EqCondition(sf1, "a"),
+            "sf1EQb": EqCondition(sf1, "b"),
+            "sf1EQc": EqCondition(sf1, "c"),
+            "sf2EQ5": EqCondition(sf2, 5),
+            "sf2EQ7": EqCondition(sf2, 7),
+            "sf2EQ9": EqCondition(sf2, 9),
+        }
+        converter._vars_to_symbols = {
+            "sf1EQa": Symbol("sf1EQa"),
+            "sf1EQb": Symbol("sf1EQb"),
+            "sf1EQc": Symbol("sf1EQc"),
+            "sf2EQ5": Symbol("sf2EQ5"),
+            "sf2EQ7": Symbol("sf2EQ7"),
+            "sf2EQ9": Symbol("sf2EQ9"),
+        }
+        symbols = list(converter._vars_to_symbols.values())
+
+        simplified = converter._simplify_symbols(symbols, False)
+        self.assertEqual(len(simplified), 4)
+        self.assertTrue(sympify(1) in simplified)
+        self.assertTrue(Symbol("sf2EQ5") in simplified)
+        self.assertTrue(Symbol("sf2EQ7") in simplified)
+        self.assertTrue(Symbol("sf2EQ9") in simplified)
+
+    def test_two(self):
+
+        converter = PolicyBTConverter()
+
+        sf1 = StateFactor("sf1", ["a", "b", "c"])
+        sf2 = IntStateFactor("sf2", 5, 10)
+
+        converter._vars_to_conds = {
+            "sf1EQa": EqCondition(sf1, "a"),
+            "sf1EQb": EqCondition(sf1, "b"),
+            "sf1EQc": EqCondition(sf1, "c"),
+            "sf2EQ5": EqCondition(sf2, 5),
+            "sf2EQ7": EqCondition(sf2, 7),
+            "sf2EQ9": EqCondition(sf2, 9),
+        }
+        converter._vars_to_symbols = {
+            "sf1EQa": Symbol("sf1EQa"),
+            "sf1EQb": Symbol("sf1EQb"),
+            "sf1EQc": Symbol("sf1EQc"),
+            "sf2EQ5": Symbol("sf2EQ5"),
+            "sf2EQ7": Symbol("sf2EQ7"),
+            "sf2EQ9": Symbol("sf2EQ9"),
+        }
+        symbols = list(converter._vars_to_symbols.values())
+
+        simplified = converter._simplify_symbols(symbols, True)
+        self.assertEqual(len(simplified), 2)
+        self.assertEqual(simplified, [sympify(0), sympify(0)])
+
+    def test_three(self):
+
+        converter = PolicyBTConverter()
+
+        sf1 = StateFactor("sf1", ["a", "b", "c"])
+        sf2 = IntStateFactor("sf2", 5, 10)
+
+        converter._vars_to_conds = {
+            "sf1EQa": EqCondition(sf1, "a"),
+            "sf1EQb": EqCondition(sf1, "b"),
+            "sf1EQc": EqCondition(sf1, "c"),
+            "sf2EQ5": EqCondition(sf2, 5),
+            "sf2EQ6": EqCondition(sf2, 6),
+            "sf2EQ7": EqCondition(sf2, 7),
+        }
+        converter._vars_to_symbols = {
+            "sf1EQa": Symbol("sf1EQa"),
+            "sf1EQb": Symbol("sf1EQb"),
+            "sf1EQc": Symbol("sf1EQc"),
+            "sf2EQ5": Symbol("sf2EQ5"),
+            "sf2EQ6": Symbol("sf2EQ6"),
+            "sf2EQ7": Symbol("sf2EQ7"),
+        }
+        symbols = list(converter._vars_to_symbols.values())
+
+        simplified = converter._simplify_symbols(symbols, False)
+        self.assertEqual(len(simplified), 2)
+        self.assertTrue(sympify(1) in simplified)
+        self.assertTrue(Symbol("NOTsf2GT7") in simplified)
+
+        self.assertEqual(converter._vars_to_conds["sf2GT7"], GtCondition(sf2, 7))
+        self.assertEqual(converter._vars_to_symbols["sf2GT7"], Symbol("sf2GT7"))
+        self.assertEqual(converter._vars_to_symbols["NOTsf2GT7"], Symbol("NOTsf2GT7"))
+
+    def test_four(self):
+
+        converter = PolicyBTConverter()
+
+        sf1 = StateFactor("sf1", ["a", "b", "c"])
+
+        converter._vars_to_conds = {
+            "sf1EQa": EqCondition(sf1, "a"),
+            "sf1EQb": EqCondition(sf1, "b"),
+        }
+        converter._vars_to_symbols = {
+            "sf1EQa": Symbol("sf1EQa"),
+            "sf1EQb": Symbol("sf1EQb"),
+            "NOTsf1EQa": Symbol("NOTsf1EQa"),
+            "NOTsf1EQb": Symbol("NOTsf1EQb"),
+        }
+        symbols = [Symbol("NOTsf1EQa"), Symbol("NOTsf1EQb")]
+
+        simplified = converter._simplify_symbols(symbols, True)
+        self.assertEqual(simplified, [Symbol("sf1EQc")])
+
+        self.assertEqual(converter._vars_to_conds["sf1EQc"], EqCondition(sf1, "c"))
+        self.assertEqual(converter._vars_to_symbols["sf1EQc"], Symbol("sf1EQc"))
+
+    def test_five(self):
+
+        converter = PolicyBTConverter()
+
+        sf1 = StateFactor("sf1", ["a", "b", "c", "d", "e"])
+
+        converter._vars_to_conds = {
+            "sf1EQa": EqCondition(sf1, "a"),
+            "sf1EQc": EqCondition(sf1, "c"),
+            "sf1EQd": EqCondition(sf1, "d"),
+            "sf1EQe": EqCondition(sf1, "e"),
+        }
+        converter._vars_to_symbols = {
+            "sf1EQa": Symbol("sf1EQa"),
+            "sf1EQc": Symbol("sf1EQc"),
+            "sf1EQd": Symbol("sf1EQd"),
+            "sf1EQe": Symbol("sf1EQe"),
+        }
+        symbols = list(converter._vars_to_symbols.values())
+
+        simplified = converter._simplify_symbols(symbols, False)
+        self.assertEqual(simplified, [Symbol("NOTsf1EQb")])
+
+        self.assertEqual(converter._vars_to_conds["sf1EQb"], EqCondition(sf1, "b"))
+        self.assertEqual(converter._vars_to_symbols["sf1EQb"], Symbol("sf1EQb"))
+        self.assertEqual(converter._vars_to_symbols["NOTsf1EQb"], Symbol("NOTsf1EQb"))
+
+
 class BuildConditionNodeTest(unittest.TestCase):
 
     def test_function(self):
