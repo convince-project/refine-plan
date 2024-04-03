@@ -324,7 +324,7 @@ class PolicyBTConverter(object):
             symbols: A list of sympy symbols
             is_and: Are the symbols part of a conjunction (Mul) or not (Add)
 
-        sf_val_dict: A dictionary from state factor to (num_symbols, vals_covered)
+        sf_val_dict: A dictionary from state factor to (symbols, vals_covered)
         """
         sf_val_dict = {}
 
@@ -347,7 +347,8 @@ class PolicyBTConverter(object):
             assert len(val_range) == 1 and len(val_range[0]) == 1
             assert cond._sf in val_range[0]
             if cond._sf not in sf_val_dict:
-                sf_val_dict[cond._sf] = ([], set([]))
+                init_set = set(cond._sf.get_valid_values()) if is_and else set([])
+                sf_val_dict[cond._sf] = ([], init_set)
 
             if is_and:  # If and, do intersection
                 sf_val_dict[cond._sf] = (
@@ -424,22 +425,27 @@ class PolicyBTConverter(object):
                 int_groups[-1].append(val)
 
         int_simple_conds = []
+        num_conds = 0
         valid_values = sf.get_valid_values()
         for group in int_groups:
-            if len(group) <= 2:  # We'll just keep these the same, no benefit
-                int_simple_conds += [EqCondition(sf, val) for val in group]
+            if len(group) <= 1:  # We'll just keep these the same, no benefit
+                int_simple_conds += [[EqCondition(sf, val)] for val in group]
+                num_conds += len(group)
             else:  # Check for ends of state factor to reduce expressions
+                conds_for_group = []
                 if group[-1] != valid_values[-1]:
-                    int_simple_conds.append(GeqCondition(sf, group[0]))
+                    conds_for_group.append(LeqCondition(sf, group[-1]))
                 if group[0] != valid_values[0]:
-                    int_simple_conds.append(LeqCondition(sf, group[-1]))
+                    conds_for_group.append(GeqCondition(sf, group[0]))
+                int_simple_conds.append(conds_for_group)
+                num_conds += len(conds_for_group)
 
-        if len(int_simple_conds) >= len(symbs_for_sf):  # Can't reduce expressions
+        if num_conds >= len(symbs_for_sf):  # Can't reduce expressions
             return None
 
         int_simple_args = []
-        for cond in int_simple_conds:  # Now build the symbols etc.
-            int_simple_args.append(self._cond_to_symbol(cond))
+        for cond_group in int_simple_conds:  # Now build the symbols etc.
+            int_simple_args.append(Mul(*[self._cond_to_symbol(c) for c in cond_group]))
 
         return Add(*int_simple_args)
 
