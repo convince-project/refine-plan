@@ -67,6 +67,12 @@ class ConditionTest(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             cond.to_prism_string()
 
+        with self.assertRaises(NotImplementedError):
+            cond.to_pyeda_expr()
+
+        with self.assertRaises(NotImplementedError):
+            cond.range_of_values()
+
 
 class TrueConditionTest(unittest.TestCase):
 
@@ -86,6 +92,9 @@ class TrueConditionTest(unittest.TestCase):
         pyeda_expr, var_map = cond.to_pyeda_expr()
         self.assertTrue(pyeda_expr.equivalent(expr(True)))
         self.assertEqual(var_map, {})
+
+        with self.assertRaises(Exception):
+            cond.range_of_values()
 
 
 class EqConditionTest(unittest.TestCase):
@@ -126,6 +135,8 @@ class EqConditionTest(unittest.TestCase):
         pyeda_expr, var_map = cond.to_pyeda_expr()
         self.assertTrue(pyeda_expr.equivalent(expr("sfEQb")))
         self.assertEqual(var_map, {"sfEQb": cond})
+
+        self.assertEqual(cond.range_of_values(), [{sf: ["b"]}])
 
 
 class NeqConditionTest(unittest.TestCase):
@@ -168,6 +179,13 @@ class NeqConditionTest(unittest.TestCase):
         pyeda_expr, var_map = cond.to_pyeda_expr()
         self.assertTrue(pyeda_expr.equivalent(Not(expr("sfEQb"))))
         self.assertEqual(var_map, {"sfEQb": EqCondition(sf, "b")})
+
+        val_range = cond.range_of_values()
+        self.assertEqual(len(val_range), 1)
+        self.assertEqual(len(val_range[0]), 1)
+        self.assertEqual(len(val_range[0][sf]), 2)
+        self.assertTrue("a" in val_range[0][sf])
+        self.assertTrue("c" in val_range[0][sf])
 
 
 class NotConditionTest(unittest.TestCase):
@@ -217,6 +235,9 @@ class NotConditionTest(unittest.TestCase):
         pyeda_expr, var_map = not_cond.to_pyeda_expr()
         self.assertTrue(pyeda_expr.equivalent(Not(expr("sfGT7"))))
         self.assertEqual(var_map, {"sfGT7": GtCondition(sf, 7)})
+
+        with self.assertRaises(NotImplementedError):
+            not_cond.range_of_values()
 
 
 class AddConditionTest(unittest.TestCase):
@@ -274,6 +295,9 @@ class AddConditionTest(unittest.TestCase):
         with self.assertRaises(Exception):
             cond.to_pyeda_expr()
 
+        with self.assertRaises(Exception):
+            cond.range_of_values()
+
 
 class LtConditionTest(unittest.TestCase):
 
@@ -314,6 +338,8 @@ class LtConditionTest(unittest.TestCase):
         self.assertNotEqual(cond, GtCondition(sf, 7))
         self.assertNotEqual(cond, LtCondition(IntStateFactor("int", 7, 100), 7))
         self.assertNotEqual(cond, LtCondition(sf, 8))
+
+        self.assertEqual(cond.range_of_values(), [{sf: [5, 6]}])
 
         pyeda_expr, var_map = cond.to_pyeda_expr()
         self.assertTrue(pyeda_expr.equivalent(Not(expr("sfGEQ7"))))
@@ -360,6 +386,8 @@ class GtConditionTest(unittest.TestCase):
         self.assertNotEqual(cond, GtCondition(IntStateFactor("int", 7, 100), 7))
         self.assertNotEqual(cond, GtCondition(sf, 8))
 
+        self.assertEqual(cond.range_of_values(), [{sf: [8, 9, 10]}])
+
         pyeda_expr, var_map = cond.to_pyeda_expr()
         self.assertTrue(pyeda_expr.equivalent(expr("sfGT7")))
         self.assertEqual(var_map, {"sfGT7": cond})
@@ -405,6 +433,8 @@ class LeqConditionTest(unittest.TestCase):
         self.assertNotEqual(cond, LeqCondition(IntStateFactor("int", 7, 100), 7))
         self.assertNotEqual(cond, LeqCondition(sf, 8))
 
+        self.assertEqual(cond.range_of_values(), [{sf: [5, 6, 7]}])
+
         pyeda_expr, var_map = cond.to_pyeda_expr()
         self.assertTrue(pyeda_expr.equivalent(Not(expr("sfGT7"))))
         self.assertEqual(var_map, {"sfGT7": GtCondition(sf, 7)})
@@ -449,6 +479,8 @@ class GeqConditionTest(unittest.TestCase):
         self.assertNotEqual(cond, LeqCondition(sf, 7))
         self.assertNotEqual(cond, GeqCondition(IntStateFactor("int", 7, 100), 7))
         self.assertNotEqual(cond, GeqCondition(sf, 8))
+
+        self.assertEqual(cond.range_of_values(), [{sf: [7, 8, 9, 10]}])
 
         pyeda_expr, var_map = cond.to_pyeda_expr()
         self.assertTrue(pyeda_expr.equivalent(expr("sfGEQ7")))
@@ -540,6 +572,9 @@ class AndConditionTest(unittest.TestCase):
         self.assertEqual(repr(and_cond), "(sf1' = 1) & (sf2' = sf2 + 1) & (sf3' = 1)")
         self.assertEqual(str(and_cond), "(sf1' = 1) & (sf2' = sf2 + 1) & (sf3' = 1)")
 
+        with self.assertRaises(NotImplementedError):
+            and_cond.range_of_values()
+
 
 class OrConditionTest(unittest.TestCase):
 
@@ -619,6 +654,9 @@ class OrConditionTest(unittest.TestCase):
         self.assertFalse(or_cond.is_post_cond())
         with self.assertRaises(Exception):
             or_cond.to_prism_string(True)
+
+        with self.assertRaises(NotImplementedError):
+            or_cond.range_of_values()
 
 
 if __name__ == "__main__":

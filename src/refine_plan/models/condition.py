@@ -339,7 +339,7 @@ class EqCondition(Condition):
         Returns:
             range: The range of values (the one value) that satisfies the condition
         """
-        return [{self._sf: self._value}]
+        return [{self._sf: [self._value]}]
 
     def __repr__(self):
         """Make the condition human readable.
@@ -893,7 +893,7 @@ class InequalityCondition(Condition):
         """
         sf_vals = self._sf.get_valid_values()
 
-        satisfying = filter(sf_vals, lambda v: self._comp_fn(v, self._value))
+        satisfying = filter(lambda v: self._comp_fn(v, self._value), sf_vals)
         return [{self._sf: list(satisfying)}]
 
     def __repr__(self):
