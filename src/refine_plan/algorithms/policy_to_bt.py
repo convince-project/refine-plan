@@ -578,7 +578,7 @@ class PolicyBTConverter(object):
                 "Invalid Sympy expression passed to _simplify_using_state_factor_info"
             )
 
-    def _simplify_expressions_using_state_factors(self, min_alg_act_pairs):
+    def _simplify_using_state_factors(self, min_alg_act_pairs):
         """Uses state factor info to remove tautologies/simplify expressions.
 
         Assumes expressions have already been factorised with GFactor.
@@ -718,12 +718,19 @@ class PolicyBTConverter(object):
         # Step 8: Run GFactor to factorise each rule
         min_alg_act_pairs = self._reduce_sympy_expressions(ordered_alg_act_pairs)
 
-        # Step 9: Convert the rules into a BT
-        bt = self._convert_rules_to_bt(min_alg_act_pairs)
+        # Step 9: Simplify the factorised expressions using the state factor info
+        simple_alg_act_pairs = self._simplify_using_state_factors(min_alg_act_pairs)
 
-        # Step 10: Write the BT to file as a BT.cpp XML file
+        # Step 10: Reduce the expressions again in case we can reduce further
+        # NOTE: I think this is OK to do, but I'm not convinced it'll ever do anything
+        simple_alg_act_pairs = self._reduce_sympy_expressions(simple_alg_act_pairs)
+
+        # Step 11: Convert the rules into a BT
+        bt = self._convert_rules_to_bt(simple_alg_act_pairs)
+
+        # Step 12: Write the BT to file as a BT.cpp XML file
         if out_file is not None:
             bt.to_BT_XML(out_file)
 
-        # Step 11: Return BT
+        # Step 13: Return BT
         return bt

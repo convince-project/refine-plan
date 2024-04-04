@@ -922,7 +922,7 @@ class SimplifyUsingStateFactorInfoTest(unittest.TestCase):
         self.assertEqual(converter._vars_to_symbols["NOTlocEQv5"], Symbol("NOTlocEQv5"))
 
 
-class SimplifyExpressionsUsingStateFactorsTest(unittest.TestCase):
+class SimplifyUsingStateFactorsTest(unittest.TestCase):
 
     def test_function(self):
         converter = PolicyBTConverter()
@@ -944,7 +944,7 @@ class SimplifyExpressionsUsingStateFactorsTest(unittest.TestCase):
         expr_2 = sympify("sfEQa * sfEQb * sfEQc", locals=converter._vars_to_symbols)
         min_alg_act_pairs = [(expr_1, "a1"), (expr_2, "a2")]
 
-        simple_alg_act_pairs = converter._simplify_expressions_using_state_factors(
+        simple_alg_act_pairs = converter._simplify_using_state_factors(
             min_alg_act_pairs
         )
 
