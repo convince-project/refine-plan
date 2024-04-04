@@ -867,11 +867,59 @@ class SimplifySymbolsTest(unittest.TestCase):
         self.assertEqual(converter._vars_to_symbols["NOTsf1EQb"], Symbol("NOTsf1EQb"))
 
 
-class SimplifySymbolsTest(unittest.TestCase):
+class SimplifyUsingStateFactorInfoTest(unittest.TestCase):
 
     def test_function(self):
-        # TODO: Fill in
-        self.fail()
+        converter = PolicyBTConverter()
+
+        self.assertEqual(
+            converter._simplify_using_state_factor_info(Symbol("v1")), Symbol("v1")
+        )
+
+        converter._vars_to_conds = {}
+        converter._vars_to_symbols = {}
+
+        loc = StateFactor("loc", ["v1", "v2", "v3", "v4", "v5"])
+        busy = StateFactor("busy", ["yes", "no"])
+
+        converter._vars_to_conds["locEQv1"] = EqCondition(loc, "v1")
+        converter._vars_to_conds["locEQv2"] = EqCondition(loc, "v2")
+        converter._vars_to_conds["locEQv3"] = EqCondition(loc, "v3")
+        converter._vars_to_conds["busyEQyes"] = EqCondition(busy, "yes")
+        converter._vars_to_conds["busyEQno"] = EqCondition(busy, "no")
+
+        converter._vars_to_symbols["locEQv1"] = Symbol("locEQv1")
+        converter._vars_to_symbols["locEQv2"] = Symbol("locEQv2")
+        converter._vars_to_symbols["locEQv3"] = Symbol("locEQv3")
+        converter._vars_to_symbols["busyEQyes"] = Symbol("busyEQyes")
+        converter._vars_to_symbols["busyEQno"] = Symbol("busyEQno")
+
+        expr_str = (
+            "(busyEQyes + busyEQno) * "
+            + "(locEQv1 + locEQv2 + locEQv3) * "
+            + "((locEQv1 * busyEQyes) + locEQv2)"
+        )
+
+        expression = sympify(expr_str, locals=converter._vars_to_symbols)
+
+        simple_expression = converter._simplify_using_state_factor_info(expression)
+
+        expected = sympify(
+            "(NOTlocEQv4 * NOTlocEQv5) * ((locEQv1 * busyEQyes) + locEQv2)",
+            locals=converter._vars_to_symbols,
+        )
+
+        self.assertEqual(simple_expression, expected)
+
+        self.assertEqual(len(converter._vars_to_conds), 7)
+        self.assertEqual(converter._vars_to_conds["locEQv4"], EqCondition(loc, "v4"))
+        self.assertEqual(converter._vars_to_conds["locEQv5"], EqCondition(loc, "v5"))
+
+        self.assertEqual(len(converter._vars_to_symbols), 9)
+        self.assertEqual(converter._vars_to_symbols["locEQv4"], Symbol("locEQv4"))
+        self.assertEqual(converter._vars_to_symbols["locEQv5"], Symbol("locEQv5"))
+        self.assertEqual(converter._vars_to_symbols["NOTlocEQv4"], Symbol("NOTlocEQv4"))
+        self.assertEqual(converter._vars_to_symbols["NOTlocEQv5"], Symbol("NOTlocEQv5"))
 
 
 class SimplifyExpressionsUsingStateFactorsTest(unittest.TestCase):
