@@ -53,16 +53,29 @@ class PolicyBTConverter(object):
     Attributes:
         _vars_to_conds: A dictionary from variable names to Condition objects.
         _vars_to_symbols: A dictionary form variable names to sympy symbols.
+        _none_replacer: A kind of 'default' action which replaces all None actions
+                        in the policy. This is necessary as policies for SSPs return
+                        None at the goal state, for example, and the BT doesn't know
+                        how to execute this.
     """
 
-    def __init__(self):
-        """Reset all attributes."""
-        self._reset()
+    def __init__(self, none_replacer="None"):
+        """Reset all attributes.
 
-    def _reset(self):
-        """Reset all attributes to None."""
+        Args:
+            none_replacer: The action which replaces any None actions in a policy
+        """
+        self._reset(none_replacer=none_replacer)
+
+    def _reset(self, none_replacer="None"):
+        """Reset all attributes to None.
+
+        Args:
+            none_replacer: The action which replaces any None actions in a policy
+        """
         self._vars_to_conds = None
         self._vars_to_symbols = None
+        self._none_replacer = none_replacer
 
     def _extract_rules_from_policy(self, policy):
         """Turns a policy from S->A into a dictionary from A->logical rules.
@@ -88,6 +101,7 @@ class PolicyBTConverter(object):
 
         for state in policy._state_action_dict:
             action = policy[state]
+            action = self._none_replacer if action is None else action
             if action not in act_to_cond:
                 # This state or this state or this state etc.
                 act_to_cond[action] = OrCondition(state.to_and_cond())
@@ -694,7 +708,7 @@ class PolicyBTConverter(object):
         """
 
         # Step 1: Reset all internal data structures
-        self._reset()
+        self._reset(none_replacer=self._none_replacer)
 
         # Step 2: Group states by their policy action
         act_to_rule, act_to_var_map = self._extract_rules_from_policy(policy)
