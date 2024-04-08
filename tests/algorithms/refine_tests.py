@@ -231,6 +231,7 @@ class SynthesiseBTFromOptionsTest(unittest.TestCase):
         self.assertEqual(bt.tick_at_state(State({sf_list[0]: 2})), "dummy")
 
         self.assertTrue(os.path.exists("/tmp/toy_bt.xml"))
+        os.unlink("/tmp/toy_bt.xml")
 
     def test_graph_semi_mdp(self):
         sf_list, option_list, labels = build_graph_semi_mdp_components()
@@ -252,6 +253,7 @@ class SynthesiseBTFromOptionsTest(unittest.TestCase):
         self.assertEqual(bt.tick_at_state(State({sf_list[0]: "v5"})), "dummy")
 
         self.assertTrue(os.path.exists("/tmp/graph_bt.xml"))
+        os.unlink("/tmp/graph_bt.xml")
 
 
 if __name__ == "__main__":
