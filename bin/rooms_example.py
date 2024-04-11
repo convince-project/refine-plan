@@ -13,6 +13,7 @@ Owner: Charlie Street
 from refine_plan.algorithms.refine import synthesise_bt_from_options
 from refine_plan.models.state_factor import IntStateFactor
 from refine_plan.models.condition import Label
+from refine_plan.models.option import Option
 from refine_plan.models.state import State
 
 
@@ -57,6 +58,33 @@ def get_transition(s, good_hall_state, bad_hall_state):
     )
 
 
+def create_option(name, states, succ_state, fail_state, goal_state):
+    """Creates an option for navigating to a hallway state.
+
+    Args:
+        name: The option name
+        states: The states in a room
+        succ_state: The successful end state for an option
+        fail_state: The failure state
+        goal_state: The planning goal (used for the reward function)
+
+    Returns:
+        option: The option for naivgating to a hallway
+    """
+    transition_list = []
+    reward_list = []
+    for state in states:
+        trans = get_transition(state, succ_state, fail_state)
+        prob_to_goal = trans[1][goal_state] if goal_state in trans[1] else 0.0
+
+        transition_list.append(trans)
+
+        if prob_to_goal != 0.0:
+            reward_list.append((state.to_and_cond(), prob_to_goal))
+
+    return Option(name, transition_list, reward_list)
+
+
 def create_components(goal_location):
     """Creates the rooms problem components.
 
@@ -76,35 +104,63 @@ def create_components(goal_location):
 
     option_list = []
 
+    hall_1_5 = State({sf_list[0]: 1, sf_list[1]: 5})
+    hall_5_2 = State({sf_list[0]: 5, sf_list[1]: 2})
+    hall_8_6 = State({sf_list[0]: 8, sf_list[1]: 6})
+    hall_5_9 = State({sf_list[0]: 5, sf_list[1]: 9})
+
     room_1_states = []
     for i in range(5):
         for j in range(5):
             room_1_states.append(State({sf_list[0]: i, sf_list[0]: j}))
-    room_1_states.append(State({sf_list[0]: 1, sf_list[1]: 5}))
-    room_1_states.append(State({sf_list[0]: 5, sf_list[1]: 2}))
+    room_1_states.append(hall_1_5)
+    room_1_states.append(hall_5_2)
 
     room_2_states = []
     for i in range(6, 11):
         for j in range(6):
             room_2_states.append(State({sf_list[0]: i, sf_list[0]: j}))
-    room_2_states.append(State({sf_list[0]: 5, sf_list[1]: 2}))
-    room_2_states.append(State({sf_list[0]: 8, sf_list[1]: 6}))
+    room_2_states.append(hall_5_2)
+    room_2_states.append(hall_8_6)
 
     room_3_states = []
     for i in range(5):
         for j in range(6, 11):
             room_3_states.append(State({sf_list[0]: i, sf_list[0]: j}))
-    room_3_states.append(State({sf_list[0]: 1, sf_list[1]: 5}))
+    room_3_states.append(hall_1_5)
     room_3_states.append(State({sf_list[0]: 5, sf_list[1]: 9}))
 
     room_4_states = []
     for i in range(6, 11):
         for j in range(7, 11):
             room_4_states.append(State({sf_list[0]: i, sf_list[0]: j}))
-    room_4_states.append(State({sf_list[0]: 8, sf_list[1]: 6}))
-    room_4_states.append(State({sf_list[0]: 5, sf_list[1]: 9}))
+    room_4_states.append(hall_8_6)
+    room_4_states.append(hall_5_9)
 
-    # TODO: Build options!
+    option_list.append(
+        create_option("room_1_to_1_5", room_1_states, hall_1_5, hall_5_2, goal_state)
+    )
+    option_list.append(
+        create_option("room_1_to_5_2", room_1_states, hall_5_2, hall_1_5, goal_state)
+    )
+    option_list.append(
+        create_option("room_2_to_5_2", room_2_states, hall_5_2, hall_8_6, goal_state)
+    )
+    option_list.append(
+        create_option("room_2_to_8_6", room_2_states, hall_8_6, hall_5_2, goal_state)
+    )
+    option_list.append(
+        create_option("room_3_to_1_5", room_3_states, hall_1_5, hall_5_9, goal_state)
+    )
+    option_list.append(
+        create_option("room_3_to_5_9", room_3_states, hall_5_9, hall_1_5, goal_state)
+    )
+    option_list.append(
+        create_option("room_4_to_5_9", room_4_states, hall_5_9, hall_8_6, goal_state)
+    )
+    option_list.append(
+        create_option("room_4_to_8_6", room_4_states, hall_8_6, hall_5_9, goal_state)
+    )
 
     return sf_list, option_list, labels
 
