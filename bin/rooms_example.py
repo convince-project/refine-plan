@@ -75,7 +75,11 @@ def create_option(name, states, succ_state, fail_state, goal_state):
     reward_list = []
     for state in states:
         trans = get_transition(state, succ_state, fail_state)
-        prob_to_goal = trans[1][goal_state] if goal_state in trans[1] else 0.0
+        prob_to_goal = 0.0
+        succ_probs = trans[1]
+        for succ_cond in succ_probs:
+            if succ_cond.is_satisfied(goal_state):
+                prob_to_goal = succ_probs[succ_cond]
 
         transition_list.append(trans)
 
@@ -112,28 +116,28 @@ def create_components(goal_location):
     room_1_states = []
     for i in range(5):
         for j in range(5):
-            room_1_states.append(State({sf_list[0]: i, sf_list[0]: j}))
+            room_1_states.append(State({sf_list[0]: i, sf_list[1]: j}))
     room_1_states.append(hall_1_5)
     room_1_states.append(hall_5_2)
 
     room_2_states = []
     for i in range(6, 11):
         for j in range(6):
-            room_2_states.append(State({sf_list[0]: i, sf_list[0]: j}))
+            room_2_states.append(State({sf_list[0]: i, sf_list[1]: j}))
     room_2_states.append(hall_5_2)
     room_2_states.append(hall_8_6)
 
     room_3_states = []
     for i in range(5):
         for j in range(6, 11):
-            room_3_states.append(State({sf_list[0]: i, sf_list[0]: j}))
+            room_3_states.append(State({sf_list[0]: i, sf_list[1]: j}))
     room_3_states.append(hall_1_5)
     room_3_states.append(State({sf_list[0]: 5, sf_list[1]: 9}))
 
     room_4_states = []
     for i in range(6, 11):
         for j in range(7, 11):
-            room_4_states.append(State({sf_list[0]: i, sf_list[0]: j}))
+            room_4_states.append(State({sf_list[0]: i, sf_list[1]: j}))
     room_4_states.append(hall_8_6)
     room_4_states.append(hall_5_9)
 
@@ -189,7 +193,7 @@ if __name__ == "__main__":
         sf_list,
         option_list,
         labels,
-        prism_prop='Rmin=?[F "goal"]',
+        prism_prop='Pmax=?[F "goal"]',
         none_replacer="dead",
     )
 

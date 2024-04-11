@@ -142,6 +142,10 @@ class SemiMDP(object):
             prism_str += self._options[option].get_reward_prism_string()
         prism_str += "endrewards\n"
 
+        # All states can be initial states
+        if self._initial_state is None:
+            prism_str += "\ninit true endinit\n"
+
         if output_file is not None:
             with open(output_file, "w") as out_nm:
                 out_nm.write(prism_str)

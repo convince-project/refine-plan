@@ -58,6 +58,9 @@ def generate_prism_test_string(add_initial_state=False):
     expected += "[opt_2] ((sf = 2) & (bool_sf = 0)): 20;\n"
     expected += "endrewards\n"
 
+    if not add_initial_state:
+        expected += "\ninit true endinit\n"
+
     return expected
 
 
