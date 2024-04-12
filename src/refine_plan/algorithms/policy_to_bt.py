@@ -24,6 +24,7 @@ Owner: Charlie Street
 """
 
 from pyeda.boolalg.expr import Complement, Variable, AndOp, OrOp
+from pyeda.inter import espresso_exprs, Not, And, Or, exprvar
 from refine_plan.models.state_factor import IntStateFactor
 from sympy import Symbol, sympify, Mul, Add, simplify
 from refine_plan.algorithms.gfactor import gfactor
@@ -35,7 +36,6 @@ from refine_plan.models.behaviour_tree import (
     ConditionNode,
 )
 from refine_plan.models.policy import Policy
-from pyeda.inter import espresso_exprs, Not
 from refine_plan.models.condition import (
     OrCondition,
     EqCondition,
@@ -610,6 +610,52 @@ class PolicyBTConverter(object):
             simple_alg_act_pairs.append((simple_expr, pair[1]))
 
         return simple_alg_act_pairs
+
+    def _algebra_to_logic(self, sympy_expr):
+        """Converts a sympy algebraic expression to a Pyeda logical rule.
+
+        Args:
+            sympy_expr: The sympy expression
+
+        Returns:
+            pyeda_rule: The pyeda rule
+
+        Raises:
+            bad_expr_exception: Raised if invalid expression passed in
+        """
+
+        if isinstance(sympy_expr, Add):
+            return Or(*[self._algebra_to_logic(a) for a in sympy_expr.args])
+        elif isinstance(sympy_expr, Mul):
+            return And(*[self._algebra_to_logic(a) for a in sympy_expr.args])
+        elif isinstance(sympy_expr, Symbol):
+            if str(sympy_expr)[:3] == "NOT":
+                un_not = str(sympy_expr)[3:]
+                assert un_not in self._vars_to_conds
+                assert un_not in self._vars_to_symbols
+                return Not(exprvar(un_not))
+            else:
+                assert str(sympy_expr) in self._vars_to_conds
+                assert str(sympy_expr) in self._vars_to_symbols
+                return exprvar(str(sympy_expr))
+
+    def _sympy_algebraic_to_pyeda_rules(self, sympy_act_pairs):
+        """Convert Sympy algebriac expressions back to pyeda logical rules.
+
+        Args:
+            sympy_act_pairs: A list of (sympy expression, action/option) pairs
+
+        Returns:
+            pyeda_act_pairs: A list of (pyeda rule, action/option) pairs
+        """
+
+        pyeda_act_pairs = []
+
+        for pair in sympy_act_pairs:
+            pyeda_rule = self._algebra_to_logic(pair[0])
+            pyeda_act_pairs.append((pyeda_rule, pair[1]))
+
+        return pyeda_act_pairs
 
     def _build_condition_node(self, var_name):
         """Build a condition node for a given variable.

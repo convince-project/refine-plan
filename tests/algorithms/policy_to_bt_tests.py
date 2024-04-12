@@ -1049,6 +1049,79 @@ class SimplifyUsingStateFactorsTest(unittest.TestCase):
         self.assertEqual(simple_alg_act_pairs, [(sympify(1), "a1"), (sympify(0), "a2")])
 
 
+class AlgebraToLogicTest(unittest.TestCase):
+
+    def test_function(self):
+        converter = PolicyBTConverter()
+        sf = StateFactor("sf", ["a", "b", "c", "d"])
+
+        converter._vars_to_conds = {
+            "a": EqCondition(sf, "a"),
+            "b": EqCondition(sf, "b"),
+            "c": EqCondition(sf, "c"),
+            "d": EqCondition(sf, "d"),
+        }
+
+        converter._vars_to_symbols = {
+            "a": Symbol("a"),
+            "b": Symbol("b"),
+            "c": Symbol("c"),
+            "d": Symbol("d"),
+        }
+
+        e = sympify("(a + b) * (NOTc + d)", locals=converter._vars_to_symbols)
+
+        rule = converter._algebra_to_logic(e)
+
+        self.assertTrue(rule.equivalent(expr("(a | b) & (~c | d)")))
+
+        converter._vars_to_symbols = {
+            "a": Symbol("a"),
+            "b": Symbol("b"),
+            "d": Symbol("d"),
+        }
+
+        with self.assertRaises(AssertionError):
+            converter._algebra_to_logic(e)
+
+
+class SympyAlgebraicToPyedaRules(unittest.TestCase):
+
+    def test_function(self):
+        converter = PolicyBTConverter()
+        sf = StateFactor("sf", ["a", "b", "c", "d"])
+
+        converter._vars_to_conds = {
+            "a": EqCondition(sf, "a"),
+            "b": EqCondition(sf, "b"),
+            "c": EqCondition(sf, "c"),
+            "d": EqCondition(sf, "d"),
+        }
+
+        converter._vars_to_symbols = {
+            "a": Symbol("a"),
+            "b": Symbol("b"),
+            "c": Symbol("c"),
+            "d": Symbol("d"),
+        }
+
+        e1 = sympify("(a + b) * (NOTc + d)", locals=converter._vars_to_symbols)
+        e2 = sympify("(NOTa * NOTb) + (c * NOTd)", locals=converter._vars_to_symbols)
+
+        sympy_act_pairs = [(e1, "a1"), (e2, "a2")]
+
+        pyeda_act_pairs = converter._sympy_algebraic_to_pyeda_rules(sympy_act_pairs)
+
+        r1 = expr("(a | b) & (~c | d)")
+        r2 = expr("(~a & ~b) | (c & ~d)")
+
+        self.assertEqual(len(pyeda_act_pairs), 2)
+        self.assertEqual(pyeda_act_pairs[0][1], "a1")
+        self.assertEqual(pyeda_act_pairs[1][1], "a2")
+        self.assertTrue(pyeda_act_pairs[0][0].equivalent(r1))
+        self.assertTrue(pyeda_act_pairs[1][0].equivalent(r2))
+
+
 class BuildConditionNodeTest(unittest.TestCase):
 
     def test_function(self):
