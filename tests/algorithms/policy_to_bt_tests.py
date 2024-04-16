@@ -1122,6 +1122,56 @@ class SympyAlgebraicToPyedaRules(unittest.TestCase):
         self.assertTrue(pyeda_act_pairs[1][0].equivalent(r2))
 
 
+class MinimiseRuleActPairsTest(unittest.TestCase):
+
+    def test_function(self):
+        converter = PolicyBTConverter()
+        converter._vars_to_conds = {}
+        converter._vars_to_symbols = {}
+
+        loc = StateFactor("loc", ["v1", "v2", "v3", "v4", "v5"])
+        busy = StateFactor("busy", ["yes", "no"])
+
+        converter._vars_to_conds["locEQv1"] = EqCondition(loc, "v1")
+        converter._vars_to_conds["locEQv2"] = EqCondition(loc, "v2")
+        converter._vars_to_conds["locEQv3"] = EqCondition(loc, "v3")
+        converter._vars_to_conds["busyEQyes"] = EqCondition(busy, "yes")
+        converter._vars_to_conds["busyEQno"] = EqCondition(busy, "no")
+
+        converter._vars_to_symbols["locEQv1"] = Symbol("locEQv1")
+        converter._vars_to_symbols["locEQv2"] = Symbol("locEQv2")
+        converter._vars_to_symbols["locEQv3"] = Symbol("locEQv3")
+        converter._vars_to_symbols["busyEQyes"] = Symbol("busyEQyes")
+        converter._vars_to_symbols["busyEQno"] = Symbol("busyEQno")
+
+        rule_1 = expr("(locEQv1 & busyEQyes) | (locEQv1 & busyEQno)")
+
+        rule_2 = expr("locEQv1 | locEQv2")
+
+        ra_pairs = [(rule_1, "a1"), (rule_2, "a2")]
+
+        new_ra_pairs = converter._minimise_rule_act_pairs(ra_pairs)
+        self.assertEqual(len(ra_pairs), 2)
+        self.assertEqual(new_ra_pairs[0][1], "a1")
+        self.assertEqual(new_ra_pairs[1][1], "a2")
+
+        expected_1 = sympify(
+            "locEQv1",
+            locals=converter._vars_to_symbols,
+        )
+        expected_2 = sympify("locEQv1 + locEQv2", locals=converter._vars_to_symbols)
+
+        self.assertEqual(new_ra_pairs[0][0], expected_1)
+        self.assertEqual(new_ra_pairs[1][0], expected_2)
+
+        new_ra_pairs = converter._minimise_rule_act_pairs(ra_pairs, True)
+        self.assertEqual(len(ra_pairs), 2)
+        self.assertEqual(new_ra_pairs[0][1], "a1")
+        self.assertEqual(new_ra_pairs[1][1], "a2")
+        self.assertTrue(new_ra_pairs[0][0].equivalent(expr("locEQv1")))
+        self.assertTrue(new_ra_pairs[1][0].equivalent(expr("locEQv1 | locEQv2")))
+
+
 class BuildConditionNodeTest(unittest.TestCase):
 
     def test_function(self):
