@@ -804,18 +804,23 @@ class PolicyBTConverter(object):
         # See self._convert_to_horn_clauses() for more information
         act_to_horn = self._convert_to_horn_clauses(act_to_min_rule)
 
-        # Step 7: Score the rules and sort them in descending order
-        ordered_ra_pairs = self._score_and_sort_rules(act_to_horn)
+        # Step 7: Run espresso again, as step 4 can seem to introduce redundancies when negated
+        # Then convert back to DNF as a sanity check
+        act_to_min_horn = self._minimise_with_espresso(act_to_horn)
+        act_to_min_horn = {a: act_to_min_horn[a].to_dnf() for a in act_to_min_horn}
 
-        # Step 8: Convert pyeda horn clauses to sympy expressions and minimise
+        # Step 8: Score the rules and sort them in descending order
+        ordered_ra_pairs = self._score_and_sort_rules(act_to_min_horn)
+
+        # Step 9: Convert pyeda horn clauses to sympy expressions and minimise
         simple_alg_act_pairs = self._minimise_rule_act_pairs(ordered_ra_pairs)
 
-        # Step 9: Convert the rules into a BT
+        # Step 10: Convert the rules into a BT
         bt = self._convert_rules_to_bt(simple_alg_act_pairs)
 
-        # Step 10: Write the BT to file as a BT.cpp XML file
+        # Step 11: Write the BT to file as a BT.cpp XML file
         if out_file is not None:
             bt.to_BT_XML(out_file)
 
-        # Step 11: Return BT
+        # Step 12: Return BT
         return bt
