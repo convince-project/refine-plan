@@ -69,13 +69,13 @@ def gfactor(formula, divisor_fn=_most_common_condition):
     """
     divisor = divisor_fn(formula)
 
-    if divisor is None:  # If there is no common condition
+    if divisor is None:  # If no divisor is possible
         return formula  # No factorisation can be done
 
     quotient, remainder = _divide(formula, divisor)
 
     if isinstance(quotient, Symbol):  # If just a single symbol
-        return _lf(formula, quotient)
+        return _lf(formula, quotient, divisor_fn)
 
     quotient = _make_cube_free(quotient)
     divisor, remainder = _divide(formula, quotient)
@@ -86,17 +86,17 @@ def gfactor(formula, divisor_fn=_most_common_condition):
     if _is_cube_free(divisor):
         # Condition found in implementation I'm referencing - can't hurt
         if quotient != 1:
-            quotient = gfactor(quotient)
-        divisor = gfactor(divisor)
-        remainder = gfactor(remainder) if remainder != 0 else remainder
+            quotient = gfactor(quotient, divisor_fn)
+        divisor = gfactor(divisor, divisor_fn)
+        remainder = gfactor(remainder, divisor_fn) if remainder != 0 else remainder
 
         return quotient * divisor + remainder
 
     largest_common_cube = _largest_common_cube(divisor)
-    return _lf(formula, largest_common_cube)
+    return _lf(formula, largest_common_cube, divisor_fn)
 
 
-def _lf(formula, divisor):
+def _lf(formula, divisor, divisor_fn=_most_common_condition):
     """A more basic logical factorisation algorithm.
 
     This is a subroutine of GFactor and also makes recursive calls to g factor.
@@ -104,16 +104,17 @@ def _lf(formula, divisor):
     Args:
         formula: The formula being fatorised.
         divisor: The divisor (what we're dividing by)
+        divisor_fn: Optional. Sets the function to use for the initial divisor.
 
     Returns:
         factorised: The factorised formula
     """
     quotient, remainder = _divide(formula, divisor)
 
-    quotient = gfactor(quotient)
+    quotient = gfactor(quotient, divisor_fn)
 
     if not remainder.is_zero:
-        remainder = gfactor(remainder)
+        remainder = gfactor(remainder, divisor_fn)
 
     return divisor * quotient + remainder
 
@@ -271,12 +272,12 @@ def _get_random_divisor(formula):
         divisor: A random variable to choose as divisor
     """
     if isinstance(formula, Symbol):
-        return formula
+        return None
     else:
         frequencies = _get_variable_frequencies(formula)
         # Can only occur if all variables occur once
         if sum(frequencies.values()) == len(frequencies):
-            return formula
+            return None
         else:
             return random.choice(list(frequencies.keys()))
 
@@ -320,11 +321,11 @@ def _quick_divisor(formula):
         divisor: The initial divisor for gfactor
     """
     if isinstance(formula, Symbol):
-        return formula
+        return None
     else:
         frequencies = _get_variable_frequencies(formula)
         # Can only occur if all variables occur once
         if sum(frequencies.values()) == len(frequencies):
-            return formula
+            return None
         else:
             return _one_zero_kernel(formula)

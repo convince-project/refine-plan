@@ -74,10 +74,10 @@ class GetRandomDivisorTest(unittest.TestCase):
         )
 
         divisor = _get_random_divisor(formula_1)
-        self.assertEqual(divisor, formula_1)
+        self.assertEqual(divisor, None)
 
         divisor = _get_random_divisor(formula_2)
-        self.assertEqual(divisor, formula_2)
+        self.assertEqual(divisor, None)
 
         symbols = [Symbol("v1"), Symbol("v2"), Symbol("v3"), Symbol("v4")]
         for i in range(100):
@@ -119,6 +119,14 @@ class QuickDivisorTest(unittest.TestCase):
             Mul(Symbol("v1"), Symbol("v3")),
             Symbol("v4"),
         )
+        kernel = _quick_divisor(formula_1)
+        self.assertEqual(kernel, None)
+
+        kernel = _quick_divisor(formula_2)
+        self.assertEqual(kernel, None)
+
+        kernel = _quick_divisor(formula_3)
+        self.assertEqual(kernel, Add(Symbol("v2"), Symbol("v3")))
 
 
 class MostCommonConditionTest(unittest.TestCase):
