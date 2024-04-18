@@ -23,11 +23,11 @@ Author: Charlie Street
 Owner: Charlie Street
 """
 
+from refine_plan.algorithms.gfactor import gfactor, _quick_divisor
 from pyeda.boolalg.expr import Complement, Variable, AndOp, OrOp
 from pyeda.inter import espresso_exprs, Not, And, Or, exprvar
 from refine_plan.models.state_factor import IntStateFactor
 from sympy import Symbol, sympify, Mul, Add, simplify
-from refine_plan.algorithms.gfactor import gfactor
 from refine_plan.models.behaviour_tree import (
     BehaviourTree,
     SequenceNode,
@@ -326,7 +326,7 @@ class PolicyBTConverter(object):
         min_alg_act_pairs = []
 
         for pair in ordered_alg_act_pairs:
-            reduced_expr = gfactor(pair[0])
+            reduced_expr = gfactor(pair[0], divisor_fn=_quick_divisor)
             min_alg_act_pairs.append((reduced_expr, pair[1]))
 
         return min_alg_act_pairs
