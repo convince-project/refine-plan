@@ -26,20 +26,48 @@ Owner: Charlie Street
 """
 
 from sympy import sympify, reduced, Symbol, Add, Mul
+import random
 
 
-def gfactor(formula):
+def _most_common_condition(formula):
+    """Find the most condition in a formula.
+
+    Finds the variable (which represents a logical condition) which
+    appears in the most conjunctions.
+
+    The assumption here I think is that the expression is DNF.
+    And that a variable only appears once in a conjunction.
+    Given our sympy expressions are logical expressions, this should always
+    be satisfied.
+
+    Args:
+        formula: The formula to search through
+
+    Returns:
+        most_common_condition: The most common condition, or None if there isn't one
+    """
+
+    frequencies = _get_variable_frequencies(formula)
+    mcc = max(frequencies, key=frequencies.get)
+    if frequencies[mcc] > 1:
+        return mcc
+    else:
+        return None
+
+
+def gfactor(formula, divisor_fn=_most_common_condition):
     """Runs the GFactor factorisation algorithm.
 
     This code really just follows the pseudocode in the paper
 
     Args:
         formula: A sympy formula
+        divisor_fn: Optional. Sets the function to use for the initial divisor.
 
     Returns:
         factorised: A factorised formula in the format p*q + r
     """
-    divisor = _most_common_condition(formula)
+    divisor = divisor_fn(formula)
 
     if divisor is None:  # If there is no common condition
         return formula  # No factorisation can be done
@@ -213,22 +241,14 @@ def _get_variables_in_formula(formula):
         return [formula]
 
 
-def _most_common_condition(formula):
-    """Find the most condition in a formula.
-
-    Finds the variable (which represents a logical condition) which
-    appears in the most conjunctions.
-
-    The assumption here I think is that the expression is DNF.
-    And that a variable only appears once in a conjunction.
-    Given our sympy expressions are logical expressions, this should always
-    be satisfied.
+def _get_variable_frequencies(formula):
+    """Returns the frequencies of each variable in a formula.
 
     Args:
-        formula: The formula to search through
+        formula: An algebraic logical formula
 
     Returns:
-        most_common_condition: The most common condition, or None if there isn't one
+        frequencies: A dict from variables (Symbols) to frequencies
     """
     variables = _get_variables_in_formula(formula)
     frequencies = {}
@@ -238,8 +258,73 @@ def _most_common_condition(formula):
             frequencies[var] = 0
         frequencies[var] += 1
 
-    mcc = max(frequencies, key=frequencies.get)
-    if frequencies[mcc] > 1:
-        return mcc
+    return frequencies
+
+
+def _get_random_divisor(formula):
+    """Get a random divisor for GFactor. The divisor is a single variable.
+
+    Args:
+        formula: The formula we're trying to factorise
+
+    Returns:
+        divisor: A random variable to choose as divisor
+    """
+    if isinstance(formula, Symbol):
+        return formula
     else:
-        return None
+        frequencies = _get_variable_frequencies(formula)
+        # Can only occur if all variables occur once
+        if sum(frequencies.values()) == len(frequencies):
+            return formula
+        else:
+            return random.choice(list(frequencies.keys()))
+
+
+def _one_zero_kernel(formula):
+    """Find a level-0 kernel to use as an initial divisor for GFactor.
+
+    Kernels are cube-free primary divisions of formula.
+
+    Implemented from:
+    Wang, A.R.R., 1990. Algorithms for multilevel logic optimization.
+
+    Args:
+        formula: The formula we're trying to factorise
+
+    Returns:
+        kernel: The level-0 kernel.
+    """
+    frequencies = _get_variable_frequencies(formula)
+    if sum(frequencies.values()) == len(frequencies):
+        return formula
+
+    more_than_once = {v: frequencies[v] for v in frequencies if frequencies[v] > 1}
+    random_literal = random.choice(list(more_than_once.keys()))
+
+    q, _ = _divide(formula, random_literal)
+    cubeless_q = _make_cube_free(q)
+
+    return _one_zero_kernel(cubeless_q)
+
+
+def _quick_divisor(formula):
+    """Implements the quick divisor function from the thesis below.
+
+    Wang, A.R.R., 1990. Algorithms for multilevel logic optimization.
+
+    Args:
+        formula: The formula we're trying to factorise
+
+    Returns:
+        divisor: The initial divisor for gfactor
+    """
+    if isinstance(formula, Symbol):
+        return formula
+    else:
+        frequencies = _get_variable_frequencies(formula)
+        # Can only occur if all variables occur once
+        if sum(frequencies.values()) == len(frequencies):
+            return formula
+        else:
+            return _one_zero_kernel(formula)
