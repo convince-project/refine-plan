@@ -28,6 +28,9 @@ Owner: Charlie Street
 from sympy import sympify, reduced, Symbol, Add, Mul
 import random
 
+# Magic number for _quick_divisor to avoid sympy negative remainder problem
+MAX_TRIES = 10
+
 
 def _most_common_condition(formula):
     """Find the most condition in a formula.
@@ -328,4 +331,23 @@ def _quick_divisor(formula):
         if sum(frequencies.values()) == len(frequencies):
             return None
         else:
-            return _one_zero_kernel(formula)
+            kernel = _one_zero_kernel(formula)
+
+            # NOTE: This is a hacky solution to unfortunate behaviour in sympy
+            # reduced in Sympy will sometimes return a negative remainder
+            # which doesn't make any sense
+            # To address this, I will exploit the randomness in
+            # _one_zero_kernel and run it a number of times
+            # If everything else fails, I'll just run _most_common_condition
+            # which should never have this issue, as it returns one variable
+            q, _ = _divide(formula, kernel)
+            tries = 1
+            while q.is_zero and tries < MAX_TRIES:
+                kernel = _one_zero_kernel(formula)
+                q, _ = _divide(formula, kernel)
+                tries += 1
+
+            if tries >= MAX_TRIES:
+                return _most_common_condition(formula)
+
+            return kernel
