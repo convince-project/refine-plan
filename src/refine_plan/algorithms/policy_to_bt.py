@@ -23,10 +23,11 @@ Author: Charlie Street
 Owner: Charlie Street
 """
 
+from refine_plan.algorithms.gfactor import gfactor, _quick_divisor
 from pyeda.boolalg.expr import Complement, Variable, AndOp, OrOp
+from pyeda.inter import espresso_exprs, Not, And, Or, exprvar
 from refine_plan.models.state_factor import IntStateFactor
 from sympy import Symbol, sympify, Mul, Add, simplify
-from refine_plan.algorithms.gfactor import gfactor
 from refine_plan.models.behaviour_tree import (
     BehaviourTree,
     SequenceNode,
@@ -35,7 +36,6 @@ from refine_plan.models.behaviour_tree import (
     ConditionNode,
 )
 from refine_plan.models.policy import Policy
-from pyeda.inter import espresso_exprs, Not
 from refine_plan.models.condition import (
     OrCondition,
     EqCondition,
@@ -326,7 +326,7 @@ class PolicyBTConverter(object):
         min_alg_act_pairs = []
 
         for pair in ordered_alg_act_pairs:
-            reduced_expr = gfactor(pair[0])
+            reduced_expr = gfactor(pair[0], divisor_fn=_quick_divisor)
             min_alg_act_pairs.append((reduced_expr, pair[1]))
 
         return min_alg_act_pairs
@@ -611,6 +611,82 @@ class PolicyBTConverter(object):
 
         return simple_alg_act_pairs
 
+    def _algebra_to_logic(self, sympy_expr):
+        """Converts a sympy algebraic expression to a Pyeda logical rule.
+
+        Args:
+            sympy_expr: The sympy expression
+
+        Returns:
+            pyeda_rule: The pyeda rule
+
+        Raises:
+            bad_expr_exception: Raised if invalid expression passed in
+        """
+
+        if isinstance(sympy_expr, Add):
+            return Or(*[self._algebra_to_logic(a) for a in sympy_expr.args])
+        elif isinstance(sympy_expr, Mul):
+            return And(*[self._algebra_to_logic(a) for a in sympy_expr.args])
+        elif isinstance(sympy_expr, Symbol):
+            if str(sympy_expr)[:3] == "NOT":
+                un_not = str(sympy_expr)[3:]
+                assert un_not in self._vars_to_conds
+                assert un_not in self._vars_to_symbols
+                return Not(exprvar(un_not))
+            else:
+                assert str(sympy_expr) in self._vars_to_conds
+                assert str(sympy_expr) in self._vars_to_symbols
+                return exprvar(str(sympy_expr))
+
+    def _sympy_algebraic_to_pyeda_rules(self, sympy_act_pairs):
+        """Convert Sympy algebriac expressions back to pyeda logical rules.
+
+        Args:
+            sympy_act_pairs: A list of (sympy expression, action/option) pairs
+
+        Returns:
+            pyeda_act_pairs: A list of (pyeda rule, action/option) pairs
+        """
+
+        pyeda_act_pairs = []
+
+        for pair in sympy_act_pairs:
+            pyeda_rule = self._algebra_to_logic(pair[0])
+            pyeda_act_pairs.append((pyeda_rule, pair[1]))
+
+        return pyeda_act_pairs
+
+    def _minimise_rule_act_pairs(self, ra_pairs, back_to_pyeda=False):
+        """Combines functionality of multiple components to minimise pyeda expressions.
+
+        Args:
+            ra_pairs: A list of (pyeda rule, action/option) pairs
+            back_to_pyeda: Optional. If True, the output expressions will be in pyeda.
+                           Otherwise, they will be sympy algebraic expressions
+
+        Returns:
+            expression_act_pairs: A list of minimised
+                                 (pyeda rule/sympy expression, action/option) pairs
+        """
+        # Convert logical operators & and | into * and + for factorisation
+        alg_act_pairs = self._pyeda_rules_to_sympy_algebraic(ra_pairs)
+
+        # Run GFactor to factorise each rule
+        min_alg_act_pairs = self._reduce_sympy_expressions(alg_act_pairs)
+
+        # Simplify the factorised expressions using the state factor info
+        simple_alg_act_pairs = self._simplify_using_state_factors(min_alg_act_pairs)
+
+        # Reduce the expressions again in case we can reduce further
+        # NOTE: I think this is OK to do, but I'm not convinced it'll ever do anything
+        simple_alg_act_pairs = self._reduce_sympy_expressions(simple_alg_act_pairs)
+
+        if back_to_pyeda:
+            return self._sympy_algebraic_to_pyeda_rules(simple_alg_act_pairs)
+        else:
+            return simple_alg_act_pairs
+
     def _build_condition_node(self, var_name):
         """Build a condition node for a given variable.
 
@@ -716,35 +792,35 @@ class PolicyBTConverter(object):
         # Step 3: Build all internal bookkeeping structures
         self._build_internal_mappings(act_to_var_map)
 
-        # Step 4: Minimise the rules for each action/option using Espresso
+        # Step 4: Do some early minimisation of the rules before trying to convert to DNF
+        ra_pairs = [(act_to_rule[a], a) for a in act_to_rule]
+        ra_pairs = self._minimise_rule_act_pairs(ra_pairs, back_to_pyeda=True)
+        act_to_rule = {ra[1]: ra[0] for ra in ra_pairs}
+
+        # Step 5: Minimise the rules for each action/option using Espresso
         act_to_min_rule = self._minimise_with_espresso(act_to_rule)
 
-        # Step 5: Convert minimised rules into Horn clauses (sort of)
+        # Step 6: Convert minimised rules into Horn clauses (sort of)
         # See self._convert_to_horn_clauses() for more information
         act_to_horn = self._convert_to_horn_clauses(act_to_min_rule)
 
-        # Step 6: Score the rules and sort them in descending order
-        ordered_ra_pairs = self._score_and_sort_rules(act_to_horn)
+        # Step 7: Run espresso again, as step 4 can seem to introduce redundancies when negated
+        # Then convert back to DNF as a sanity check
+        act_to_min_horn = self._minimise_with_espresso(act_to_horn)
+        act_to_min_horn = {a: act_to_min_horn[a].to_dnf() for a in act_to_min_horn}
 
-        # Step 7: Convert logical operators & and | into * and + for factorisation
-        ordered_alg_act_pairs = self._pyeda_rules_to_sympy_algebraic(ordered_ra_pairs)
+        # Step 8: Score the rules and sort them in descending order
+        ordered_ra_pairs = self._score_and_sort_rules(act_to_min_horn)
 
-        # Step 8: Run GFactor to factorise each rule
-        min_alg_act_pairs = self._reduce_sympy_expressions(ordered_alg_act_pairs)
+        # Step 9: Convert pyeda horn clauses to sympy expressions and minimise
+        simple_alg_act_pairs = self._minimise_rule_act_pairs(ordered_ra_pairs)
 
-        # Step 9: Simplify the factorised expressions using the state factor info
-        simple_alg_act_pairs = self._simplify_using_state_factors(min_alg_act_pairs)
-
-        # Step 10: Reduce the expressions again in case we can reduce further
-        # NOTE: I think this is OK to do, but I'm not convinced it'll ever do anything
-        simple_alg_act_pairs = self._reduce_sympy_expressions(simple_alg_act_pairs)
-
-        # Step 11: Convert the rules into a BT
+        # Step 10: Convert the rules into a BT
         bt = self._convert_rules_to_bt(simple_alg_act_pairs)
 
-        # Step 12: Write the BT to file as a BT.cpp XML file
+        # Step 11: Write the BT to file as a BT.cpp XML file
         if out_file is not None:
             bt.to_BT_XML(out_file)
 
-        # Step 13: Return BT
+        # Step 12: Return BT
         return bt

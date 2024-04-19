@@ -26,28 +26,65 @@ Owner: Charlie Street
 """
 
 from sympy import sympify, reduced, Symbol, Add, Mul
+import random
+
+# Magic number for _quick_divisor to avoid sympy negative remainder problem
+MAX_TRIES = 10
 
 
-def gfactor(formula):
+def _most_common_condition(formula):
+    """Find the most condition in a formula.
+
+    Finds the variable (which represents a logical condition) which
+    appears in the most conjunctions.
+
+    The assumption here I think is that the expression is DNF.
+    And that a variable only appears once in a conjunction.
+    Given our sympy expressions are logical expressions, this should always
+    be satisfied.
+
+    Args:
+        formula: The formula to search through
+
+    Returns:
+        most_common_condition: The most common condition, or None if there isn't one
+    """
+
+    frequencies = _get_variable_frequencies(formula)
+    mcc = max(frequencies, key=frequencies.get)
+    if frequencies[mcc] > 1:
+        return mcc
+    else:
+        return None
+
+
+def gfactor(formula, divisor_fn=_most_common_condition):
     """Runs the GFactor factorisation algorithm.
 
     This code really just follows the pseudocode in the paper
 
     Args:
         formula: A sympy formula
+        divisor_fn: Optional. Sets the function to use for the initial divisor.
 
     Returns:
         factorised: A factorised formula in the format p*q + r
     """
-    divisor = _most_common_condition(formula)
+    divisor = divisor_fn(formula)
 
-    if divisor is None:  # If there is no common condition
+    if divisor is None:  # If no divisor is possible
         return formula  # No factorisation can be done
 
     quotient, remainder = _divide(formula, divisor)
 
-    if isinstance(quotient, Symbol):  # If just a single symbol
-        return _lf(formula, quotient)
+    # If just a single cube
+    # NOTE: This used to just check for symbols
+    # This caused a bug, and I think it should be changed to the number of cubes
+    # I can't be sure though as neither paper makes this clear
+    # The logic is that a single cube can never be cube free, so applying
+    # _make_cube_free makes no sense
+    if isinstance(quotient, Symbol) or isinstance(quotient, Mul):
+        return _lf(formula, quotient, divisor_fn)
 
     quotient = _make_cube_free(quotient)
     divisor, remainder = _divide(formula, quotient)
@@ -58,17 +95,17 @@ def gfactor(formula):
     if _is_cube_free(divisor):
         # Condition found in implementation I'm referencing - can't hurt
         if quotient != 1:
-            quotient = gfactor(quotient)
-        divisor = gfactor(divisor)
-        remainder = gfactor(remainder) if remainder != 0 else remainder
+            quotient = gfactor(quotient, divisor_fn)
+        divisor = gfactor(divisor, divisor_fn)
+        remainder = gfactor(remainder, divisor_fn) if remainder != 0 else remainder
 
         return quotient * divisor + remainder
 
     largest_common_cube = _largest_common_cube(divisor)
-    return _lf(formula, largest_common_cube)
+    return _lf(formula, largest_common_cube, divisor_fn)
 
 
-def _lf(formula, divisor):
+def _lf(formula, divisor, divisor_fn=_most_common_condition):
     """A more basic logical factorisation algorithm.
 
     This is a subroutine of GFactor and also makes recursive calls to g factor.
@@ -76,16 +113,17 @@ def _lf(formula, divisor):
     Args:
         formula: The formula being fatorised.
         divisor: The divisor (what we're dividing by)
+        divisor_fn: Optional. Sets the function to use for the initial divisor.
 
     Returns:
         factorised: The factorised formula
     """
     quotient, remainder = _divide(formula, divisor)
 
-    quotient = gfactor(quotient)
+    quotient = gfactor(quotient, divisor_fn)
 
     if not remainder.is_zero:
-        remainder = gfactor(remainder)
+        remainder = gfactor(remainder, divisor_fn)
 
     return divisor * quotient + remainder
 
@@ -213,22 +251,14 @@ def _get_variables_in_formula(formula):
         return [formula]
 
 
-def _most_common_condition(formula):
-    """Find the most condition in a formula.
-
-    Finds the variable (which represents a logical condition) which
-    appears in the most conjunctions.
-
-    The assumption here I think is that the expression is DNF.
-    And that a variable only appears once in a conjunction.
-    Given our sympy expressions are logical expressions, this should always
-    be satisfied.
+def _get_variable_frequencies(formula):
+    """Returns the frequencies of each variable in a formula.
 
     Args:
-        formula: The formula to search through
+        formula: An algebraic logical formula
 
     Returns:
-        most_common_condition: The most common condition, or None if there isn't one
+        frequencies: A dict from variables (Symbols) to frequencies
     """
     variables = _get_variables_in_formula(formula)
     frequencies = {}
@@ -238,8 +268,92 @@ def _most_common_condition(formula):
             frequencies[var] = 0
         frequencies[var] += 1
 
-    mcc = max(frequencies, key=frequencies.get)
-    if frequencies[mcc] > 1:
-        return mcc
-    else:
+    return frequencies
+
+
+def _get_random_divisor(formula):
+    """Get a random divisor for GFactor. The divisor is a single variable.
+
+    Args:
+        formula: The formula we're trying to factorise
+
+    Returns:
+        divisor: A random variable to choose as divisor
+    """
+    if isinstance(formula, Symbol) or isinstance(formula, Mul):
         return None
+    else:
+        frequencies = _get_variable_frequencies(formula)
+        # Can only occur if all variables occur once
+        if sum(frequencies.values()) == len(frequencies):
+            return None
+        else:
+            return random.choice(list(frequencies.keys()))
+
+
+def _one_zero_kernel(formula):
+    """Find a level-0 kernel to use as an initial divisor for GFactor.
+
+    Kernels are cube-free primary divisions of formula.
+
+    Implemented from:
+    Wang, A.R.R., 1990. Algorithms for multilevel logic optimization.
+
+    Args:
+        formula: The formula we're trying to factorise
+
+    Returns:
+        kernel: The level-0 kernel.
+    """
+    frequencies = _get_variable_frequencies(formula)
+    if sum(frequencies.values()) == len(frequencies):
+        return formula
+
+    more_than_once = {v: frequencies[v] for v in frequencies if frequencies[v] > 1}
+    random_literal = random.choice(list(more_than_once.keys()))
+
+    q, _ = _divide(formula, random_literal)
+    cubeless_q = _make_cube_free(q)
+
+    return _one_zero_kernel(cubeless_q)
+
+
+def _quick_divisor(formula):
+    """Implements the quick divisor function from the thesis below.
+
+    Wang, A.R.R., 1990. Algorithms for multilevel logic optimization.
+
+    Args:
+        formula: The formula we're trying to factorise
+
+    Returns:
+        divisor: The initial divisor for gfactor
+    """
+    if isinstance(formula, Symbol) or isinstance(formula, Mul):
+        return None
+    else:
+        frequencies = _get_variable_frequencies(formula)
+        # Can only occur if all variables occur once
+        if sum(frequencies.values()) == len(frequencies):
+            return None
+        else:
+            kernel = _one_zero_kernel(formula)
+
+            # NOTE: This is a hacky solution to unfortunate behaviour in sympy
+            # reduced in Sympy will sometimes return a negative remainder
+            # which doesn't make any sense
+            # To address this, I will exploit the randomness in
+            # _one_zero_kernel and run it a number of times
+            # If everything else fails, I'll just run _most_common_condition
+            # which should never have this issue, as it returns one variable
+            q, _ = _divide(formula, kernel)
+            tries = 1
+            while q.is_zero and tries < MAX_TRIES:
+                kernel = _one_zero_kernel(formula)
+                q, _ = _divide(formula, kernel)
+                tries += 1
+
+            if tries >= MAX_TRIES:
+                return _most_common_condition(formula)
+
+            return kernel

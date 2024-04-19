@@ -17,6 +17,19 @@ from refine_plan.models.option import Option
 from refine_plan.models.state import State
 
 
+def manhattan_distance(s1, s2):
+    """Get the manhattan distance between two states representing grid cells.
+
+    Args:
+        s1: The first state
+        s2: The second state
+
+    Returns:
+        dist: The manhattan distance
+    """
+    return abs(s1["x"] - s2["x"]) + abs(s1["y"] - s2["y"])
+
+
 def get_transition(s, good_hall_state, bad_hall_state):
     """Get the probabilistic transition for an option froma given state.
 
@@ -29,11 +42,9 @@ def get_transition(s, good_hall_state, bad_hall_state):
         trans_pair: (pre_cond, prob_post_cond)
     """
 
-    good_man_dist = abs(s["x"] - good_hall_state["x"])
-    good_man_dist += abs(s["y"] - good_hall_state["y"])
+    good_man_dist = manhattan_distance(s, good_hall_state)
 
-    bad_man_dist = abs(s["x"] - bad_hall_state["x"])
-    bad_man_dist += abs(s["y"] - bad_hall_state["y"])
+    bad_man_dist = manhattan_distance(s, bad_hall_state)
 
     if good_man_dist == 0:  # If we're there, we succeed
         return (s.to_and_cond(), {good_hall_state.to_and_cond(): 1.0})
@@ -75,16 +86,17 @@ def create_option(name, states, succ_state, fail_state, goal_state):
     reward_list = []
     for state in states:
         trans = get_transition(state, succ_state, fail_state)
-        prob_to_goal = 0.0
         succ_probs = trans[1]
+        prob_to_succ = 0.0
         for succ_cond in succ_probs:
-            if succ_cond.is_satisfied(goal_state):
-                prob_to_goal = succ_probs[succ_cond]
+            if succ_cond.is_satisfied(succ_state):
+                prob_to_succ = succ_probs[succ_cond]
 
         transition_list.append(trans)
 
-        if prob_to_goal != 0.0:
-            reward_list.append((state.to_and_cond(), prob_to_goal))
+        avg_r = prob_to_succ * manhattan_distance(state, succ_state)
+        avg_r += (1 - prob_to_succ) * manhattan_distance(state, fail_state)
+        reward_list.append((state.to_and_cond(), avg_r))
 
     return Option(name, transition_list, reward_list)
 
@@ -193,7 +205,7 @@ if __name__ == "__main__":
         sf_list,
         option_list,
         labels,
-        prism_prop='Pmax=?[F "goal"]',
+        prism_prop='Rmin=?[F "goal"]',
         none_replacer="dead",
     )
 

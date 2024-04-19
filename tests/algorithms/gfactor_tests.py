@@ -14,6 +14,10 @@ from refine_plan.algorithms.gfactor import (
     _divide,
     _get_variables_in_formula,
     _most_common_condition,
+    _get_variable_frequencies,
+    _get_random_divisor,
+    _quick_divisor,
+    _one_zero_kernel,
 )
 from sympy import sympify, Add, Mul, Symbol
 import unittest
@@ -35,6 +39,94 @@ class GetVariablesInFormulaTest(unittest.TestCase):
             var_list,
             [Symbol("v1"), Symbol("v1"), Symbol("v2"), Symbol("v3"), Symbol("v4")],
         )
+
+
+class GetVariablesFrequenciesTest(unittest.TestCase):
+
+    def test_function(self):
+        formula = Add(
+            Mul(Symbol("v1"), Symbol("v2")),
+            Mul(Symbol("v1"), Symbol("v3")),
+            Symbol("v4"),
+        )
+
+        frequencies = _get_variable_frequencies(formula)
+
+        self.assertEqual(len(frequencies), 4)
+        self.assertEqual(frequencies[Symbol("v1")], 2)
+        self.assertEqual(frequencies[Symbol("v2")], 1)
+        self.assertEqual(frequencies[Symbol("v3")], 1)
+        self.assertEqual(frequencies[Symbol("v4")], 1)
+
+
+class GetRandomDivisorTest(unittest.TestCase):
+
+    def test_function(self):
+
+        formula_1 = Symbol("v1")
+        formula_2 = Add(
+            Mul(Symbol("v1"), Symbol("v2")), Mul(Symbol("v4"), Symbol("v3"))
+        )
+        formula_3 = Add(
+            Mul(Symbol("v1"), Symbol("v2")),
+            Mul(Symbol("v1"), Symbol("v3")),
+            Symbol("v4"),
+        )
+
+        divisor = _get_random_divisor(formula_1)
+        self.assertEqual(divisor, None)
+
+        divisor = _get_random_divisor(formula_2)
+        self.assertEqual(divisor, None)
+
+        symbols = [Symbol("v1"), Symbol("v2"), Symbol("v3"), Symbol("v4")]
+        for i in range(100):
+            divisor = _get_random_divisor(formula_3)
+            self.assertTrue(divisor in symbols)
+
+
+class OneZeroKernelTest(unittest.TestCase):
+
+    def test_function(self):
+        formula_1 = Symbol("v1")
+        formula_2 = Add(
+            Mul(Symbol("v1"), Symbol("v2")), Mul(Symbol("v4"), Symbol("v3"))
+        )
+        formula_3 = Add(
+            Mul(Symbol("v1"), Symbol("v2")),
+            Mul(Symbol("v1"), Symbol("v3")),
+            Symbol("v4"),
+        )
+        kernel = _one_zero_kernel(formula_1)
+        self.assertEqual(kernel, formula_1)
+
+        kernel = _one_zero_kernel(formula_2)
+        self.assertEqual(kernel, formula_2)
+
+        kernel = _one_zero_kernel(formula_3)
+        self.assertEqual(kernel, Add(Symbol("v2"), Symbol("v3")))
+
+
+class QuickDivisorTest(unittest.TestCase):
+
+    def test_function(self):
+        formula_1 = Symbol("v1")
+        formula_2 = Add(
+            Mul(Symbol("v1"), Symbol("v2")), Mul(Symbol("v4"), Symbol("v3"))
+        )
+        formula_3 = Add(
+            Mul(Symbol("v1"), Symbol("v2")),
+            Mul(Symbol("v1"), Symbol("v3")),
+            Symbol("v4"),
+        )
+        kernel = _quick_divisor(formula_1)
+        self.assertEqual(kernel, None)
+
+        kernel = _quick_divisor(formula_2)
+        self.assertEqual(kernel, None)
+
+        kernel = _quick_divisor(formula_3)
+        self.assertEqual(kernel, Add(Symbol("v2"), Symbol("v3")))
 
 
 class MostCommonConditionTest(unittest.TestCase):
