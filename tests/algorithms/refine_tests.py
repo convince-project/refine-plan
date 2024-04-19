@@ -222,7 +222,7 @@ class SynthesiseBTFromOptionsTest(unittest.TestCase):
             option_list,
             labels,
             prism_prop=prop,
-            none_replacer="dummy",
+            default_action="dummy",
             out_file="/tmp/toy_bt.xml",
         )
 
@@ -242,7 +242,7 @@ class SynthesiseBTFromOptionsTest(unittest.TestCase):
             option_list,
             labels,
             prism_prop=prop,
-            none_replacer="dummy",
+            default_action="dummy",
             out_file="/tmp/graph_bt.xml",
         )
 

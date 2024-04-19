@@ -38,12 +38,14 @@ class ResetTest(unittest.TestCase):
         converter = PolicyBTConverter()
         self.assertEqual(converter._vars_to_conds, None)
         self.assertEqual(converter._vars_to_symbols, None)
-        self.assertEqual(converter._none_replacer, "None")
+        self.assertEqual(converter._default_action, "None")
+        self.assertFalse(converter._default_needed)
 
         converter = PolicyBTConverter("test")
         self.assertEqual(converter._vars_to_conds, None)
         self.assertEqual(converter._vars_to_symbols, None)
-        self.assertEqual(converter._none_replacer, "test")
+        self.assertEqual(converter._default_action, "test")
+        self.assertFalse(converter._default_needed)
 
 
 class ExtractRulesFromPolicyTest(unittest.TestCase):
@@ -72,6 +74,8 @@ class ExtractRulesFromPolicyTest(unittest.TestCase):
             converter._extract_rules_from_policy("POLICY")
 
         act_to_rule, act_to_var_map = converter._extract_rules_from_policy(policy)
+
+        self.assertFalse(converter._default_needed)
 
         self.assertEqual(len(act_to_var_map), 3)
         self.assertEqual(len(act_to_var_map["a1"]), 5)
@@ -141,7 +145,7 @@ class ExtractRulesFromPolicyTest(unittest.TestCase):
             )
         )
 
-    def test_none_replace(self):
+    def test_default_action(self):
 
         converter = PolicyBTConverter("replacement")
 
@@ -166,7 +170,9 @@ class ExtractRulesFromPolicyTest(unittest.TestCase):
 
         act_to_rule, act_to_var_map = converter._extract_rules_from_policy(policy)
 
-        self.assertEqual(len(act_to_var_map), 3)
+        self.assertTrue(converter._default_needed)
+
+        self.assertEqual(len(act_to_var_map), 2)
         self.assertEqual(len(act_to_var_map["a1"]), 5)
         self.assertEqual(
             act_to_var_map["a1"],
@@ -189,20 +195,8 @@ class ExtractRulesFromPolicyTest(unittest.TestCase):
                 "sf1EQc": EqCondition(sf1, "c"),
             },
         )
-        self.assertEqual(len(act_to_var_map["replacement"]), 6)
-        self.assertEqual(
-            act_to_var_map["replacement"],
-            {
-                "sf1EQa": EqCondition(sf1, "a"),
-                "sf2EQf": EqCondition(sf2, "f"),
-                "sf1EQb": EqCondition(sf1, "b"),
-                "sf2EQe": EqCondition(sf2, "e"),
-                "sf1EQc": EqCondition(sf1, "c"),
-                "sf2EQd": EqCondition(sf2, "d"),
-            },
-        )
 
-        self.assertEqual(len(act_to_rule), 3)
+        self.assertEqual(len(act_to_rule), 2)
 
         self.assertTrue(
             act_to_rule["a1"].equivalent(
@@ -220,16 +214,6 @@ class ExtractRulesFromPolicyTest(unittest.TestCase):
                     And(expr("sf1EQa"), expr("sf2EQe")),
                     And(expr("sf1EQb"), expr("sf2EQd")),
                     And(expr("sf1EQc"), expr("sf2EQe")),
-                )
-            )
-        )
-
-        self.assertTrue(
-            act_to_rule["replacement"].equivalent(
-                Or(
-                    And(expr("sf1EQa"), expr("sf2EQf")),
-                    And(expr("sf1EQb"), expr("sf2EQe")),
-                    And(expr("sf1EQc"), expr("sf2EQd")),
                 )
             )
         )
@@ -1434,11 +1418,158 @@ class ConvertRulesToBTTest(unittest.TestCase):
         self.assertTrue(isinstance(sub_2._children[1], ActionNode))
         self.assertEqual(sub_2._children[1].get_name(), "a2")
 
+    def test_default_action(self):
+        converter = PolicyBTConverter("default_action")
+        symbols = [
+            "sfEQ1",
+            "sfGT3",
+            "sfEQ2",
+            "sfGEQ4",
+            "sfEQ4",
+            "NOTsfGT3",
+            "sfGEQ0",
+            "sfEQ5",
+        ]
+        converter._vars_to_symbols = {s: Symbol(s) for s in symbols}
+
+        sf = IntStateFactor("sf", 0, 5)
+
+        converter._vars_to_conds = {
+            "sfEQ1": EqCondition(sf, 1),
+            "sfGT3": GtCondition(sf, 3),
+            "sfEQ2": EqCondition(sf, 2),
+            "sfGEQ4": GeqCondition(sf, 4),
+            "sfEQ4": EqCondition(sf, 4),
+            "sfGEQ0": GeqCondition(sf, 0),
+            "sfEQ5": EqCondition(sf, 5),
+        }
+
+        rule_1 = sympify(
+            "sfEQ1 + NOTsfGT3*sfEQ2 + sfGEQ4*sfEQ4", locals=converter._vars_to_symbols
+        )
+        rule_2 = sympify("sfGEQ0*sfEQ5", locals=converter._vars_to_symbols)
+
+        min_alg_act_pairs = [(rule_1, "a1"), (rule_2, "a2")]
+
+        converter._default_needed = True
+        bt = converter._convert_rules_to_bt(min_alg_act_pairs)
+        self.assertTrue(isinstance(bt, BehaviourTree))
+
+        root = bt.get_root_node()
+        self.assertTrue(isinstance(root, SequenceNode))
+        self.assertEqual(len(root._children), 3)
+
+        sub_1 = root._children[0]
+
+        self.assertTrue(isinstance(sub_1, FallbackNode))
+        self.assertEqual(len(sub_1._children), 4)
+
+        for i in range(3):
+            if "sfEQ1" in str(rule_1.args[i]):
+                self.assertTrue(isinstance(sub_1._children[i], ConditionNode))
+                self.assertEqual(sub_1._children[i].get_name(), "sfEQ1")
+                self.assertEqual(sub_1._children[i].get_cond(), EqCondition(sf, 1))
+            elif "NOTsfGT3" in str(rule_1.args[i]):
+                self.assertTrue(isinstance(sub_1._children[i], SequenceNode))
+                self.assertEqual(len(sub_1._children[i]._children), 2)
+                self.assertTrue(
+                    isinstance(sub_1._children[i]._children[0], ConditionNode)
+                )
+                self.assertTrue(
+                    isinstance(sub_1._children[i]._children[1], ConditionNode)
+                )
+                if str(rule_1.args[i].args[0])[:3] == "NOT":
+                    leq_node = 0
+                    eq_node = 1
+                else:
+                    leq_node = 1
+                    eq_node = 0
+                self.assertEqual(
+                    sub_1._children[i]._children[leq_node].get_name(), "sfLEQ3"
+                )
+                self.assertEqual(
+                    sub_1._children[i]._children[leq_node].get_cond(),
+                    LeqCondition(sf, 3),
+                )
+                self.assertEqual(
+                    sub_1._children[i]._children[eq_node].get_name(), "sfEQ2"
+                )
+                self.assertEqual(
+                    sub_1._children[i]._children[eq_node].get_cond(), EqCondition(sf, 2)
+                )
+            elif "sfGEQ4" in str(rule_1.args[i]):
+                self.assertTrue(isinstance(sub_1._children[i], SequenceNode))
+                self.assertEqual(len(sub_1._children[i]._children), 2)
+                self.assertTrue(
+                    isinstance(sub_1._children[i]._children[0], ConditionNode)
+                )
+                self.assertTrue(
+                    isinstance(sub_1._children[i]._children[1], ConditionNode)
+                )
+                if str(rule_1.args[i].args[0]) == "sfGEQ4":
+                    geq_node = 0
+                    eq_node = 1
+                else:
+                    geq_node = 1
+                    eq_node = 0
+                self.assertEqual(
+                    sub_1._children[i]._children[geq_node].get_name(), "sfGEQ4"
+                )
+                self.assertEqual(
+                    sub_1._children[i]._children[geq_node].get_cond(),
+                    GeqCondition(sf, 4),
+                )
+                self.assertEqual(
+                    sub_1._children[i]._children[eq_node].get_name(), "sfEQ4"
+                )
+                self.assertEqual(
+                    sub_1._children[i]._children[eq_node].get_cond(), EqCondition(sf, 4)
+                )
+
+        self.assertTrue(isinstance(sub_1._children[3], ActionNode))
+        self.assertEqual(sub_1._children[3].get_name(), "a1")
+
+        sub_2 = root._children[1]
+
+        self.assertTrue(isinstance(sub_2, FallbackNode))
+        self.assertEqual(len(sub_2._children), 2)
+
+        self.assertTrue(isinstance(sub_2._children[0], SequenceNode))
+        self.assertEqual(len(sub_2._children[0]._children), 2)
+        geq_node = 0
+        eq_node = 1
+        if str(rule_2.args[0]) == "sfEQ5":
+            eq_node = 0
+            geq_node = 1
+
+        self.assertTrue(
+            isinstance(sub_2._children[0]._children[geq_node], ConditionNode)
+        )
+        self.assertEqual(sub_2._children[0]._children[geq_node].get_name(), "sfGEQ0")
+        self.assertEqual(
+            sub_2._children[0]._children[geq_node].get_cond(), GeqCondition(sf, 0)
+        )
+
+        self.assertTrue(
+            isinstance(sub_2._children[0]._children[eq_node], ConditionNode)
+        )
+        self.assertEqual(sub_2._children[0]._children[eq_node].get_name(), "sfEQ5")
+        self.assertEqual(
+            sub_2._children[0]._children[eq_node].get_cond(), EqCondition(sf, 5)
+        )
+
+        self.assertTrue(isinstance(sub_2._children[1], ActionNode))
+        self.assertEqual(sub_2._children[1].get_name(), "a2")
+
+        sub_3 = root._children[2]
+        self.assertTrue(isinstance(sub_3, ActionNode))
+        self.assertEqual(sub_3.get_name(), "default_action")
+
 
 class ConvertPolicyTest(unittest.TestCase):
 
     def test_function(self):
-        converter = PolicyBTConverter(none_replacer="a3")
+        converter = PolicyBTConverter(default_action="a3")
 
         sf1 = StateFactor("sf1", ["a", "b", "c"])
         sf2 = StateFactor("sf2", ["d", "e", "f"])

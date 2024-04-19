@@ -206,7 +206,8 @@ if __name__ == "__main__":
         option_list,
         labels,
         prism_prop='Rmin=?[F "goal"]',
-        none_replacer="dead",
+        default_action="dead",
+        out_file="/tmp/test_bt.xml",
     )
 
     output_bt(bt)

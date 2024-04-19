@@ -53,29 +53,31 @@ class PolicyBTConverter(object):
     Attributes:
         _vars_to_conds: A dictionary from variable names to Condition objects.
         _vars_to_symbols: A dictionary form variable names to sympy symbols.
-        _none_replacer: A kind of 'default' action which replaces all None actions
+        _default_action: A default action which replaces all None actions
                         in the policy. This is necessary as policies for SSPs return
                         None at the goal state, for example, and the BT doesn't know
                         how to execute this.
+        _default_needed: Is the default action needed in a given BT?
     """
 
-    def __init__(self, none_replacer="None"):
+    def __init__(self, default_action="None"):
         """Reset all attributes.
 
         Args:
-            none_replacer: The action which replaces any None actions in a policy
+            default_action: The action which replaces any None actions in a policy
         """
-        self._reset(none_replacer=none_replacer)
+        self._reset(default_action=default_action)
 
-    def _reset(self, none_replacer="None"):
-        """Reset all attributes to None.
+    def _reset(self, default_action="None"):
+        """Reset all attributes.
 
         Args:
-            none_replacer: The action which replaces any None actions in a policy
+            default_action: The action which replaces any None actions in a policy
         """
         self._vars_to_conds = None
         self._vars_to_symbols = None
-        self._none_replacer = none_replacer
+        self._default_action = default_action
+        self._default_needed = False
 
     def _extract_rules_from_policy(self, policy):
         """Turns a policy from S->A into a dictionary from A->logical rules.
@@ -101,7 +103,13 @@ class PolicyBTConverter(object):
 
         for state in policy._state_action_dict:
             action = policy[state]
-            action = self._none_replacer if action is None else action
+
+            # If a None action is found, we'll remember this and
+            # add the default action in the BT at the end of the process
+            if action is None:
+                self._default_needed = True
+                continue
+
             if action not in act_to_cond:
                 # This state or this state or this state etc.
                 act_to_cond[action] = OrCondition(state.to_and_cond())
@@ -770,6 +778,10 @@ class PolicyBTConverter(object):
             sub_bt.add_child(ActionNode(pair[1]))  # Add the action at the end
             root_node.add_child(sub_bt)
 
+        # If the default action is needed, add it at the end of the root sequence
+        if self._default_needed:
+            root_node.add_child(ActionNode(self._default_action))
+
         return BehaviourTree(root_node)
 
     def convert_policy(self, policy, out_file=None):
@@ -784,7 +796,7 @@ class PolicyBTConverter(object):
         """
 
         # Step 1: Reset all internal data structures
-        self._reset(none_replacer=self._none_replacer)
+        self._reset(default_action=self._default_action)
 
         # Step 2: Group states by their policy action
         act_to_rule, act_to_var_map = self._extract_rules_from_policy(policy)

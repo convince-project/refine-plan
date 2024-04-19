@@ -22,7 +22,7 @@ def synthesise_bt_from_options(
     labels,
     initial_state=None,
     prism_prop='Rmax=?[F "goal"]',
-    none_replacer="None",
+    default_action="None",
     out_file=None,
 ):
     """Synthesise a BT using options learned from the initial BT.
@@ -33,7 +33,7 @@ def synthesise_bt_from_options(
         labels: A list of Label objects within the semi-MDP
         initial_state: The semi-MDP initial state (if there is one)
         prism_prop: The PRISM property to solve for (passed to Storm)
-        none_replacer: The action which replaces any None actions in a policy
+        default_action: The action which replaces any None actions in a policy
         out_file: Optional. The path for the final BT XML file
 
     Returns:
@@ -42,5 +42,5 @@ def synthesise_bt_from_options(
     semi_mdp = SemiMDP(sf_list, option_list, labels, initial_state=initial_state)
     policy = synthesise_policy(semi_mdp, prism_prop=prism_prop)
 
-    converter = PolicyBTConverter(none_replacer=none_replacer)
+    converter = PolicyBTConverter(default_action=default_action)
     return converter.convert_policy(policy, out_file)
