@@ -77,7 +77,13 @@ def gfactor(formula, divisor_fn=_most_common_condition):
 
     quotient, remainder = _divide(formula, divisor)
 
-    if isinstance(quotient, Symbol):  # If just a single symbol
+    # If just a single cube
+    # NOTE: This used to just check for symbols
+    # This caused a bug, and I think it should be changed to the number of cubes
+    # I can't be sure though as neither paper makes this clear
+    # The logic is that a single cube can never be cube free, so applying
+    # _make_cube_free makes no sense
+    if isinstance(quotient, Symbol) or isinstance(quotient, Mul):
         return _lf(formula, quotient, divisor_fn)
 
     quotient = _make_cube_free(quotient)
@@ -274,7 +280,7 @@ def _get_random_divisor(formula):
     Returns:
         divisor: A random variable to choose as divisor
     """
-    if isinstance(formula, Symbol):
+    if isinstance(formula, Symbol) or isinstance(formula, Mul):
         return None
     else:
         frequencies = _get_variable_frequencies(formula)
@@ -323,7 +329,7 @@ def _quick_divisor(formula):
     Returns:
         divisor: The initial divisor for gfactor
     """
-    if isinstance(formula, Symbol):
+    if isinstance(formula, Symbol) or isinstance(formula, Mul):
         return None
     else:
         frequencies = _get_variable_frequencies(formula)
