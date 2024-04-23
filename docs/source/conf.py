@@ -15,6 +15,7 @@ extensions = [
     'sphinx.ext.autosummary',
     'sphinx.ext.autodoc',
     'sphinx.ext.intersphinx',
+    'sphinx.ext.napoleon'
     
     # 'myst_parser',
     # 'autodoc2',
