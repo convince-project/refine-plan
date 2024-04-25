@@ -23,7 +23,7 @@ Author: Charlie Street
 Owner: Charlie Street
 """
 
-from refine_plan.algorithms.gfactor import gfactor, _quick_divisor
+from refine_plan.algorithms.gfactor import gfactor, quick_divisor
 from pyeda.boolalg.expr import Complement, Variable, AndOp, OrOp
 from pyeda.inter import espresso_exprs, Not, And, Or, exprvar
 from refine_plan.models.state_factor import IntStateFactor
@@ -49,6 +49,24 @@ from refine_plan.models.condition import (
 
 class PolicyBTConverter(object):
     """This class contains the functionality to convert a policy into a BT.
+
+    This is an implementation of the work in:
+    Gugliermo, S., Schaffernicht, E., Koniaris, C. and Pecora, F., 2023.
+    Learning behavior trees from planning experts using decision tree and logic
+    factorization. IEEE Robotics and Automation Letters.
+
+    This code is reimplemented from:
+    https://github.com/SimonaGug/BT-from-planning-experts
+
+    The above code is by the lead author of the above paper, and HAS NO LICENSE ATTACHED.
+    Though there is no license, the code is open source.
+
+    The reimplementation fixes a number of bugs in the linked implementation.
+    It also streamlines data conversions and makes other tidiness/quality of life
+    improvements.
+
+    Note that the linked repo could not be used directly for REFINE-PLAN; the
+    reimplementation is necessary.
 
     Attributes:
         _vars_to_conds: A dictionary from variable names to Condition objects.
@@ -89,8 +107,9 @@ class PolicyBTConverter(object):
             policy: The policy to extract logical rules form
 
         Returns:
-            act_to_rule: A dictionary from actions/options to a pyeda expression (the rule)
-            act_to_var_map: A dictionary from actions/options to variable name to Condition
+            A tuple containing:
+            - A dictionary from actions/options to a pyeda expression (the rule)
+            - A dictionary from actions/options to variable name to Condition
 
         Raises:
             not_a_policy: Raised if policy is not of type Policy
@@ -155,7 +174,7 @@ class PolicyBTConverter(object):
             act_to_rule: A dictionary from action/option to pyeda expr
 
         Returns:
-            act_to_min_rule: A dictionary from action/option to minimised pyeda expr
+            A dictionary from action/option to minimised pyeda expr
         """
 
         # The to_dnf() shouldn't make any difference to the original rule
@@ -181,7 +200,7 @@ class PolicyBTConverter(object):
             act_rule_dict: A dictionary from action to (minimised) rules
 
         Returns:
-            act_to_horn: A dictionary from action to Horn clause (still in pyeda)
+            A dictionary from action to Horn clause (still in pyeda)
         """
         # The two to_dnf() calls are to ensure equal behaviour with the repo
         # linked at the top of this file
@@ -201,7 +220,7 @@ class PolicyBTConverter(object):
             rule: The pyeda expr to extract variables from
 
         Returns:
-            var_list: A list of variables in the rule (duplicates included)
+            A list of variables in the rule (duplicates included)
 
         Raises:
             not_dnf_exception: Raised if rule not in DNF
@@ -238,7 +257,7 @@ class PolicyBTConverter(object):
             act_to_horn: A dictionary from action/option to horn clause
 
         Returns:
-            ordered_ra_pairs: A list of (horn clause, action pairs), sorted
+            A list of (horn clause, action pairs), sorted
         """
         rule_act_pairs = []
         var_sets = {}
@@ -274,7 +293,7 @@ class PolicyBTConverter(object):
             logical_rule: A logical rule as a pyeda expression
 
         Returns:
-            sympy_str: An algebraic expression (string) which can be sympified
+            An algebraic expression (string) which can be sympified
         """
 
         if isinstance(logical_rule, OrOp) or isinstance(logical_rule, AndOp):
@@ -307,8 +326,7 @@ class PolicyBTConverter(object):
             ordered_ra_pairs: A list of (pyeda rule, action/option) pairs
 
         Returns:
-            ordered_alg_act_pairs: ordered_ra_pairs where each rule
-                                   is replaced with a sympy expression
+            ordered_ra_pairs where each rule is replaced with a sympy expression
         """
 
         ordered_alg_act_pairs = []
@@ -329,12 +347,12 @@ class PolicyBTConverter(object):
             ordered_alg_act_pairs: List of (sympy expression, action/option) pairs
 
         Returns:
-            min_alg_act_pairs: List of (minimised sympy expr, action/option) pairs
+            List of (minimised sympy expr, action/option) pairs
         """
         min_alg_act_pairs = []
 
         for pair in ordered_alg_act_pairs:
-            reduced_expr = gfactor(pair[0], divisor_fn=_quick_divisor)
+            reduced_expr = gfactor(pair[0], divisor_fn=quick_divisor)
             min_alg_act_pairs.append((reduced_expr, pair[1]))
 
         return min_alg_act_pairs
@@ -346,7 +364,8 @@ class PolicyBTConverter(object):
             symbols: A list of sympy symbols
             is_and: Are the symbols part of a conjunction (Mul) or not (Add)
 
-        sf_val_dict: A dictionary from state factor to (symbols, vals_covered)
+        Returns:
+            A dictionary from state factor to (symbols, vals_covered)
         """
         sf_val_dict = {}
 
@@ -399,7 +418,7 @@ class PolicyBTConverter(object):
             cond: The condition
 
         Returns:
-            symbol: The corresponding symbol
+            The corresponding symbol
         """
         _, var_map = cond.to_pyeda_expr()
         assert len(var_map) == 1
@@ -436,7 +455,7 @@ class PolicyBTConverter(object):
             vals_covered: The sf values covered by the existing symbols
 
         Returns:
-            int_simple: A simplified expression, or None if simplification can't be done
+            A simplified expression, or None if simplification can't be done
         """
 
         int_groups = []
@@ -484,7 +503,7 @@ class PolicyBTConverter(object):
             vals_covered: The values we have covered by the state factor previously
 
         Returns:
-            sympy_add: The sympy Add() object capturing the OR condition
+            The sympy Add() object capturing the OR condition
         """
 
         symbols = [self._cond_to_symbol(EqCondition(sf, val)) for val in vals_covered]
@@ -504,7 +523,7 @@ class PolicyBTConverter(object):
             vals_covered: The values we have covered by the state factor previously
 
         Returns:
-            sympy_mul: The sympy Mul() object capturing the AND condition
+            The sympy Mul() object capturing the AND condition
         """
         not_covered = set(sf.get_valid_values()).difference(set(vals_covered))
         symbols = [self._cond_to_symbol(NeqCondition(sf, val)) for val in not_covered]
@@ -518,7 +537,7 @@ class PolicyBTConverter(object):
             is_and: Are the symbols part of a conjunction (Mul) or not (Add)
 
         Returns:
-            simplified: A list of simplified sympy expressions
+            A list of simplified sympy expressions
         """
 
         sf_val_dict = self._sf_vals_covered_by_symbols(symbols, is_and)
@@ -568,7 +587,7 @@ class PolicyBTConverter(object):
             expression: The sympy expression
 
         Returns:
-            simple_expression: The simplified expression
+            The simplified expression
         """
 
         if isinstance(expression, Symbol):  # We can't do any simplification here
@@ -609,7 +628,7 @@ class PolicyBTConverter(object):
             min_alg_act_pairs: List of (minimised sympy expr, action/option) pairs
 
         Returns:
-            simple_alg_act_pairs: A list of (simplified sympy expr, action/option) pairs
+            A list of (simplified sympy expr, action/option) pairs
         """
         simple_alg_act_pairs = []
 
@@ -626,7 +645,7 @@ class PolicyBTConverter(object):
             sympy_expr: The sympy expression
 
         Returns:
-            pyeda_rule: The pyeda rule
+            The pyeda rule
 
         Raises:
             bad_expr_exception: Raised if invalid expression passed in
@@ -654,7 +673,7 @@ class PolicyBTConverter(object):
             sympy_act_pairs: A list of (sympy expression, action/option) pairs
 
         Returns:
-            pyeda_act_pairs: A list of (pyeda rule, action/option) pairs
+            A list of (pyeda rule, action/option) pairs
         """
 
         pyeda_act_pairs = []
@@ -674,8 +693,7 @@ class PolicyBTConverter(object):
                            Otherwise, they will be sympy algebraic expressions
 
         Returns:
-            expression_act_pairs: A list of minimised
-                                 (pyeda rule/sympy expression, action/option) pairs
+            A list of minimised (pyeda rule/sympy expression, action/option) pairs
         """
         # Convert logical operators & and | into * and + for factorisation
         alg_act_pairs = self._pyeda_rules_to_sympy_algebraic(ra_pairs)
@@ -706,7 +724,7 @@ class PolicyBTConverter(object):
             var_name: The variable name to build the condition node for
 
         Returns:
-            condition_node: The corresponding condition node
+            The corresponding condition node
         """
         if var_name[:3] == "NOT":  # Undoing the slightly hacky negation symbols
             cond = self._vars_to_conds[var_name[3:]]
@@ -731,7 +749,7 @@ class PolicyBTConverter(object):
             rule: A logical rule represented as a sympy algebraic expression
 
         Returns:
-            bt: The sub behaviour tree
+            The sub behaviour tree
 
         Raises:
             bad_operator_exception: Raised if non +/*/symbol expression found
@@ -758,7 +776,7 @@ class PolicyBTConverter(object):
             min_alg_act_pairs: List of (sympy expr, action/option pairs)
 
         Returns:
-            bt: The final behaviour tree
+            The final behaviour tree
         """
 
         # Root node is always a sequence

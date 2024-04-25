@@ -44,7 +44,7 @@ class State(object):
             sf_name: The state factor to check the value for
 
         Returns:
-            value: The value for the state factor in this state
+            The value for the state factor in this state
 
         Raises:
             bad_sf_exception: Raised if an invalid state factor is provided
@@ -57,7 +57,7 @@ class State(object):
         """Overwrite so states with the same info have the same hash.
 
         Returns:
-            hash_val: The state's hash
+            The state's hash
         """
         if self._hash_val is None:
             self._hash_val = hash(tuple(sorted(tuple(self._state_dict.items()))))
@@ -68,7 +68,7 @@ class State(object):
         """Overwrite for printing purposes.
 
         Returns:
-            repr: The representation of this object
+            The representation of this object
         """
         internal = ""
         for sf in self._state_dict:
@@ -80,7 +80,7 @@ class State(object):
         """Overwrite for printing purposes.
 
         Returns:
-            str: A string representation of this object
+            A string representation of this object
         """
         return repr(self)
 
@@ -91,15 +91,18 @@ class State(object):
             sf: The state factor to check
 
         Returns:
-            is_contained: True if sf in state, False otherwise
+            True if sf in state, False otherwise
         """
         return sf in self._state_dict and sf in self._sf_dict
 
     def __eq__(self, other):
         """Overwrite as I've overwritten hash.
 
-        Returns:
+        Args:
             other: The state to compare against
+
+        Returns:
+            True if equal, False otherwise
         """
         if len(self._state_dict) != len(other._state_dict):
             return False
@@ -116,7 +119,7 @@ class State(object):
         """Converts a state into a conjunction of conditions.
 
         Returns:
-            cond: The AddCondition representing the state
+            The AddCondition representing the state
         """
         cond = AndCondition()
         for sf in self._sf_dict:

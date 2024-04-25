@@ -18,7 +18,7 @@ class BTNode(object):
         """Outputs a string containing the BT.cpp XML for this node.
 
         Returns:
-            xml_string: The BT XML for this node as a string
+            The BT XML for this node as a string
         """
         raise NotImplementedError("to_BT_XML not implemented in BTNode abstract class")
 
@@ -42,7 +42,7 @@ class ActionNode(BTNode):
         """Getter for self._name.
 
         Returns:
-            name: The action name
+            The action name
         """
         return self._name
 
@@ -50,7 +50,7 @@ class ActionNode(BTNode):
         """Generates the BT.cpp XML string for the action node.
 
         Returns:
-            xml: The BT.cpp XML for the action node
+            The BT.cpp XML for the action node
         """
         # TODO: Make this actually work properly with BT.cpp
         return et.Element("Action", name=self.get_name())
@@ -65,7 +65,7 @@ class ActionNode(BTNode):
             state: The state to check
 
         Returns:
-            tick_return: The return value of this node being ticked (action name)
+            The return value of this node being ticked (action name)
         """
         return self.get_name()
 
@@ -73,7 +73,7 @@ class ActionNode(BTNode):
         """Printable version of node.
 
         Returns:
-            repr: Printable version of node
+            Printable version of node
         """
         return "Action({})".format(self.get_name())
 
@@ -81,7 +81,7 @@ class ActionNode(BTNode):
         """String version of node.
 
         Returns:
-            str: String version of node
+            String version of node
         """
         return "Action({})".format(self.get_name())
 
@@ -108,7 +108,7 @@ class ConditionNode(BTNode):
         """Getter for self._name.
 
         Returns:
-            name: The condition node name
+            The condition node name
         """
         return self._name
 
@@ -116,7 +116,7 @@ class ConditionNode(BTNode):
         """Getter for self._cond.
 
         Returns:
-            cond: The condition being checked
+            The condition being checked
         """
         return self._cond
 
@@ -124,7 +124,7 @@ class ConditionNode(BTNode):
         """Generates the BT.cpp XML string for the condition node.
 
         Returns:
-            xml: The BT.cpp XML for the condition node
+            The BT.cpp XML for the condition node
         """
         # TODO: Make this actually work with BT.cpp
         return et.Element("Condition", name=self.get_name())
@@ -139,7 +139,7 @@ class ConditionNode(BTNode):
             state: The state to check
 
         Returns:
-            tick_return: The return value of this node being ticked (True or False)
+            The return value of this node being ticked (True or False)
         """
         return self.get_cond().is_satisfied(state)
 
@@ -147,7 +147,7 @@ class ConditionNode(BTNode):
         """Printable version of node.
 
         Returns:
-            repr: Printable version of node
+            Printable version of node
         """
         return "Condition({}; {})".format(self.get_name(), self.get_cond())
 
@@ -155,7 +155,7 @@ class ConditionNode(BTNode):
         """String version of node.
 
         Returns:
-            str: String version of node
+            String version of node
         """
         return "Condition({}; {})".format(self.get_name(), self.get_cond())
 
@@ -174,7 +174,7 @@ class CompositeNode(BTNode):
         """Initialise attributes.
 
         Args:
-            children: A number of child BTNodes
+            *children: A number of child BTNodes
 
         Raises:
             invalid_child_exception: Raised if a child is not a BT node
@@ -203,7 +203,7 @@ class CompositeNode(BTNode):
         """Generates the BT.cpp XML string for the composite node.
 
         Returns:
-            xml_string: The BT.cpp XML string for the composite node
+            The BT.cpp XML string for the composite node
         """
         raise NotImplementedError("to_BT_XML not implemented in CompositeNode.")
 
@@ -219,7 +219,7 @@ class SequenceNode(CompositeNode):
         """Generates the BT.cpp XML string for the sequence node.
 
         Returns:
-            xml: The BT.cpp XML for the sequence node
+            The BT.cpp XML for the sequence node
         """
         sequence = et.Element("Sequence")
         for child in self._children:
@@ -236,7 +236,7 @@ class SequenceNode(CompositeNode):
             state: The state to check
 
         Returns:
-            tick_return: The return value of this node being ticked
+            The return value of this node being ticked
         """
         for child in self._children:
             child_return = child.tick_at_state(state)
@@ -252,7 +252,7 @@ class SequenceNode(CompositeNode):
         """Printable version of node.
 
         Returns:
-            repr: Printable version of node
+            Printable version of node
         """
         return "Sequence({})".format(", ".join([repr(c) for c in self._children]))
 
@@ -260,7 +260,7 @@ class SequenceNode(CompositeNode):
         """String version of node.
 
         Returns:
-            str: String version of node
+            String version of node
         """
         return "Sequence({})".format(", ".join([str(c) for c in self._children]))
 
@@ -276,7 +276,7 @@ class FallbackNode(CompositeNode):
         """Generates the BT.cpp XML string for the fallback node.
 
         Returns:
-            xml: The BT.cpp XML for the fallback node
+            The BT.cpp XML for the fallback node
         """
         fallback = et.Element("Fallback")
         for child in self._children:
@@ -296,7 +296,7 @@ class FallbackNode(CompositeNode):
             state: The state to check
 
         Returns:
-            tick_return: The return value of this node being ticked
+            The return value of this node being ticked
         """
         for child in self._children:
             child_return = child.tick_at_state(state)
@@ -312,7 +312,7 @@ class FallbackNode(CompositeNode):
         """Printable version of node.
 
         Returns:
-            repr: Printable version of node
+            Printable version of node
         """
         return "Fallback({})".format(", ".join([repr(c) for c in self._children]))
 
@@ -320,7 +320,7 @@ class FallbackNode(CompositeNode):
         """String version of node.
 
         Returns:
-            str: String version of node
+            String version of node
         """
         return "Fallback({})".format(", ".join([str(c) for c in self._children]))
 
@@ -347,7 +347,7 @@ class BehaviourTree(object):
         """Getter for self._root_node.
 
         Returns:
-            root_node: The root node of the BT
+            The root node of the BT
         """
         return self._root_node
 
@@ -358,7 +358,7 @@ class BehaviourTree(object):
             out_file: Optional. If specified, will write the BT XML string to file
 
         Returns:
-            xml: The BT.cpp XML
+            The BT.cpp XML
         """
         # The first couple of tags in any BT.cpp file
         root = et.Element("root", main_tree_to_execute="MainTree")
@@ -387,7 +387,7 @@ class BehaviourTree(object):
             state: The state to check
 
         Returns:
-            tick_return: The return value of this node being ticked
+            The return value of this node being ticked
         """
         return self.get_root_node().tick_at_state(state)
 
@@ -395,7 +395,7 @@ class BehaviourTree(object):
         """Printable version of tree.
 
         Returns:
-            repr: Printable version of tree
+            Printable version of tree
         """
         return repr(self.get_root_node())
 
@@ -403,6 +403,6 @@ class BehaviourTree(object):
         """String version of tree.
 
         Returns:
-            str: String version of tree
+            String version of tree
         """
         return str(self.get_root_node())

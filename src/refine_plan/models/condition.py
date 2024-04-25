@@ -39,7 +39,7 @@ class Label(object):
         """Converts the label into a PRISM string.
 
         Returns:
-            prism_str: The corresponding PRISM string.
+            The corresponding PRISM string
         """
         return 'label "{}" = {};\n'.format(
             self._name, self._cond.to_prism_string(is_post_cond=False)
@@ -49,7 +49,7 @@ class Label(object):
         """Make the label human readable.
 
         Returns:
-            label: A str representation of the label
+            A str representation of the label
         """
         return 'label "{}" = {};'.format(
             self._name, self._cond.to_prism_string(is_post_cond=False)
@@ -59,7 +59,7 @@ class Label(object):
         """Make the label human readable.
 
         Returns:
-            label: A str representation of the label
+            A str representation of the label
         """
         return 'label "{}" = {};'.format(
             self._name, self._cond.to_prism_string(is_post_cond=False)
@@ -69,7 +69,7 @@ class Label(object):
         """Overwriting so labels with equal contents have the same hash.
 
         Returns:
-            hash_val: The hash value of the label
+            The hash value of the label
         """
         if self._hash_val is None:
             self._hash_val = hash((self._name, self._cond))
@@ -82,7 +82,7 @@ class Label(object):
             other: The other label
 
         Returns:
-            is_equal: Are the two Labels equal?
+            Are the two Labels equal?
         """
         return self._name == other._name and self._cond == other._cond
 
@@ -101,7 +101,7 @@ class Condition(object):
             prev_state: The previous state (necessary for some post conditions)
 
         Returns:
-            is_satisfied: Is the condition satisfied?
+            Is the condition satisfied?
         """
         raise NotImplementedError()
 
@@ -109,7 +109,7 @@ class Condition(object):
         """Returns True if condition can be used as a precondition.
 
         Returns:
-            is_pre_cond: Can the condition be used as a precondition?
+            Can the condition be used as a precondition?
         """
         raise NotImplementedError()
 
@@ -117,7 +117,7 @@ class Condition(object):
         """Returns True if condition can be used as a postcondition.
 
         Returns:
-            is_post_cond: Can the condition be used as a postcondition?
+            Can the condition be used as a postcondition?
         """
         raise NotImplementedError()
 
@@ -135,8 +135,9 @@ class Condition(object):
         This allows it to be worked with and minimised etc.
 
         Returns:
-            pyeda_expr: The corresponding pyeda expression
-            var_map: A mapping from var_name to condition. Only returned if return_var_map
+            A tuple containing:
+            - The corresponding pyeda expression
+            - A mapping from var_name to condition. Only returned if return_var_map
         """
         raise NotImplementedError()
 
@@ -144,7 +145,7 @@ class Condition(object):
         """Returns the range of values that can be satisfied with this condition.
 
         Returns:
-            range: A list of dictionaries from state factor to a list of values
+            A list of dictionaries from state factor to a list of values
         """
         raise NotImplementedError()
 
@@ -164,7 +165,7 @@ class TrueCondition(Condition):
             prev_state: Not used
 
         Returns:
-            is_satisfied: Always True
+            Always True
         """
         return True
 
@@ -172,7 +173,7 @@ class TrueCondition(Condition):
         """TrueCondition is a valid precondition
 
         Returns:
-            is_pre_cond: True
+            True
         """
         return True
 
@@ -180,7 +181,7 @@ class TrueCondition(Condition):
         """TrueConditions can be used to signify self loops in PRISM
 
         Returns:
-            is_post_cond: True for TrueConditions
+            True for TrueConditions
         """
         return True
 
@@ -196,8 +197,9 @@ class TrueCondition(Condition):
         """Converts the condition into a pyeda logical expression (1)
 
         Returns:
-            pyeda_expr: The corresponding pyeda expression
-            var_map: A mapping from var_name to condition.
+            A tuple containing:
+            - The corresponding pyeda expression
+            - A mapping from var_name to condition.
         """
         return expr(True), {}
 
@@ -213,7 +215,7 @@ class TrueCondition(Condition):
         """Make the condition human readable.
 
         Returns:
-            label: A str representation of the label
+            A str representation of the label
         """
         return self.to_prism_string()
 
@@ -221,7 +223,7 @@ class TrueCondition(Condition):
         """Make the condition human readable.
 
         Returns:
-            label: A str representation of the label
+            A str representation of the label
         """
         return self.to_prism_string()
 
@@ -229,7 +231,7 @@ class TrueCondition(Condition):
         """Overwriting for use in dictionaries etc.
 
         Returns:
-            hash_val: The hash
+            The hash
         """
         # No caching here as its so simple
         return hash(type(self))
@@ -241,7 +243,7 @@ class TrueCondition(Condition):
             other: The other condition
 
         Returns:
-            is_equal: Are the two conditions equal?
+            Are the two conditions equal?
         """
         return type(self) == type(other)
 
@@ -281,7 +283,7 @@ class EqCondition(Condition):
             prev_state: Not used here
 
         Returns:
-            is_satisfied: Is the condition satisfied?
+            Is the condition satisfied?
 
         Raises:
             invalid_value: Raised if state has an invalid value for _sf
@@ -298,7 +300,7 @@ class EqCondition(Condition):
     def is_pre_cond(self):
         """EqConditions are valid preconditions.
         Returns:
-            is_pre_cond: Can the condition be used as a precondition?
+            Can the condition be used as a precondition?
         """
         return True
 
@@ -306,7 +308,7 @@ class EqCondition(Condition):
         """EqConditions are valid postconditions.
 
         Returns:
-            is_post_cond: Can the condition be used as a postcondition?
+            Can the condition be used as a postcondition?
         """
         return True
 
@@ -327,8 +329,9 @@ class EqCondition(Condition):
         We create a variable name for the condition <sf_name>EQ<value>.
 
         Returns:
-            pyeda_expr: The corresponding pyeda expression
-            var_map: A mapping from var_name to condition.
+            A tuple containing:
+            - The corresponding pyeda expression
+            - A mapping from var_name to condition.
         """
         var_name = "{}EQ{}".format(self._sf.get_name(), self._value)
         return expr(var_name), {var_name: self}
@@ -337,7 +340,7 @@ class EqCondition(Condition):
         """Return the one value that satisfies this condition.
 
         Returns:
-            range: The range of values (the one value) that satisfies the condition
+            The range of values (the one value) that satisfies the condition
         """
         return [{self._sf: [self._value]}]
 
@@ -345,7 +348,7 @@ class EqCondition(Condition):
         """Make the condition human readable.
 
         Returns:
-            label: A str representation of the label
+            A str representation of the label
         """
         return self.to_prism_string()
 
@@ -353,7 +356,7 @@ class EqCondition(Condition):
         """Make the condition human readable.
 
         Returns:
-            label: A str representation of the label
+            A str representation of the label
         """
         return self.to_prism_string()
 
@@ -361,7 +364,7 @@ class EqCondition(Condition):
         """Overwriting for use in dictionaries etc.
 
         Returns:
-            hash_val: The hash
+            The hash
         """
         if self._hash_val is None:
             self._hash_val = hash((type(self), self._sf, self._value))
@@ -374,7 +377,7 @@ class EqCondition(Condition):
             other: The other condition
 
         Returns:
-            is_equal: Are the conditions equal?
+            Are the conditions equal?
         """
         return (
             type(self) == type(other)
@@ -400,7 +403,7 @@ class NeqCondition(Condition):
             value: The state factor value to check
 
         Raises:
-            invalid_value: Raised if value is invalid for sf
+            Raised if value is invalid for sf
         """
 
         if not sf.is_valid_value(value):
@@ -418,7 +421,7 @@ class NeqCondition(Condition):
             prev_state: Not used here
 
         Returns:
-            is_satisfied: Is the condition satisfied?
+            Is the condition satisfied?
 
         Raises:
             invalid_value: Raised if state has an invalid value for _sf
@@ -435,7 +438,7 @@ class NeqCondition(Condition):
     def is_pre_cond(self):
         """NeqConditions are valid preconditions.
         Returns:
-            is_pre_cond: Can the condition be used as a precondition?
+            Can the condition be used as a precondition?
         """
         return True
 
@@ -443,7 +446,7 @@ class NeqCondition(Condition):
         """NeqConditions are not valid postconditions.
 
         Returns:
-            is_post_cond: Can the condition be used as a postcondition?
+            Can the condition be used as a postcondition?
         """
         return False
 
@@ -467,8 +470,9 @@ class NeqCondition(Condition):
         a not operator.
 
         Returns:
-            pyeda_expr: The corresponding pyeda expression
-            var_map: A mapping from var_name to condition.
+            A tuple containing:
+            - The corresponding pyeda expression
+            - A mapping from var_name to condition.
         """
         eq_expr, var_map = EqCondition(self._sf, self._value).to_pyeda_expr()
         return Not(eq_expr), var_map
@@ -477,7 +481,7 @@ class NeqCondition(Condition):
         """Returns the state factor values without self._value.
 
         Returns:
-            range: The range of values that satisfy the condition.
+            The range of values that satisfy the condition.
         """
 
         sf_values = set(self._sf.get_valid_values())
@@ -488,7 +492,7 @@ class NeqCondition(Condition):
         """Make the condition human readable.
 
         Returns:
-            label: A str representation of the label
+            A str representation of the label
         """
         return self.to_prism_string()
 
@@ -496,7 +500,7 @@ class NeqCondition(Condition):
         """Make the condition human readable.
 
         Returns:
-            label: A str representation of the label
+            A str representation of the label
         """
         return self.to_prism_string()
 
@@ -504,7 +508,7 @@ class NeqCondition(Condition):
         """Overwriting for use in dictionaries etc.
 
         Returns:
-            hash_val: The hash
+            The hash
         """
         if self._hash_val is None:
             self._hash_val = hash((type(self), self._sf, self._value))
@@ -517,7 +521,7 @@ class NeqCondition(Condition):
             other: The other condition
 
         Returns:
-            is_equal: Are the conditions equal?
+            Are the conditions equal?
         """
         return (
             type(self) == type(other)
@@ -558,14 +562,14 @@ class NotCondition(Condition):
             prev_state: Not used here
 
         Returns:
-            is_satisfied: Is the condition satisfied?
+            Is the condition satisfied?
         """
         return not self._cond.is_satisfied(state, prev_state=prev_state)
 
     def is_pre_cond(self):
         """NotConditions are valid preconditions.
         Returns:
-            is_pre_cond: Can the condition be used as a precondition?
+            Can the condition be used as a precondition?
         """
         return True
 
@@ -573,7 +577,7 @@ class NotCondition(Condition):
         """NotConditions are not valid postconditions.
 
         Returns:
-            is_post_cond: Can the condition be used as a postcondition?
+            Can the condition be used as a postcondition?
         """
         return False
 
@@ -594,8 +598,9 @@ class NotCondition(Condition):
         This just negates the condition included in the object.
 
         Returns:
-            pyeda_expr: The corresponding pyeda expression
-            var_map: A mapping from var_name to condition.
+            A tuple containing:
+            - The corresponding pyeda expression
+            - A mapping from var_name to condition.
         """
         cond_expr, var_map = self._cond.to_pyeda_expr()
         return Not(cond_expr), var_map
@@ -608,7 +613,7 @@ class NotCondition(Condition):
         """Make the condition human readable.
 
         Returns:
-            label: A str representation of the label
+            A str representation of the label
         """
         return self.to_prism_string()
 
@@ -616,7 +621,7 @@ class NotCondition(Condition):
         """Make the condition human readable.
 
         Returns:
-            label: A str representation of the label
+            A str representation of the label
         """
         return self.to_prism_string()
 
@@ -624,7 +629,7 @@ class NotCondition(Condition):
         """Overwriting for use in dictionaries etc.
 
         Returns:
-            hash_val: The hash
+            The hash
         """
         if self._hash_val is None:
             self._hash_val = hash((type(self), self._cond))
@@ -637,7 +642,7 @@ class NotCondition(Condition):
             other: The other condition
 
         Returns:
-            is_equal: Are the conditions equal?
+            Are the conditions equal?
         """
         return type(self) == type(other) and self._cond == other._cond
 
@@ -676,7 +681,7 @@ class AddCondition(Condition):
             prev_state: The previous state
 
         Returns:
-            is_satisfied: Is the condition satisfied?
+            Is the condition satisfied?
 
         Raises:
             invalid_value: Raised if the incremented value is out of bounds
@@ -711,7 +716,7 @@ class AddCondition(Condition):
     def is_pre_cond(self):
         """AddConditions are not valid preconditions.
         Returns:
-            is_pre_cond: Can the condition be used as a precondition?
+            Can the condition be used as a precondition?
         """
         return False
 
@@ -719,7 +724,7 @@ class AddCondition(Condition):
         """AdsConditions are valid postconditions.
 
         Returns:
-            is_post_cond: Can the condition be used as a postcondition?
+            Can the condition be used as a postcondition?
         """
         return True
 
@@ -751,7 +756,7 @@ class AddCondition(Condition):
         """Make the condition human readable.
 
         Returns:
-            label: A str representation of the label
+            A str representation of the label
         """
         return self.to_prism_string(True)
 
@@ -759,7 +764,7 @@ class AddCondition(Condition):
         """Make the condition human readable.
 
         Returns:
-            label: A str representation of the label
+            A str representation of the label
         """
         return self.to_prism_string(True)
 
@@ -767,7 +772,7 @@ class AddCondition(Condition):
         """Overwriting for use in dictionaries etc.
 
         Returns:
-            hash_val: The hash
+            The hash
         """
         if self._hash_val is None:
             self._hash_val = hash((type(self), self._sf, self._inc_value))
@@ -780,7 +785,7 @@ class AddCondition(Condition):
             other: The other condition
 
         Returns:
-            is_equal: Are the conditions equal?
+            Are the conditions equal?
         """
         return (
             type(self) == type(other)
@@ -839,7 +844,7 @@ class InequalityCondition(Condition):
             prev_state: Not used here
 
         Returns:
-            is_satisfied: Is the condition satisfied?
+            Is the condition satisfied?
 
         Raises:
             invalid_value: Raised if state has an invalid value for _sf
@@ -856,7 +861,7 @@ class InequalityCondition(Condition):
     def is_pre_cond(self):
         """InequalityConditions are valid preconditions.
         Returns:
-            is_pre_cond: Can the condition be used as a precondition?
+            Can the condition be used as a precondition?
         """
         return True
 
@@ -864,7 +869,7 @@ class InequalityCondition(Condition):
         """InequalityConditions are valid postconditions.
 
         Returns:
-            is_post_cond: Can the condition be used as a postcondition?
+            Can the condition be used as a postcondition?
         """
         return False
 
@@ -889,7 +894,7 @@ class InequalityCondition(Condition):
         """Returns the values which satisfy the inequality.
 
         Returns:
-            range: The range of values which satisfy this inequality
+            The range of values which satisfy this inequality
         """
         sf_vals = self._sf.get_valid_values()
 
@@ -900,7 +905,7 @@ class InequalityCondition(Condition):
         """Make the condition human readable.
 
         Returns:
-            label: A str representation of the label
+            A str representation of the label
         """
         return self.to_prism_string()
 
@@ -908,7 +913,7 @@ class InequalityCondition(Condition):
         """Make the condition human readable.
 
         Returns:
-            label: A str representation of the label
+            A str representation of the label
         """
         return self.to_prism_string()
 
@@ -916,7 +921,7 @@ class InequalityCondition(Condition):
         """Overwriting for use in dictionaries etc.
 
         Returns:
-            hash_val: The hash
+            The hash
         """
         if self._hash_val is None:
             self._hash_val = hash((type(self), self._sf, self._value))
@@ -929,7 +934,7 @@ class InequalityCondition(Condition):
             other: The other condition
 
         Returns:
-            is_equal: Are the conditions equal?
+            Are the conditions equal?
         """
         return (
             type(self) == type(other)
@@ -964,8 +969,9 @@ class LtCondition(InequalityCondition):
         We can then convert this back after doing all the logical work we need.
 
         Returns:
-            pyeda_expr: The corresponding pyeda expression
-            var_map: A mapping from var_name to condition.
+            A tuple containing:
+            - The corresponding pyeda expression
+            - A mapping from var_name to condition
         """
         geq_cond = GeqCondition(self._sf, self._value)
         geq_expr, var_map = geq_cond.to_pyeda_expr()
@@ -995,8 +1001,9 @@ class GtCondition(InequalityCondition):
         variables.
 
         Returns:
-            pyeda_expr: The corresponding pyeda expression
-            var_map: A mapping from var_name to condition.
+            A tuple containing:
+            - The corresponding pyeda expression
+            - A mapping from var_name to condition.
         """
         var_name = "{}GT{}".format(self._sf.get_name(), self._value)
         return expr(var_name), {var_name: self}
@@ -1028,8 +1035,9 @@ class LeqCondition(InequalityCondition):
         We can then convert this back after doing all the logical work we need.
 
         Returns:
-            pyeda_expr: The corresponding pyeda expression
-            var_map: A mapping from var_name to condition.
+            A tuple containing:
+            - The corresponding pyeda expression
+            - A mapping from var_name to condition.
         """
         gt_cond = GtCondition(self._sf, self._value)
         gt_expr, var_map = gt_cond.to_pyeda_expr()
@@ -1059,8 +1067,8 @@ class GeqCondition(InequalityCondition):
         variables.
 
         Returns:
-            pyeda_expr: The corresponding pyeda expression
-            var_map: A mapping from var_name to condition.
+            - The corresponding pyeda expression
+            - A mapping from var_name to condition.
         """
         var_name = "{}GEQ{}".format(self._sf.get_name(), self._value)
         return expr(var_name), {var_name: self}
@@ -1078,7 +1086,7 @@ class AndCondition(Condition):
         """Initialise attributes.
 
         Args:
-            conds: The conditions to combine
+            *conds: The conditions to combine
         """
         self._cond_list = []
         for cond in conds:
@@ -1102,7 +1110,7 @@ class AndCondition(Condition):
             prev_state: The previous statem (if needed)
 
         Returns:
-            is_satisfied: True if condition satisfied, else False
+            True if condition satisfied, else False
         """
 
         for cond in self._cond_list:
@@ -1114,7 +1122,7 @@ class AndCondition(Condition):
         """Conjunction is pre cond if all conditions are preconditions.
 
         Returns:
-            is_pre_cond: True if all conditions are preconditions, else False
+            True if all conditions are preconditions, else False
         """
         for cond in self._cond_list:
             if not cond.is_pre_cond():
@@ -1126,7 +1134,7 @@ class AndCondition(Condition):
         """Conjunction is post cond if all conditions are postconditions.
 
         Returns:
-            is_post_cond: True if all conditions are postconditions, else False
+            True if all conditions are postconditions, else False
         """
         for cond in self._cond_list:
             if not cond.is_post_cond():
@@ -1161,8 +1169,9 @@ class AndCondition(Condition):
         Here we just do an And() of all sub-conditions, and combine the variable maps.
 
         Returns:
-            pyeda_expr: The corresponding pyeda expression
-            var_map: A mapping from var_name to condition.
+            A tuple containing:
+            - The corresponding pyeda expression
+            - A mapping from var_name to condition.
         """
         expr_list = []
         var_map = {}
@@ -1186,7 +1195,7 @@ class AndCondition(Condition):
         """Make the condition human readable.
 
         Returns:
-            label: A str representation of the label
+            A str representation of the label
         """
         return self.to_prism_string(self.is_post_cond())
 
@@ -1194,7 +1203,7 @@ class AndCondition(Condition):
         """Make the condition human readable.
 
         Returns:
-            label: A str representation of the label
+            A str representation of the label
         """
         return self.to_prism_string(self.is_post_cond())
 
@@ -1202,7 +1211,7 @@ class AndCondition(Condition):
         """Overwriting for use in dictionaries etc.
 
         Returns:
-            hash_val: The hash
+            The hash
         """
         if self._hash_val is None:
             hash_sorter = lambda c: hash(c)
@@ -1218,7 +1227,7 @@ class AndCondition(Condition):
             other: The other condition
 
         Returns:
-            is_equal: Are the conditions equal?
+            Are the conditions equal?
         """
         first_part = type(self) == type(other) and len(self._cond_list) == len(
             other._cond_list
@@ -1246,7 +1255,7 @@ class OrCondition(Condition):
         """Initialise attributes.
 
         Args:
-            conds: The conditions to combine
+            *conds: The conditions to combine
         """
         self._cond_list = []
         for cond in conds:
@@ -1270,7 +1279,7 @@ class OrCondition(Condition):
             prev_state: The previous statem (if needed)
 
         Returns:
-            is_satisfied: True if condition satisfied, else False
+            True if condition satisfied, else False
         """
 
         for cond in self._cond_list:
@@ -1282,7 +1291,7 @@ class OrCondition(Condition):
         """Disjunction is pre cond if all conditions are preconditions.
 
         Returns:
-            is_pre_cond: True if all conditions are preconditions, else False
+            True if all conditions are preconditions, else False
         """
         for cond in self._cond_list:
             if not cond.is_pre_cond():
@@ -1294,7 +1303,7 @@ class OrCondition(Condition):
         """Disjunction cannot be a postcondition.
 
         Returns:
-            is_post_cond: False for disjunctions
+            False for disjunctions
         """
         return False
 
@@ -1324,8 +1333,9 @@ class OrCondition(Condition):
         Here we just do an Or() of all sub-conditions, and combine the variable maps.
 
         Returns:
-            pyeda_expr: The corresponding pyeda expression
-            var_map: A mapping from var_name to condition.
+            A tuple containing:
+            - The corresponding pyeda expression
+            - A mapping from var_name to condition.
         """
         expr_list = []
         var_map = {}
@@ -1349,7 +1359,7 @@ class OrCondition(Condition):
         """Make the condition human readable.
 
         Returns:
-            label: A str representation of the label
+            A str representation of the label
         """
         return self.to_prism_string()
 
@@ -1357,7 +1367,7 @@ class OrCondition(Condition):
         """Make the condition human readable.
 
         Returns:
-            label: A str representation of the label
+            A str representation of the label
         """
         return self.to_prism_string()
 
@@ -1365,7 +1375,7 @@ class OrCondition(Condition):
         """Overwriting for use in dictionaries etc.
 
         Returns:
-            hash_val: The hash
+            The hash
         """
         if self._hash_val is None:
             hash_sorter = lambda c: hash(c)
@@ -1381,7 +1391,7 @@ class OrCondition(Condition):
             other: The other condition
 
         Returns:
-            is_equal: Are the conditions equal?
+            Are the conditions equal?
         """
         first_part = type(self) == type(other) and len(self._cond_list) == len(
             other._cond_list

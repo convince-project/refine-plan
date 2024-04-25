@@ -36,7 +36,7 @@ class StateFactor(object):
             idx: The index
 
         Returns:
-            value: The corresponding state factor value
+            The corresponding state factor value
 
         Throws:
             _bad_idx_exception: Thrown if an invalid index provided
@@ -54,7 +54,7 @@ class StateFactor(object):
             value: The state factor value
 
         Returns:
-            idx: The corresponding index
+            The corresponding index
 
         Throws:
             _bad_val_exception: Raised if an invalid state factor value is given
@@ -72,7 +72,7 @@ class StateFactor(object):
             value: The value to test
 
         Returns:
-            is_valid: True if in self._values, False otherwise
+            True if in self._values, False otherwise
         """
 
         return value in self._values
@@ -81,7 +81,7 @@ class StateFactor(object):
         """Return the valid list of values for the state factor.
 
         Returns:
-            values: The state factor values
+            The state factor values
         """
         return self._values
 
@@ -89,7 +89,7 @@ class StateFactor(object):
         """Return the name of the state factor.
 
         Returns:
-            name: The state factor name
+            The state factor name
         """
 
         return self._name
@@ -101,7 +101,7 @@ class StateFactor(object):
             initial_value: The initial value of that state factor, if applicable.
 
         Returns:
-            prism_str: The PRISM string for this state factor
+            The PRISM string for this state factor
 
         Raises:
             bad_init_exception: Raised if initial_value is not valid value
@@ -129,7 +129,7 @@ class StateFactor(object):
         """Overwriting so that SFs with equal names, types, and ranges are equal.
 
         Returns:
-            hash_val: The hash of the object
+            The hash of the object
         """
         if self._hash_val is None:
             self._hash_val = hash(
@@ -145,7 +145,7 @@ class StateFactor(object):
             other: The state factor we're comparing against
 
         Returns:
-            is_equal: Are the two state factors equal?
+            Are the two state factors equal?
         """
         return (
             type(self) == type(other)
@@ -198,7 +198,7 @@ class IntStateFactor(StateFactor):
             idx: The index
 
         Returns:
-            value: The corresponding state factor value
+            The corresponding state factor value
 
         Throws:
             _bad_idx_exception: Thrown if an invalid index provided
@@ -216,7 +216,7 @@ class IntStateFactor(StateFactor):
             value: The state factor value
 
         Returns:
-            idx: The corresponding index
+            The corresponding index
 
         Throws:
             _bad_val_exception: Raised if an invalid state factor value is given

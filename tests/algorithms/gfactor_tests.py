@@ -13,10 +13,10 @@ from refine_plan.algorithms.gfactor import (
     _is_cube_free,
     _divide,
     _get_variables_in_formula,
-    _most_common_condition,
+    most_common_condition,
     _get_variable_frequencies,
-    _get_random_divisor,
-    _quick_divisor,
+    get_random_divisor,
+    quick_divisor,
     _one_zero_kernel,
 )
 from sympy import sympify, Add, Mul, Symbol
@@ -73,15 +73,15 @@ class GetRandomDivisorTest(unittest.TestCase):
             Symbol("v4"),
         )
 
-        divisor = _get_random_divisor(formula_1)
+        divisor = get_random_divisor(formula_1)
         self.assertEqual(divisor, None)
 
-        divisor = _get_random_divisor(formula_2)
+        divisor = get_random_divisor(formula_2)
         self.assertEqual(divisor, None)
 
         symbols = [Symbol("v1"), Symbol("v2"), Symbol("v3"), Symbol("v4")]
         for i in range(100):
-            divisor = _get_random_divisor(formula_3)
+            divisor = get_random_divisor(formula_3)
             self.assertTrue(divisor in symbols)
 
 
@@ -119,13 +119,13 @@ class QuickDivisorTest(unittest.TestCase):
             Mul(Symbol("v1"), Symbol("v3")),
             Symbol("v4"),
         )
-        kernel = _quick_divisor(formula_1)
+        kernel = quick_divisor(formula_1)
         self.assertEqual(kernel, None)
 
-        kernel = _quick_divisor(formula_2)
+        kernel = quick_divisor(formula_2)
         self.assertEqual(kernel, None)
 
-        kernel = _quick_divisor(formula_3)
+        kernel = quick_divisor(formula_3)
         self.assertEqual(kernel, Add(Symbol("v2"), Symbol("v3")))
 
 
@@ -138,13 +138,13 @@ class MostCommonConditionTest(unittest.TestCase):
             Symbol("v4"),
         )
 
-        self.assertEqual(_most_common_condition(formula), Symbol("v1"))
+        self.assertEqual(most_common_condition(formula), Symbol("v1"))
 
         formula = Add(
             Symbol("v1"), Symbol("v2"), Symbol("v3"), Symbol("v4"), Symbol("v5")
         )
 
-        self.assertEqual(_most_common_condition(formula), None)
+        self.assertEqual(most_common_condition(formula), None)
 
 
 class DivideTest(unittest.TestCase):

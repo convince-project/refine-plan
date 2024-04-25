@@ -37,7 +37,7 @@ class SemiMDP(object):
         """Return the state factor dictionary.
 
         Returns:
-            state_factors: A dictionary from state factor name to state factor
+            A dictionary from state factor name to state factor
         """
         return self._state_factors
 
@@ -45,7 +45,7 @@ class SemiMDP(object):
         """Return the deterministic initial state, if there is one.
 
         Returns:
-            init_state: The initial state if there is one, None otherwise
+            The initial state if there is one, None otherwise
         """
         return self._initial_state
 
@@ -53,7 +53,7 @@ class SemiMDP(object):
         """Return the list of labels.
 
         Returns:
-            labels: The list of labels
+            The list of labels
         """
         return self._labels
 
@@ -66,7 +66,7 @@ class SemiMDP(object):
             next_state: The successor state
 
         Returns:
-            transition_prob: The semi-MDP transition probability
+            The semi-MDP transition probability
 
         Raises:
             invalid_opt_exception: Raised if an invalid option is passed in
@@ -84,7 +84,7 @@ class SemiMDP(object):
             option: The name of the option (action) being executed
 
         Returns:
-            reward: The reward for that option in the semi-MDP
+            The reward for that option in the semi-MDP
 
         Raises:
             invalid_opt_exception: Raised if an invalid option is passed in
@@ -103,7 +103,7 @@ class SemiMDP(object):
             output_file: Optional. A file path to write the PRISM string to.
 
         Returns:
-            prism_str: The PRISM string
+            The PRISM string
         """
 
         # Opening comments

@@ -31,7 +31,7 @@ class Policy(object):
             state: The state we want an action for
 
         Returns:
-            action: The policy action
+            The policy action
         """
         if state not in self._state_action_dict:
             return None
@@ -44,7 +44,7 @@ class Policy(object):
             state: The state we want to retrieve the value for
 
         Returns:
-            value: The value at state
+            The value at state
 
         Raises:
             no_value_dict_exception: Raised if there is no value dictionary
@@ -64,6 +64,6 @@ class Policy(object):
             state: The state we want an action for
 
         Returns:
-            action: The policy action
+            The policy action
         """
         return self.get_action(state)

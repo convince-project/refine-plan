@@ -64,7 +64,7 @@ class Option(object):
         """Return the option's name.
 
         Returns:
-            name: The option's name
+            The option's name
         """
         return self._name
 
@@ -78,7 +78,7 @@ class Option(object):
             next_state: The next state
 
         Returns:
-            trans_prob: The transition probability
+            The transition probability
         """
         for trans in self._transition_list:
             pre_cond, prob_post_conds = trans
@@ -96,7 +96,7 @@ class Option(object):
             state: The state we want to check
 
         Returns:
-            reward: The reward for the state
+            The reward for the state
         """
 
         total_reward = 0.0
@@ -111,7 +111,7 @@ class Option(object):
         """Return a PRISM string which captures all transitions for this option.
 
         Returns:
-            trans_prism_str: The transition PRISM string
+            The transition PRISM string
         """
         prism_str = ""
         for trans in self._transition_list:
@@ -134,7 +134,7 @@ class Option(object):
         """Return a PRISM string which captures all rewards for this option.
 
         Returns:
-            reward_prism_str: The reward PRISM string
+            The reward PRISM string
         """
         prism_str = ""
         for reward_pair in self._reward_list:

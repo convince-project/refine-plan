@@ -9,9 +9,9 @@ from refine_plan.models.state_factor import IntStateFactor
 from refine_plan.models.condition import EqCondition
 from refine_plan.algorithms.gfactor import (
     gfactor,
-    _most_common_condition,
-    _get_random_divisor,
-    _quick_divisor,
+    most_common_condition,
+    get_random_divisor,
+    quick_divisor,
     _get_variable_frequencies,
 )
 from sympy import Symbol, sympify, reduced, div, quo, rem
@@ -50,15 +50,15 @@ if __name__ == "__main__":
     )
 
     print("GFactor with most common condition")
-    factorised = gfactor(algebra_rule, _most_common_condition)
+    factorised = gfactor(algebra_rule, most_common_condition)
     print(factorised)
 
     print("GFactor with random divisor")
-    factorised = gfactor(algebra_rule, _get_random_divisor)
+    factorised = gfactor(algebra_rule, get_random_divisor)
     print(factorised)
 
     print("GFactor with quick divisor")
-    factorised = gfactor(algebra_rule, _quick_divisor)
+    factorised = gfactor(algebra_rule, quick_divisor)
     print(factorised)
 
     # Now test average factorised length
@@ -66,13 +66,13 @@ if __name__ == "__main__":
     rand_len = []
     quick_len = []
     for i in range(100):
-        mcc = gfactor(algebra_rule, _most_common_condition)
+        mcc = gfactor(algebra_rule, most_common_condition)
         mcc_len.append(sum(_get_variable_frequencies(mcc).values()))
 
-        rand = gfactor(algebra_rule, _get_random_divisor)
+        rand = gfactor(algebra_rule, get_random_divisor)
         rand_len.append(sum(_get_variable_frequencies(rand).values()))
 
-        quick = gfactor(algebra_rule, _quick_divisor)
+        quick = gfactor(algebra_rule, quick_divisor)
         quick_len.append(sum(_get_variable_frequencies(quick).values()))
 
     print("MCC AVG: {}".format(sum(mcc_len) / len(mcc_len)))

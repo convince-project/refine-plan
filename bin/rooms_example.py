@@ -108,9 +108,10 @@ def create_components(goal_location):
         goal_location: The destination. Must be a hallway location.
 
     Returns:
-        sf_list: A list of StateFactor objects
-        option_list: A list of Option objects
-        labels: A list of Label objects
+        A tuple containing:
+        - A list of StateFactor objects
+        - A list of Option objects
+        - A list of Label objects
     """
     sf_list = [IntStateFactor("x", 0, 10), IntStateFactor("y", 0, 10)]
 

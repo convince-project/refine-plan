@@ -21,7 +21,7 @@ def _build_prism_program(semi_mdp):
         semi_mdp: The SemiMDP.
 
     Returns:
-        prism_program: A stormpy PRISMProgram object
+        A stormpy PRISMProgram object
     """
 
     tmp_file = tempfile.NamedTemporaryFile()
@@ -40,7 +40,7 @@ def _build_storm_model(prism_program, formula):
         formula: The formula to model check
 
     Returns:
-        storm_model: The storm model
+        The storm model
 
     Raises:
         no_choice_labelling: Raised if the model has no choice labels
@@ -103,7 +103,7 @@ def _extract_policy(result, storm_model, semi_mdp):
         semi_mdp: The semi-MDP (needed for state factors)
 
     Returns:
-        policy: A Policy object
+        A Policy object
     """
     state_action_dict = {}
     value_dict = {}
@@ -148,7 +148,7 @@ def synthesise_policy(semi_mdp, prism_prop='Rmax=?[F "goal"]'):
         prism_prop: The property to solve for (must be reachability-based)
 
     Returns:
-        policy: A policy with the value function included
+        A policy with the value function included
 
     Raises:
         solution_exception: Raised if issue arises with model checking result

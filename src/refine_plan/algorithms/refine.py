@@ -37,7 +37,7 @@ def synthesise_bt_from_options(
         out_file: Optional. The path for the final BT XML file
 
     Returns:
-        bt: The final refined BT
+        The final refined BT
     """
     semi_mdp = SemiMDP(sf_list, option_list, labels, initial_state=initial_state)
     policy = synthesise_policy(semi_mdp, prism_prop=prism_prop)
