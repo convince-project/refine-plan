@@ -108,7 +108,6 @@ def create_components(goal_location):
         goal_location: The destination. Must be a hallway location.
 
     Returns:
-        A tuple containing:
         - A list of StateFactor objects
         - A list of Option objects
         - A list of Label objects

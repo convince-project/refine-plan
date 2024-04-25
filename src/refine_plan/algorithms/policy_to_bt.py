@@ -50,24 +50,6 @@ from refine_plan.models.condition import (
 class PolicyBTConverter(object):
     """This class contains the functionality to convert a policy into a BT.
 
-    This is an implementation of the work in:
-    Gugliermo, S., Schaffernicht, E., Koniaris, C. and Pecora, F., 2023.
-    Learning behavior trees from planning experts using decision tree and logic
-    factorization. IEEE Robotics and Automation Letters.
-
-    This code is reimplemented from:
-    https://github.com/SimonaGug/BT-from-planning-experts
-
-    The above code is by the lead author of the above paper, and HAS NO LICENSE ATTACHED.
-    Though there is no license, the code is open source.
-
-    The reimplementation fixes a number of bugs in the linked implementation.
-    It also streamlines data conversions and makes other tidiness/quality of life
-    improvements.
-
-    Note that the linked repo could not be used directly for REFINE-PLAN; the
-    reimplementation is necessary.
-
     Attributes:
         _vars_to_conds: A dictionary from variable names to Condition objects.
         _vars_to_symbols: A dictionary form variable names to sympy symbols.
@@ -107,7 +89,6 @@ class PolicyBTConverter(object):
             policy: The policy to extract logical rules form
 
         Returns:
-            A tuple containing:
             - A dictionary from actions/options to a pyeda expression (the rule)
             - A dictionary from actions/options to variable name to Condition
 
@@ -810,7 +791,7 @@ class PolicyBTConverter(object):
             out_file: Optional. The output file for the BT
 
         Returns:
-            bt: The converted BT
+            The converted BT
         """
 
         # Step 1: Reset all internal data structures

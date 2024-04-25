@@ -135,7 +135,6 @@ class Condition(object):
         This allows it to be worked with and minimised etc.
 
         Returns:
-            A tuple containing:
             - The corresponding pyeda expression
             - A mapping from var_name to condition. Only returned if return_var_map
         """
@@ -197,7 +196,6 @@ class TrueCondition(Condition):
         """Converts the condition into a pyeda logical expression (1)
 
         Returns:
-            A tuple containing:
             - The corresponding pyeda expression
             - A mapping from var_name to condition.
         """
@@ -329,7 +327,6 @@ class EqCondition(Condition):
         We create a variable name for the condition <sf_name>EQ<value>.
 
         Returns:
-            A tuple containing:
             - The corresponding pyeda expression
             - A mapping from var_name to condition.
         """
@@ -470,7 +467,6 @@ class NeqCondition(Condition):
         a not operator.
 
         Returns:
-            A tuple containing:
             - The corresponding pyeda expression
             - A mapping from var_name to condition.
         """
@@ -598,7 +594,6 @@ class NotCondition(Condition):
         This just negates the condition included in the object.
 
         Returns:
-            A tuple containing:
             - The corresponding pyeda expression
             - A mapping from var_name to condition.
         """
@@ -969,7 +964,6 @@ class LtCondition(InequalityCondition):
         We can then convert this back after doing all the logical work we need.
 
         Returns:
-            A tuple containing:
             - The corresponding pyeda expression
             - A mapping from var_name to condition
         """
@@ -1001,7 +995,6 @@ class GtCondition(InequalityCondition):
         variables.
 
         Returns:
-            A tuple containing:
             - The corresponding pyeda expression
             - A mapping from var_name to condition.
         """
@@ -1035,7 +1028,6 @@ class LeqCondition(InequalityCondition):
         We can then convert this back after doing all the logical work we need.
 
         Returns:
-            A tuple containing:
             - The corresponding pyeda expression
             - A mapping from var_name to condition.
         """
@@ -1169,7 +1161,6 @@ class AndCondition(Condition):
         Here we just do an And() of all sub-conditions, and combine the variable maps.
 
         Returns:
-            A tuple containing:
             - The corresponding pyeda expression
             - A mapping from var_name to condition.
         """
@@ -1333,7 +1324,6 @@ class OrCondition(Condition):
         Here we just do an Or() of all sub-conditions, and combine the variable maps.
 
         Returns:
-            A tuple containing:
             - The corresponding pyeda expression
             - A mapping from var_name to condition.
         """

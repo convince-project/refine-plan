@@ -47,7 +47,7 @@ def most_common_condition(formula):
         formula: The formula to search through
 
     Returns:
-        most_common_condition: The most common condition, or None if there isn't one
+        The most common condition, or None if there isn't one
     """
 
     frequencies = _get_variable_frequencies(formula)
@@ -61,33 +61,14 @@ def most_common_condition(formula):
 def gfactor(formula, divisor_fn=most_common_condition):
     """Runs the GFactor factorisation algorithm.
 
-    GFactor was introduced in:
-    Wang, A.R.R., 1990. Algorithms for multilevel logic optimization.
-
-    The implementation here is based on the implementation in:
-    https://github.com/SimonaGug/BT-from-planning-experts
-
-    Which is an implementation of the paper:
-
-    Gugliermo, S., Schaffernicht, E., Koniaris, C. and Pecora, F., 2023.
-    Learning behavior trees from planning experts using decision tree and logic
-    factorization. IEEE Robotics and Automation Letters.
-
-    It is not entirely clear if the version of GFactor in the paper is identical
-    to that in the original PhD thesis it came from.
-
-    Note the implementation I am referencing here does not have an associated license.
-
-    My reimplementation improves readability, makes bug fixes from the original, and makes
-    general quality of life improvements.
-
+    Implements GFactor as in the pseudocode in both papers listed at the top of the file.
 
     Args:
         formula: A sympy formula
         divisor_fn: Optional. Sets the function to use for the initial divisor.
 
     Returns:
-        factorised: A factorised formula in the format p*q + r
+        A factorised formula in the format p*q + r
     """
     divisor = divisor_fn(formula)
 
@@ -234,7 +215,6 @@ def _divide(formula, divisor):
         divisor: What we're dividing formula by
 
     Returns:
-        A tuple containing:
         - The quotient of the division
         - The remainder of the division
     """
