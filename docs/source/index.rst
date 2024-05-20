@@ -13,7 +13,6 @@ Contents
 .. toctree::
 
    tutorials
-   api
 
 .. _options: https://www.sciencedirect.com/science/article/pii/S0004370299000521
 .. _here: https://github.com/convince-project/refine-plan/blob/main/README.md
