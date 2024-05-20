@@ -5,7 +5,7 @@ with open("README.md", "r") as f:
 
 setup(
     name="refine_plan",
-    version="0.0.1",
+    version="1.0.0",
     description="Automatic Behaviour Tree Refinement",
     long_description=long_description,
     author="Charlie Street",
