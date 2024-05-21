@@ -72,6 +72,10 @@ python3 -m unittest discover --pattern=*.py
 
 ## Build the documentation
 
+The REFINE-PLAN documentation can be found [here](https://convince-project.github.io/refine-plan). 
+If you want to build it locally, do the following:
+
+
 1. Install the required packages:
 
     ```bash
