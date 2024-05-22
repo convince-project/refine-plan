@@ -63,9 +63,7 @@ Small examples of REFINE-PLAN can be found in the `bin` directory.
 To run all unit tests, run:
 
 ```bash
-cd tests/algorithms
-python3 -m unittest discover --pattern=*.py
-cd ../models
+cd tests
 python3 -m unittest discover --pattern=*.py
 ```
 
