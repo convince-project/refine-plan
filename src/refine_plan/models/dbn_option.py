@@ -82,7 +82,7 @@ class DBNOption(Option):
         # Step 3: Check the values for each state variable
         for i in range(len(sf_names)):
             name = sf_names[i]
-            vals = set(self._sf_list[i].get_valid_values())
+            vals = set([str(v) for v in self._sf_list[i].get_valid_values()])
             trans_0_values = set(
                 self._transition_dbn.variableFromName("{}0".format(name)).labels()
             )
