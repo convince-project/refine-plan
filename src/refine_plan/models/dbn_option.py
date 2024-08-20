@@ -105,6 +105,62 @@ class DBNOption(Option):
         """
         return float(self._reward_dbn.variableFromName("r").labels()[x["r"]])
 
+    def _get_independent_groups(self):
+        """Compute the set of independent transition DBN variable groups.
+
+        The variables considered are the successor variables suffixed with t.
+        Variables between groups are independent.
+        Variables within a group are dependent.
+
+        Returns:
+            A list of sets of variable names
+        """
+        succ_vars = set([var for var in self._transition_dbn.names() if var[-1] == "t"])
+        pre_vars = [var for var in self._transition_dbn.names() if var[-1] == "0"]
+
+        groups = []
+        current_group = set([])
+
+        while len(succ_vars) > 0:
+            for var in succ_vars:
+                if current_group == []:
+                    current_group.add(var)
+                elif not self._transition_dbn.isIndependent(
+                    current_group[0], var, pre_vars
+                ):
+                    current_group.add(var)
+
+            groups.append(current_group)
+            succ_vars = succ_vars.difference(current_group)
+
+        return groups
+
+    def _get_parents_for_groups(self, groups):
+        """Get the previous state variables for each group of next state variables.
+
+        Args:
+            groups: A list of sets of variable names
+
+        Returns:
+            A list of sets of variable names (the parents)
+        """
+        succ_vars = set([var for var in self._transition_dbn.names() if var[-1] == "t"])
+        parents = []
+
+        for group in groups:
+            parent_set = set([])
+            for var in group:
+                parent_set.update(self._transition_dbn.parents(var))
+
+            parent_set = set(
+                [[self._transition_dbn.variable(p).name() for p in parent_set]]
+            )
+
+            # Remove any 't' variables
+            parents.append(parent_set.difference(succ_vars))
+
+        return parents
+
     def get_transition_prob(self, state, next_state):
         """Return the transition probability for an (s,s') pair.
 
