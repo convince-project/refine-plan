@@ -211,7 +211,65 @@ class DBNOption(Option):
         return inf_eng.jointPosterior(set("r")).expectedValue(self._expected_val_fn)
 
     def get_transition_prism_string(self):
-        return super().get_transition_prism_string()
+        """Return a PRISM string which captures all transitions for this option.
+
+        Returns:
+            The transition PRISM string
+        """
+        prism_str = ""
+        inf_eng = gum.LazyPropagation(self._transition_dbn)
+        groups = self._get_independent_groups()
+        parents = self._get_parents_for_groups(groups)
+        sf_dict = {}
+        for sf in self._sf_list:
+            sf_dict["{}0".format(sf.get_name())] = sf
+            sf_dict["{}t".format(sf.get_name())] = sf
+
+        for i in range(len(groups)):
+            group = list(groups[i])
+            parent_set = list(parents[i])
+
+            parent_vals = [sf_dict[p].get_valid_values() for p in parent_set]
+            group_vals = [sf_dict[var].get_valid_values() for var in group]
+            inf_eng.addJointTarget(set(group))
+            instantiation = gum.Instantiation()
+            instantiation.addVarsFromModel(self._transition_dbn, group)
+
+            for pre_state_vals in itertools.product(*parent_vals):
+                # Build the predecessor state object
+                pre_state_dict, evidence = {}, {}
+                for i in range(len(pre_state_vals)):
+                    pre_state_dict[sf_dict[parent_set[i]]] = pre_state_vals[i]
+                    evidence[parent_set[i]] = str(pre_state_vals[i])
+                pre_state = State(pre_state_dict)
+
+                prism_str += "[{}] {} -> ".format(  # Write precondition to PRISM
+                    self.get_name(), pre_state.to_and_cond().to_prism_string()
+                )
+
+                inf_eng.setEvidence(evidence)  # Setting evidence for posterior
+                posterior = inf_eng.jointPosterior(set(group))
+
+                for next_state_vals in itertools.product(*group_vals):
+                    # Build the successor state object
+                    next_state_dict, inst_dict = {}, {}
+                    for i in range(len(next_state_vals)):
+                        next_state_dict[sf_dict[group[i]]] = next_state_vals[i]
+                        inst_dict[group[i]] = str(next_state_vals[i])
+                    next_state = State(next_state_dict)
+
+                    instantiation.fromdict(inst_dict)
+                    prism_str += "{}:{} + ".format(
+                        posterior.get(instantiation),
+                        next_state.to_and_cond().to_prism_string(is_post_cond=True),
+                    )
+
+                prism_str = prism_str[:-3] + "; \n"  # Remove final " + "
+                inf_eng.eraseAllEvidence()
+
+            inf_eng.eraseAllJointTargets()  # Erase targets when we move to a different group
+
+        return prism_str
 
     def get_reward_prism_string(self):
         """Return a PRISM string which captures all rewards for this option.
