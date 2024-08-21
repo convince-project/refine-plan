@@ -8,6 +8,7 @@ Owner: Charlie Street
 from refine_plan.models.option import Option
 from refine_plan.models.state import State
 import pyAgrum as gum
+import numpy as np
 import itertools
 
 
@@ -238,12 +239,9 @@ class DBNOption(Option):
                 evidence[ev_vars[i]] = str(pre_state_vals[i])
             pre_state = State(pre_state_dict)
 
-            prism_str += "[{}] {} -> ".format(  # Write precondition to PRISM
-                self.get_name(), pre_state.to_and_cond().to_prism_string()
-            )
-
             inf_eng.setEvidence(evidence)  # Setting evidence for posterior
             posterior = inf_eng.jointPosterior(set(target))
+            post_cond_str = ""
 
             for next_state_vals in itertools.product(*sf_vals):
                 # Build the successor state object
@@ -254,12 +252,19 @@ class DBNOption(Option):
                 next_state = State(next_state_dict)
 
                 instantiation.fromdict(inst_dict)
-                prism_str += "{}:{} + ".format(
-                    posterior.get(instantiation),
-                    next_state.to_and_cond().to_prism_string(is_post_cond=True),
-                )
+                prob = posterior.get(instantiation)
+                if not np.isclose(prob, 0.0):
+                    post_cond_str += "{}:{} + ".format(
+                        posterior.get(instantiation),
+                        next_state.to_and_cond().to_prism_string(is_post_cond=True),
+                    )
 
-            prism_str = prism_str[:-3] + "; \n"  # Remove final " + "
+            if post_cond_str != "":  # Only write out if there are valid transitions
+                prism_str += "[{}] {} -> ".format(  # Write precondition to PRISM
+                    self.get_name(), pre_state.to_and_cond().to_prism_string()
+                )
+                prism_str += post_cond_str
+                prism_str = prism_str[:-3] + "; \n"  # Remove final " + "
             inf_eng.eraseAllEvidence()
 
         return prism_str
@@ -292,6 +297,9 @@ class DBNOption(Option):
             inf_eng.eraseAllEvidence()
 
             # Add to the PRISM string
-            prism_str += "[{}] {}: {};\n".format(
-                self.get_name(), state.to_and_cond().to_prism_string(), r
-            )
+            if not np.isclose(r, 0.0):
+                prism_str += "[{}] {}: {};\n".format(
+                    self.get_name(), state.to_and_cond().to_prism_string(), r
+                )
+
+        return prism_str

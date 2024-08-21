@@ -7,6 +7,7 @@ Owner: Charlie Street
 
 from refine_plan.models.state_factor import BoolStateFactor
 from refine_plan.models.dbn_option import DBNOption
+from refine_plan.models.state import State
 import pyAgrum as gum
 import unittest
 import os
@@ -41,6 +42,8 @@ def create_two_bns():
     _ = r_bn.add(gum.LabelizedVariable("x", "x?", ["False", "True"]))
     _ = r_bn.add(gum.LabelizedVariable("y", "y?", ["False", "True"]))
     _ = r_bn.add(gum.LabelizedVariable("r", "r?", ["1", "2", "3"]))
+    r_bn.addArc("x", "r")
+    r_bn.addArc("y", "r")
 
     r_bn.cpt("x").fillWith([0.5, 0.5])
     r_bn.cpt("y").fillWith([0.5, 0.5])
@@ -81,31 +84,181 @@ class CheckValidDBNs(unittest.TestCase):
 class ExpectedValFnTest(unittest.TestCase):
 
     def test_function(self):
-        pass
+        create_two_bns()
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption("test", "transition.bifxml", "reward.bifxml", sf_list)
+
+        labels = option._reward_dbn.variableFromName("r").labels()
+        self.assertEqual(sorted(list(labels)), ["1", "2", "3"])
+
+        x = {"r": 0}
+        ex = option._expected_val_fn(x)
+        self.assertTrue(isinstance(ex, float))
+        self.assertEqual(ex, float(labels[0]))
+
+        x["r"] = 1
+        ex = option._expected_val_fn(x)
+        self.assertTrue(isinstance(ex, float))
+        self.assertEqual(ex, float(labels[1]))
+
+        x["r"] = 2
+        ex = option._expected_val_fn(x)
+        self.assertTrue(isinstance(ex, float))
+        self.assertEqual(ex, float(labels[2]))
+
+        x["r"] = 3
+        with self.assertRaises(Exception):
+            option._expected_val_fn(x)
 
 
 class GetTransitionProbTest(unittest.TestCase):
 
     def test_function(self):
-        pass
+        create_two_bns()
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption("test", "transition.bifxml", "reward.bifxml", sf_list)
+
+        state_ff = State({sf_list[0]: False, sf_list[1]: False})
+        state_ft = State({sf_list[0]: False, sf_list[1]: True})
+        state_tf = State({sf_list[0]: True, sf_list[1]: False})
+        state_tt = State({sf_list[0]: True, sf_list[1]: True})
+
+        self.assertAlmostEqual(option.get_transition_prob(state_ff, state_ff), 0.32)
+        self.assertAlmostEqual(option.get_transition_prob(state_ff, state_ft), 0.08)
+        self.assertAlmostEqual(option.get_transition_prob(state_ff, state_tf), 0.48)
+        self.assertAlmostEqual(option.get_transition_prob(state_ff, state_tt), 0.12)
+
+        self.assertAlmostEqual(option.get_transition_prob(state_ft, state_ff), 0.05)
+        self.assertAlmostEqual(option.get_transition_prob(state_ft, state_ft), 0.45)
+        self.assertAlmostEqual(option.get_transition_prob(state_ft, state_tf), 0.05)
+        self.assertAlmostEqual(option.get_transition_prob(state_ft, state_tt), 0.45)
+
+        self.assertAlmostEqual(option.get_transition_prob(state_tf, state_ff), 0.42)
+        self.assertAlmostEqual(option.get_transition_prob(state_tf, state_ft), 0.18)
+        self.assertAlmostEqual(option.get_transition_prob(state_tf, state_tf), 0.28)
+        self.assertAlmostEqual(option.get_transition_prob(state_tf, state_tt), 0.12)
+
+        self.assertAlmostEqual(option.get_transition_prob(state_tt, state_ff), 0.06)
+        self.assertAlmostEqual(option.get_transition_prob(state_tt, state_ft), 0.24)
+        self.assertAlmostEqual(option.get_transition_prob(state_tt, state_tf), 0.14)
+        self.assertAlmostEqual(option.get_transition_prob(state_tt, state_tt), 0.56)
 
 
 class GetRewardTest(unittest.TestCase):
 
     def test_function(self):
-        pass
+        create_two_bns()
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption("test", "transition.bifxml", "reward.bifxml", sf_list)
+
+        state_ff = State({sf_list[0]: False, sf_list[1]: False})
+        state_ft = State({sf_list[0]: False, sf_list[1]: True})
+        state_tf = State({sf_list[0]: True, sf_list[1]: False})
+        state_tt = State({sf_list[0]: True, sf_list[1]: True})
+
+        self.assertAlmostEqual(option.get_reward(state_ff), 2.3)
+        self.assertAlmostEqual(option.get_reward(state_ft), 1.7)
+        self.assertAlmostEqual(option.get_reward(state_tf), 1.8)
+        self.assertAlmostEqual(option.get_reward(state_tt), 2.1)
 
 
 class GetTransitionPrismStringTest(unittest.TestCase):
 
     def test_function(self):
-        pass
+        create_two_bns()
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption("test", "transition.bifxml", "reward.bifxml", sf_list)
+
+        prism_str = option.get_transition_prism_string()
+
+        state_ff = State({sf_list[0]: False, sf_list[1]: False})
+        state_ft = State({sf_list[0]: False, sf_list[1]: True})
+        state_tf = State({sf_list[0]: True, sf_list[1]: False})
+        state_tt = State({sf_list[0]: True, sf_list[1]: True})
+
+        ff_ff = option.get_transition_prob(state_ff, state_ff)
+        ff_ft = option.get_transition_prob(state_ff, state_ft)
+        ff_tf = option.get_transition_prob(state_ff, state_tf)
+        ff_tt = option.get_transition_prob(state_ff, state_tt)
+
+        ft_ff = option.get_transition_prob(state_ft, state_ff)
+        ft_ft = option.get_transition_prob(state_ft, state_ft)
+        ft_tf = option.get_transition_prob(state_ft, state_tf)
+        ft_tt = option.get_transition_prob(state_ft, state_tt)
+
+        tf_ff = option.get_transition_prob(state_tf, state_ff)
+        tf_ft = option.get_transition_prob(state_tf, state_ft)
+        tf_tf = option.get_transition_prob(state_tf, state_tf)
+        tf_tt = option.get_transition_prob(state_tf, state_tt)
+
+        tt_ff = option.get_transition_prob(state_tt, state_ff)
+        tt_ft = option.get_transition_prob(state_tt, state_ft)
+        tt_tf = option.get_transition_prob(state_tt, state_tf)
+        tt_tt = option.get_transition_prob(state_tt, state_tt)
+
+        expected = "[test] ((x = 0) & (y = 0)) -> {}:(x' = 0) & (y' = 0) + ".format(
+            ff_ff
+        )
+        expected += "{}:(x' = 0) & (y' = 1) + {}:(x' = 1) & (y' = 0) + ".format(
+            ff_ft, ff_tf
+        )
+        expected += "{}:(x' = 1) & (y' = 1); \n".format(ff_tt)
+
+        expected += "[test] ((x = 0) & (y = 1)) -> {}:(x' = 0) & (y' = 0) + ".format(
+            ft_ff
+        )
+        expected += "{}:(x' = 0) & (y' = 1) + {}:(x' = 1) & (y' = 0) + ".format(
+            ft_ft, ft_tf
+        )
+        expected += "{}:(x' = 1) & (y' = 1); \n".format(ft_tt)
+
+        expected += "[test] ((x = 0) & (y = 1)) -> {}:(x' = 0) & (y' = 0) + ".format(
+            tf_ff
+        )
+        expected += "{}:(x' = 0) & (y' = 1) + {}:(x' = 1) & (y' = 0) + ".format(
+            tf_ft, tf_tf
+        )
+        expected += "{}:(x' = 1) & (y' = 1); \n".format(tf_tt)
+
+        expected += "[test] ((x = 0) & (y = 1)) -> {}:(x' = 0) & (y' = 0) + ".format(
+            tt_ff
+        )
+        expected += "{}:(x' = 0) & (y' = 1) + {}:(x' = 1) & (y' = 0) + ".format(
+            tt_ft, tt_tf
+        )
+        expected += "{}:(x' = 1) & (y' = 1); \n".format(tt_tt)
+
+        print(prism_str)
+        print()
+        print(expected)
+        self.assertEqual(prism_str, expected)
 
 
 class GetRewardPrismStringTest(unittest.TestCase):
 
     def test_function(self):
-        pass
+        create_two_bns()
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption("test", "transition.bifxml", "reward.bifxml", sf_list)
+
+        prism_str = option.get_reward_prism_string()
+
+        ff_r = 0.2 * 1.0 + 0.3 * 2.0 + 0.5 * 3.0
+        ft_r = 0.6 * 1.0 + 0.1 * 2.0 + 0.3 * 3.0
+        tf_r = 0.4 * 1.0 + 0.4 * 2.0 + 0.2 * 3.0
+        tt_r = 0.3 * 1.0 + 0.3 * 2.0 + 0.4 * 3.0
+
+        expected = "[test] ((x = 0) & (y = 0)): {};\n".format(ff_r)
+        expected += "[test] ((x = 0) & (y = 1)): {};\n".format(ft_r)
+        expected += "[test] ((x = 1) & (y = 0)): {};\n".format(tf_r)
+        expected += "[test] ((x = 1) & (y = 1)): {};\n".format(tt_r)
+
+        self.assertEqual(prism_str, expected)
 
 
 if __name__ == "__main__":
