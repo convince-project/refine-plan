@@ -17,6 +17,7 @@ COVERAGE-PLAN requires the following dependencies:
 * [Stormpy](https://moves-rwth.github.io/stormpy/index.html) (Tested with 1.8.0) 
 * [PyAgrum](https://pyagrum.readthedocs.io/en/1.15.1/index.html) (Tested with 1.14.1)
 * [PyMongo](https://pymongo.readthedocs.io/en/stable/index.html) (Tested with 4.8.0)
+* [Pandas](https://pandas.pydata.org/) (Tested with 2.2.1)
 
 The first three dependencies can be installed via:
 ```

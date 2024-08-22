@@ -7,6 +7,7 @@ Owner: Charlie Street
 
 from pymongo import MongoClient
 import pyAgrum as gum
+import pandas as pd
 import yaml
 import os
 
@@ -120,14 +121,13 @@ def _check_dataset(dataset, sf_list):
         assert len(dataset[option]["reward"]["r"]) == num_entries
 
 
-def _dataset_vals_to_str(dataset, sf_list):
+def _dataset_vals_to_str(dataset):
     """Converts all data items in the dataset to strings.
 
     This is to ensure that pyagrum will work the way we want it to.
 
     Args:
         dataset: The dataset dictionary.
-        sf_list: The list of state factors we expect to see in the dataset
 
     Returns:
         The modified dataset dictionary
@@ -138,23 +138,15 @@ def _dataset_vals_to_str(dataset, sf_list):
     for option in dataset:
         str_dataset[option] = {"transition": {}, "reward": {}}
 
-        for sf in sf_list:
-            sf_name = sf.get_name()
-            sf_0_name = "{}0".format(sf_name)
-            sf_t_name = "{}t".format(sf_name)
-            str_dataset[option]["transition"][sf_0_name] = map(
-                lambda x: str(x), dataset[option]["transition"][sf_0_name]
-            )
-            str_dataset[option]["transition"][sf_t_name] = map(
-                lambda x: str(x), dataset[option]["transition"][sf_t_name]
-            )
-            str_dataset[option]["reward"][sf_name] = map(
-                lambda x: str(x), dataset[option]["reward"][sf_name]
+        for key in dataset[option]["transition"]:
+            str_dataset[option]["transition"][key] = list(
+                map(lambda x: str(x), dataset[option]["transition"][key])
             )
 
-        str_dataset[option]["reward"]["r"] = map(
-            lambda x: str(x), dataset[option]["reward"]["r"]
-        )
+        for key in dataset[option]["reward"]:
+            str_dataset[option]["reward"][key] = list(
+                map(lambda x: str(x), dataset[option]["reward"][key])
+            )
 
     return str_dataset
 
@@ -170,8 +162,8 @@ def _setup_learners(option_dataset, sf_list):
         The transition function learner and the reward function learner
     """
 
-    trans_learner = gum.BNLearner(option_dataset["transition"])
-    reward_learner = gum.BNLearner(option_dataset["reward"])
+    trans_learner = gum.BNLearner(pd.DataFrame(data=option_dataset["transition"]))
+    reward_learner = gum.BNLearner(pd.DataFrame(data=option_dataset["reward"]))
 
     # Restrict the edges allowed in the BN
     # 1: Transition DBN - 0 vars can't go to other 0 vars
@@ -185,7 +177,7 @@ def _setup_learners(option_dataset, sf_list):
         for sf_2 in sf_list:
             sf_2_name = "{}0".format(sf_2.get_name())
             trans_learner.addForbiddenArc(sf_name, sf_2_name)
-            reward_learner.addForbiddenArc(sf_name, sf_2_name)
+            reward_learner.addForbiddenArc(sf.get_name(), sf_2.get_name())
             trans_learner.addForbiddenArc(sf_name_t, sf_2_name)
 
     return trans_learner, reward_learner
@@ -212,17 +204,17 @@ def learn_dbns(dataset_path, output_dir, sf_list):
 
     # Test the dataset has the correct format
     _check_dataset(dataset, sf_list)
-    dataset = _dataset_vals_to_str(dataset, sf_list)
+    dataset = _dataset_vals_to_str(dataset)
 
     for option in dataset:
         trans_learner, reward_learner = _setup_learners(dataset[option], sf_list)
 
         print("LEARNING TRANSITION DBN FOR OPTION: {}".format(option))
         trans_bn = trans_learner.learnBN()
-        trans_out = os.path.append(output_dir, "{}_transition.bifxml".format(option))
+        trans_out = os.path.join(output_dir, "{}_transition.bifxml".format(option))
         trans_bn.saveBIFXML(trans_out)
 
         print("LEARNING REWARD DBN FOR OPTION: {}".format(option))
         reward_bn = reward_learner.learnBN()
-        reward_out = os.path.append(output_dir, "{}_reward.bifxml".format(option))
-        reward_bn.saveBIFXML("{}_reward.bifxml".format(option))
+        reward_out = os.path.join(output_dir, "{}_reward.bifxml".format(option))
+        reward_bn.saveBIFXML(reward_out)
