@@ -15,6 +15,8 @@ COVERAGE-PLAN requires the following dependencies:
 * [Sympy](https://www.sympy.org/en/index.html) (Tested with 1.12)
 * [Pyeda](https://pyeda.readthedocs.io/en/latest/)  (Tested with 0.29.0)
 * [Stormpy](https://moves-rwth.github.io/stormpy/index.html) (Tested with 1.8.0) 
+* [PyAgrum](https://pyagrum.readthedocs.io/en/1.15.1/index.html) (Tested with 1.14.1)
+* [PyMongo](https://pymongo.readthedocs.io/en/stable/index.html) (Tested with 4.8.0)
 
 The first three dependencies can be installed via:
 ```

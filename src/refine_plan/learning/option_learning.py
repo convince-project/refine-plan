@@ -1,0 +1,228 @@
+#!/usr/bin/env python
+""" Functions for processing datsets and learning DBNs.
+
+Author: Charlie Street
+Owner: Charlie Street
+"""
+
+from pymongo import MongoClient
+import pyAgrum as gum
+import yaml
+import os
+
+
+def _initialise_dict_for_option(yaml_dict, option, sf_list):
+    """Initialise a yaml dataset dict for a new option.
+
+    Args:
+        yaml_dict: The dictionary with the dataset to be written to yaml
+        option: The option we're initialising for
+        sf_list: The list state factors we expect to see in the Mongo DB
+    """
+    yaml_dict[option] = {"transition": {}, "reward": {}}
+    for sf in sf_list:
+        sf_name = sf.get_name()
+        sf_0_name = "{}0".format(sf_name)
+        sf_t_name = "{}t".format(sf_name)
+        yaml_dict[option]["transition"][sf_0_name] = []
+        yaml_dict[option]["transition"][sf_t_name] = []
+        yaml_dict[option]["reward"][sf_name] = []
+
+    yaml_dict[option]["reward"]["r"] = []
+
+
+def mongodb_to_yaml(connection_str, db_name, collection_name, sf_list, out_file):
+    """Processes a mongodb collection into a yaml dataset for DBN learning.
+
+    Args:
+        connection_str: The mongodb connection string
+        db_name: The Mongo database name
+        collection_name: The collection within the database
+        sf_list: The list of state factors to expect in the MongoDB
+        out_file: The path for the yaml file
+    """
+
+    client = MongoClient(connection_str)
+
+    yaml_dict = {}
+
+    collection = client[db_name][collection_name]
+
+    # Search through all documents
+    for doc in collection.find({}):
+        option = doc["option"]
+        if option not in yaml_dict:
+            _initialise_dict_for_option(yaml_dict, option, sf_list)
+
+        for sf in sf_list:
+            sf_name = sf.get_name()
+            sf_0_name = "{}0".format(sf_name)
+            sf_t_name = "{}t".format(sf_name)
+            yaml_dict[option]["transition"][sf_0_name].append(doc[sf_0_name])
+            yaml_dict[option]["transition"][sf_t_name].append(doc[sf_t_name])
+            yaml_dict[option]["reward"][sf_name].append(doc[sf_name])
+
+        # Round durations to integers for the sake of feeding into the DBN
+        yaml_dict[option]["reward"]["r"].append(round(doc["duration"]))
+
+    # Write dataset to yaml
+    with open(out_file, "w") as yaml_out:
+        yaml.dump(yaml_dict, yaml_out)
+
+
+def _check_dataset(dataset, sf_list):
+    """Test that the dataset follows the expected format.
+
+    Args:
+        dataset: The dataset dictionary
+        sf_list: The list of state factors we expect to see in the dataet
+
+    Raises:
+        bad_dataset: Raised if the dataset is invalid
+    """
+
+    assert isinstance(dataset, dict)
+
+    for option in dataset:
+        assert isinstance(dataset[option], dict)
+        assert len(dataset[option]) == 2
+        assert "transition" in dataset[option]
+        assert "reward" in dataset[option]
+
+        assert isinstance(dataset[option]["transition"], dict)
+        assert isinstance(dataset[option]["reward"], dict)
+
+        # Check state factor names
+        num_entries = None
+        for sf in sf_list:
+            sf_name = sf.get_name()
+            sf_0_name = "{}0".format(sf_name)
+            sf_t_name = "{}t".format(sf_name)
+
+            assert sf_0_name in dataset[option]["transition"]
+            assert isinstance(dataset[option]["transition"][sf_0_name], list)
+            assert sf_t_name in dataset[option]["transition"]
+            assert isinstance(dataset[option]["transition"][sf_t_name], list)
+            assert sf_name in dataset[option]["reward"]
+            assert isinstance(dataset[option]["reward"][sf_name], list)
+
+            if num_entries is None:
+                num_entries = len(dataset[option]["transition"][sf_0_name])
+
+            # Check for consistent number of data entries
+            assert len(dataset[option]["transition"][sf_0_name]) == num_entries
+            assert len(dataset[option]["transition"][sf_t_name]) == num_entries
+            assert len(dataset[option]["reward"][sf_name]) == num_entries
+
+        # Check reward values
+        assert "r" in dataset[option]["reward"]
+        assert isinstance(dataset[option]["reward"]["r"], list)
+        assert len(dataset[option]["reward"]["r"]) == num_entries
+
+
+def _dataset_vals_to_str(dataset, sf_list):
+    """Converts all data items in the dataset to strings.
+
+    This is to ensure that pyagrum will work the way we want it to.
+
+    Args:
+        dataset: The dataset dictionary.
+        sf_list: The list of state factors we expect to see in the dataset
+
+    Returns:
+        The modified dataset dictionary
+    """
+
+    str_dataset = {}
+
+    for option in dataset:
+        str_dataset[option] = {"transition": {}, "reward": {}}
+
+        for sf in sf_list:
+            sf_name = sf.get_name()
+            sf_0_name = "{}0".format(sf_name)
+            sf_t_name = "{}t".format(sf_name)
+            str_dataset[option]["transition"][sf_0_name] = map(
+                lambda x: str(x), dataset[option]["transition"][sf_0_name]
+            )
+            str_dataset[option]["transition"][sf_t_name] = map(
+                lambda x: str(x), dataset[option]["transition"][sf_t_name]
+            )
+            str_dataset[option]["reward"][sf_name] = map(
+                lambda x: str(x), dataset[option]["reward"][sf_name]
+            )
+
+        str_dataset[option]["reward"]["r"] = map(
+            lambda x: str(x), dataset[option]["reward"]["r"]
+        )
+
+    return str_dataset
+
+
+def _setup_learners(option_dataset, sf_list):
+    """Setup the BNLearner objects for the transition and reward function for an option.
+
+    Args:
+        option_dataset: The dataset for the option
+        sf_list: The list of state factors we expect to see in the dataset
+
+    Returns:
+        The transition function learner and the reward function learner
+    """
+
+    trans_learner = gum.BNLearner(option_dataset["transition"])
+    reward_learner = gum.BNLearner(option_dataset["reward"])
+
+    # Restrict the edges allowed in the BN
+    # 1: Transition DBN - 0 vars can't go to other 0 vars
+    # 2: Reward DBN - sf vars can't go between each other
+    # 3: Transition DBN - t vars can't go back to 0 vars
+    # 4: Reward DBN - r can't go back to other vars
+    for sf in sf_list:
+        sf_name = "{}0".format(sf.get_name())
+        sf_name_t = "{}t".format(sf.get_name())
+        reward_learner.addForbiddenArc("r", sf.get_name())
+        for sf_2 in sf_list:
+            sf_2_name = "{}0".format(sf_2.get_name())
+            trans_learner.addForbiddenArc(sf_name, sf_2_name)
+            reward_learner.addForbiddenArc(sf_name, sf_2_name)
+            trans_learner.addForbiddenArc(sf_name_t, sf_2_name)
+
+    return trans_learner, reward_learner
+
+
+def learn_dbns(dataset_path, output_dir, sf_list):
+    """Learn a set of DBNs representing options.
+
+    The dataset should be a dictionary from options to a dictionary with two keys:
+    'transition' and 'reward'. In 'transition' there should be a dictionary with keys
+    sf0 and sft for each state factor sf. At each of these keys is a list of data.
+    In 'reward' there should be a dictionary with keys sf for each state factor sf, and
+    'r' to represent the reward. At each of these keys is a list of data
+
+    Args:
+        dataset_path: A yaml file containing the dataset.
+        output_dir: The output directory for the DBNs.
+        sf_list: The list of state factors we expect to see in the dataset
+    """
+
+    print("READING IN DATASET")
+    with open(dataset_path, "r") as yaml_in:
+        dataset = yaml.load(yaml_in, yaml.FullLoader)
+
+    # Test the dataset has the correct format
+    _check_dataset(dataset, sf_list)
+    dataset = _dataset_vals_to_str(dataset, sf_list)
+
+    for option in dataset:
+        trans_learner, reward_learner = _setup_learners(dataset[option], sf_list)
+
+        print("LEARNING TRANSITION DBN FOR OPTION: {}".format(option))
+        trans_bn = trans_learner.learnBN()
+        trans_out = os.path.append(output_dir, "{}_transition.bifxml".format(option))
+        trans_bn.saveBIFXML(trans_out)
+
+        print("LEARNING REWARD DBN FOR OPTION: {}".format(option))
+        reward_bn = reward_learner.learnBN()
+        reward_out = os.path.append(output_dir, "{}_reward.bifxml".format(option))
+        reward_bn.saveBIFXML("{}_reward.bifxml".format(option))
