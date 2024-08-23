@@ -20,6 +20,13 @@ import unittest
 import yaml
 import os
 
+try:
+    client = MongoClient("localhost:27017", timeoutMS=1000)
+    client.server_info()
+    MONGO_RUNNING = True
+except:
+    MONGO_RUNNING = False
+
 
 class InitialiseDictForOptionTest(unittest.TestCase):
 
@@ -40,6 +47,7 @@ class InitialiseDictForOptionTest(unittest.TestCase):
         self.assertEqual(dataset, expected)
 
 
+@unittest.skipIf(not MONGO_RUNNING, "MongoDB server not running.")
 class MongodbToYamlTest(unittest.TestCase):
 
     def test_function(self):
