@@ -61,7 +61,7 @@ def mongodb_to_yaml(connection_str, db_name, collection_name, sf_list, out_file)
             sf_t_name = "{}t".format(sf_name)
             yaml_dict[option]["transition"][sf_0_name].append(doc[sf_0_name])
             yaml_dict[option]["transition"][sf_t_name].append(doc[sf_t_name])
-            yaml_dict[option]["reward"][sf_name].append(doc[sf_name])
+            yaml_dict[option]["reward"][sf_name].append(doc[sf_0_name])
 
         # Round durations to integers for the sake of feeding into the DBN
         yaml_dict[option]["reward"]["r"].append(round(doc["duration"]))

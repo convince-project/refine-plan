@@ -14,6 +14,7 @@ from refine_plan.learning.option_learning import (
     _setup_learners,
     learn_dbns,
 )
+from pymongo import MongoClient
 import pyAgrum as gum
 import unittest
 import yaml
@@ -42,13 +43,272 @@ class InitialiseDictForOptionTest(unittest.TestCase):
 class MongodbToYamlTest(unittest.TestCase):
 
     def test_function(self):
-        pass
+        # This test requires a local mongo server to be setup on port 27017
+        connection_str = "mongodb://localhost:27017"
+        db_name = "test_db"
+        collection_name = "test_collection"
+
+        client = MongoClient(connection_str)
+        collection = client[db_name][collection_name]
+        doc_1 = {
+            "option": "test",
+            "x0": 1,
+            "xt": 2,
+            "y0": False,
+            "yt": False,
+            "duration": 5,
+        }
+        doc_2 = {
+            "option": "test",
+            "x0": 2,
+            "xt": 3,
+            "y0": True,
+            "yt": False,
+            "duration": 5,
+        }
+        doc_3 = {
+            "option": "test",
+            "x0": 3,
+            "xt": 1,
+            "y0": False,
+            "yt": True,
+            "duration": 7,
+        }
+        collection.insert_many([doc_1, doc_2, doc_3])
+
+        yaml_file = "dataset_test.yaml"
+
+        sf_list = [StateFactor("x", [1, 2, 3]), BoolStateFactor("y")]
+        mongodb_to_yaml(connection_str, db_name, collection_name, sf_list, yaml_file)
+        client.drop_database("test_db")
+
+        expected = {
+            "test": {
+                "transition": {
+                    "x0": [1, 2, 3],
+                    "xt": [2, 3, 1],
+                    "y0": [False, True, False],
+                    "yt": [False, False, True],
+                },
+                "reward": {"x": [1, 2, 3], "y": [False, True, False], "r": [5, 5, 7]},
+            }
+        }
+
+        assert os.path.exists(yaml_file)
+        with open(yaml_file, "r") as yaml_in:
+            dataset = yaml.load(yaml_in, Loader=yaml.FullLoader)
+
+        self.assertEqual(dataset, expected)
+
+        os.remove(yaml_file)
 
 
 class CheckDatasetTest(unittest.TestCase):
 
     def test_function(self):
-        pass
+        dataset = 4
+        with self.assertRaises(Exception):
+            _check_dataset(dataset, [])
+
+        dataset = {"transition": {}}
+        with self.assertRaises(Exception):
+            _check_dataset(dataset, [])
+
+        dataset = {"reward": {}, "rand": {}}
+        with self.assertRaises(Exception):
+            _check_dataset(dataset, [])
+
+        dataset = {"transition": {}, "rand": {}}
+        with self.assertRaises(Exception):
+            _check_dataset(dataset, [])
+
+        dataset = {"transition": [], "reward": {}}
+        with self.assertRaises(Exception):
+            _check_dataset(dataset, [])
+
+        dataset = {"transition": {}, "reward": []}
+        with self.assertRaises(Exception):
+            _check_dataset(dataset, [])
+
+        sf_list = [StateFactor("x", [1, 2, 3]), BoolStateFactor("y")]
+        dataset = {
+            "test": {
+                "transition": {
+                    "xt": [2, 3, 1],
+                    "y0": [False, True, False],
+                    "yt": [False, False, True],
+                },
+                "reward": {"x": [1, 2, 3], "y": [False, False, True], "r": [5, 5, 7]},
+            }
+        }
+        with self.assertRaises(Exception):
+            _check_dataset(dataset, sf_list)
+
+        dataset = {
+            "test": {
+                "transition": {
+                    "x0": "woops",
+                    "xt": [2, 3, 1],
+                    "y0": [False, True, False],
+                    "yt": [False, False, True],
+                },
+                "reward": {"x": [1, 2, 3], "y": [False, False, True], "r": [5, 5, 7]},
+            }
+        }
+        with self.assertRaises(Exception):
+            _check_dataset(dataset, sf_list)
+
+        dataset = {
+            "test": {
+                "transition": {
+                    "x0": [1, 2, 3],
+                    "y0": [False, True, False],
+                    "yt": [False, False, True],
+                },
+                "reward": {"x": [1, 2, 3], "y": [False, False, True], "r": [5, 5, 7]},
+            }
+        }
+        with self.assertRaises(Exception):
+            _check_dataset(dataset, sf_list)
+
+        dataset = {
+            "test": {
+                "transition": {
+                    "x0": [1, 2, 3],
+                    "xt": "woops",
+                    "y0": [False, True, False],
+                    "yt": [False, False, True],
+                },
+                "reward": {"x": [1, 2, 3], "y": [False, False, True], "r": [5, 5, 7]},
+            }
+        }
+        with self.assertRaises(Exception):
+            _check_dataset(dataset, sf_list)
+
+        dataset = {
+            "test": {
+                "transition": {
+                    "x0": [1, 2, 3],
+                    "xt": [2, 3, 1],
+                    "y0": [False, True, False],
+                    "yt": [False, False, True],
+                },
+                "reward": {"y": [False, False, True], "r": [5, 5, 7]},
+            }
+        }
+        with self.assertRaises(Exception):
+            _check_dataset(dataset, sf_list)
+
+        dataset = {
+            "test": {
+                "transition": {
+                    "x0": [1, 2, 3],
+                    "xt": [2, 3, 1],
+                    "y0": [False, True, False],
+                    "yt": [False, False, True],
+                },
+                "reward": {"x": "woops", "y": [False, False, True], "r": [5, 5, 7]},
+            }
+        }
+        with self.assertRaises(Exception):
+            _check_dataset(dataset, sf_list)
+
+        dataset = {
+            "test": {
+                "transition": {
+                    "x0": [1, 3],
+                    "xt": [2, 3, 1],
+                    "y0": [False, True, False],
+                    "yt": [False, False, True],
+                },
+                "reward": {"x": [1, 2, 3], "y": [False, False, True], "r": [5, 5, 7]},
+            }
+        }
+        with self.assertRaises(Exception):
+            _check_dataset(dataset, sf_list)
+
+        dataset = {
+            "test": {
+                "transition": {
+                    "x0": [1, 2, 3],
+                    "xt": [2, 3, 1],
+                    "y0": [False, True, False],
+                    "yt": [False, False],
+                },
+                "reward": {"x": [1, 2, 3], "y": [False, False, True], "r": [5, 5, 7]},
+            }
+        }
+        with self.assertRaises(Exception):
+            _check_dataset(dataset, sf_list)
+
+        dataset = {
+            "test": {
+                "transition": {
+                    "x0": [1, 2, 3],
+                    "xt": [2, 3, 1],
+                    "y0": [False, True, False],
+                    "yt": [False, False, True],
+                },
+                "reward": {"x": [1, 2, 3], "y": [False, True], "r": [5, 5, 7]},
+            }
+        }
+        with self.assertRaises(Exception):
+            _check_dataset(dataset, sf_list)
+
+        dataset = {
+            "test": {
+                "transition": {
+                    "x0": [1, 2, 3],
+                    "xt": [2, 3, 1],
+                    "y0": [False, True, False],
+                    "yt": [False, False, True],
+                },
+                "reward": {"x": [1, 2, 3], "y": [False, False, True]},
+            }
+        }
+        with self.assertRaises(Exception):
+            _check_dataset(dataset, sf_list)
+
+        dataset = {
+            "test": {
+                "transition": {
+                    "x0": [1, 2, 3],
+                    "xt": [2, 3, 1],
+                    "y0": [False, True, False],
+                    "yt": [False, False, True],
+                },
+                "reward": {"x": [1, 2, 3], "y": [False, False, True], "r": "woops"},
+            }
+        }
+        with self.assertRaises(Exception):
+            _check_dataset(dataset, sf_list)
+
+        dataset = {
+            "test": {
+                "transition": {
+                    "x0": [1, 2, 3],
+                    "xt": [2, 3, 1],
+                    "y0": [False, True, False],
+                    "yt": [False, False, True],
+                },
+                "reward": {"x": [1, 2, 3], "y": [False, False, True], "r": [5, 7]},
+            }
+        }
+        with self.assertRaises(Exception):
+            _check_dataset(dataset, sf_list)
+
+        dataset = {
+            "test": {
+                "transition": {
+                    "x0": [1, 2, 3],
+                    "xt": [2, 3, 1],
+                    "y0": [False, True, False],
+                    "yt": [False, False, True],
+                },
+                "reward": {"x": [1, 2, 3], "y": [False, False, True], "r": [5, 5, 7]},
+            }
+        }
+        _check_dataset(dataset, sf_list)
 
 
 class DatasetValsToStrTest(unittest.TestCase):
