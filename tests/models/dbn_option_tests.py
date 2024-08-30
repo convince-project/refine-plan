@@ -41,16 +41,16 @@ def create_two_bns():
     r_bn = gum.BayesNet()
     _ = r_bn.add(gum.LabelizedVariable("x", "x?", ["False", "True"]))
     _ = r_bn.add(gum.LabelizedVariable("y", "y?", ["False", "True"]))
-    _ = r_bn.add(gum.LabelizedVariable("r", "r?", ["1", "2", "3"]))
+    _ = r_bn.add(gum.LabelizedVariable("r", "r?", ["0", "1", "2", "3"]))
     r_bn.addArc("x", "r")
     r_bn.addArc("y", "r")
 
     r_bn.cpt("x").fillWith([0.5, 0.5])
     r_bn.cpt("y").fillWith([0.5, 0.5])
-    r_bn.cpt("r")[{"x": "False", "y": "False"}] = [0.2, 0.3, 0.5]
-    r_bn.cpt("r")[{"x": "False", "y": "True"}] = [0.6, 0.1, 0.3]
-    r_bn.cpt("r")[{"x": "True", "y": "False"}] = [0.4, 0.4, 0.2]
-    r_bn.cpt("r")[{"x": "True", "y": "True"}] = [0.3, 0.3, 0.4]
+    r_bn.cpt("r")[{"x": "False", "y": "False"}] = [0.0, 0.2, 0.3, 0.5]
+    r_bn.cpt("r")[{"x": "False", "y": "True"}] = [0.0, 0.6, 0.1, 0.3]
+    r_bn.cpt("r")[{"x": "True", "y": "False"}] = [0.0, 0.4, 0.4, 0.2]
+    r_bn.cpt("r")[{"x": "True", "y": "True"}] = [0.0, 0.3, 0.3, 0.4]
 
     # Save the BNs
     t_bn.saveBIFXML("transition.bifxml")
@@ -188,7 +188,7 @@ class ExpectedValFnTest(unittest.TestCase):
         option = DBNOption("test", "transition.bifxml", "reward.bifxml", sf_list)
 
         labels = option._reward_dbn.variableFromName("r").labels()
-        self.assertEqual(sorted(list(labels)), ["1", "2", "3"])
+        self.assertEqual(sorted(list(labels)), ["0", "1", "2", "3"])
 
         x = {"r": 0}
         ex = option._expected_val_fn(x)
@@ -206,6 +206,11 @@ class ExpectedValFnTest(unittest.TestCase):
         self.assertEqual(ex, float(labels[2]))
 
         x["r"] = 3
+        ex = option._expected_val_fn(x)
+        self.assertTrue(isinstance(ex, float))
+        self.assertEqual(ex, float(labels[3]))
+
+        x["r"] = 4
         with self.assertRaises(Exception):
             option._expected_val_fn(x)
 
@@ -316,6 +321,67 @@ class GetTransitionPrismStringTest(unittest.TestCase):
         expected += "{}:(x' = 1) & (y' = 1); \n".format(ff_tt)
 
         expected += "[test] ((x = 0) & (y = 1)) -> {}:(x' = 0) & (y' = 0) + ".format(
+            ft_ff
+        )
+        expected += "{}:(x' = 0) & (y' = 1) + {}:(x' = 1) & (y' = 0) + ".format(
+            ft_ft, ft_tf
+        )
+        expected += "{}:(x' = 1) & (y' = 1); \n".format(ft_tt)
+
+        expected += "[test] ((x = 1) & (y = 0)) -> {}:(x' = 0) & (y' = 0) + ".format(
+            tf_ff
+        )
+        expected += "{}:(x' = 0) & (y' = 1) + {}:(x' = 1) & (y' = 0) + ".format(
+            tf_ft, tf_tf
+        )
+        expected += "{}:(x' = 1) & (y' = 1); \n".format(tf_tt)
+
+        expected += "[test] ((x = 1) & (y = 1)) -> {}:(x' = 0) & (y' = 0) + ".format(
+            tt_ff
+        )
+        expected += "{}:(x' = 0) & (y' = 1) + {}:(x' = 1) & (y' = 0) + ".format(
+            tt_ft, tt_tf
+        )
+        expected += "{}:(x' = 1) & (y' = 1); \n".format(tt_tt)
+
+        self.assertEqual(prism_str, expected)
+
+        os.remove("transition.bifxml")
+        os.remove("reward.bifxml")
+
+    def test_zero_cost_self_loops(self):
+        create_two_bns()
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption("test", "transition.bifxml", "reward.bifxml", sf_list)
+
+        option._transition_dbn.cpt("xt")[{"x0": "False", "y0": "False"}] = [1.0, 0.0]
+        option._transition_dbn.cpt("yt")[{"x0": "False", "y0": "False"}] = [1.0, 0.0]
+        option._reward_dbn.cpt("r")[{"x": "False", "y": "False"}] = [1.0, 0.0, 0.0, 0.0]
+
+        prism_str = option.get_transition_prism_string()
+
+        state_ff = State({sf_list[0]: False, sf_list[1]: False})
+        state_ft = State({sf_list[0]: False, sf_list[1]: True})
+        state_tf = State({sf_list[0]: True, sf_list[1]: False})
+        state_tt = State({sf_list[0]: True, sf_list[1]: True})
+
+        ft_ff = option.get_transition_prob(state_ft, state_ff)
+        ft_ft = option.get_transition_prob(state_ft, state_ft)
+        ft_tf = option.get_transition_prob(state_ft, state_tf)
+        ft_tt = option.get_transition_prob(state_ft, state_tt)
+
+        tf_ff = option.get_transition_prob(state_tf, state_ff)
+        tf_ft = option.get_transition_prob(state_tf, state_ft)
+        tf_tf = option.get_transition_prob(state_tf, state_tf)
+        tf_tt = option.get_transition_prob(state_tf, state_tt)
+
+        tt_ff = option.get_transition_prob(state_tt, state_ff)
+        tt_ft = option.get_transition_prob(state_tt, state_ft)
+        tt_tf = option.get_transition_prob(state_tt, state_tf)
+        tt_tt = option.get_transition_prob(state_tt, state_tt)
+
+        expected = "[test] ((x = 0) & (y = 1)) -> {}:(x' = 0) & (y' = 0) + ".format(
             ft_ff
         )
         expected += "{}:(x' = 0) & (y' = 1) + {}:(x' = 1) & (y' = 0) + ".format(

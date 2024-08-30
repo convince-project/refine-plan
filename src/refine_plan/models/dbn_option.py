@@ -253,7 +253,11 @@ class DBNOption(Option):
 
                 instantiation.fromdict(inst_dict)
                 prob = posterior.get(instantiation)
-                if not np.isclose(prob, 0.0):
+                zero_cost_self_loop = False
+                # Remove zero cost self loops for Storm (correspond to non-enabled actions)
+                if pre_state == next_state and np.isclose(prob, 1.0):
+                    zero_cost_self_loop = np.isclose(self.get_reward(pre_state), 0.0)
+                if not np.isclose(prob, 0.0) and not zero_cost_self_loop:
                     post_cond_str += "{}:{} + ".format(
                         posterior.get(instantiation),
                         next_state.to_and_cond().to_prism_string(is_post_cond=True),
