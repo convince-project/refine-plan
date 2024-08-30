@@ -40,7 +40,9 @@ def synthesise_bt_from_options(
         The final refined BT
     """
     semi_mdp = SemiMDP(sf_list, option_list, labels, initial_state=initial_state)
+    print("Synthesising Policy...")
     policy = synthesise_policy(semi_mdp, prism_prop=prism_prop)
 
+    print("Converting Policy to BT...")
     converter = PolicyBTConverter(default_action=default_action)
     return converter.convert_policy(policy, out_file)
