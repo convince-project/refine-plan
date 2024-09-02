@@ -61,6 +61,26 @@ BLOCKED_EDGES = {
     "v8": ["e58", "e68", "e78"],
 }
 
+CORRESPONDING_DOOR = {
+    "e12": None,
+    "e14": None,
+    "e58": "v5",
+    "e78": "v7",
+    "e13": None,
+    "e36": "v3",
+    "e68": "v6",
+    "e25": "v2",
+    "e47": "v4",
+    "e26": "v2",
+    "e35": "v3",
+    "e46": "v4",
+    "e37": "v3",
+    "e23": None,
+    "e34": None,
+    "e56": None,
+    "e67": None,
+}
+
 EDGE_MEANS = {
     "e12": 8,
     "e14": 8,
@@ -216,7 +236,13 @@ def _step_forward(state, option):
         return copy.deepcopy(state), 0.0
 
 
-def run_sim(policy_fn, max_timesteps=100, mongo_collection=None, print_info=False):
+def run_sim(
+    policy_fn,
+    max_timesteps=100,
+    mongo_collection=None,
+    print_info=False,
+    stop_at_goal=True,
+):
     """Run a simulation until the robot reaches the goal or max timesteps exceeded.
 
     Args:
@@ -224,6 +250,7 @@ def run_sim(policy_fn, max_timesteps=100, mongo_collection=None, print_info=Fals
         max_timesteps: The maximum timesteps to run the simulation
         mongo_collection: A MongoDB collection if logging required
         print_info: Whether to print out the s,a,s',r transitions
+        stop_at_goal: Should the sim stop when the goal is reached?
 
     Returns:
         A flag stating whether the goal was reached and the cumulative cost
@@ -234,7 +261,9 @@ def run_sim(policy_fn, max_timesteps=100, mongo_collection=None, print_info=Fals
     total_cost = 0
     logs = []
 
-    while current_state["location"] != GOAL_LOC and t < max_timesteps:
+    while (
+        not stop_at_goal or current_state["location"] != GOAL_LOC
+    ) and t < max_timesteps:
 
         option = policy_fn(current_state)
         next_state, cost = _step_forward(current_state, option)
@@ -285,35 +314,67 @@ def initial_bt(state):
         return None
 
 
+def _enabled_actions(state):
+    """Return the enabled actions in a state.
+
+    Args:
+        state: The current state
+
+    Returns:
+        A list of enabled actions
+    """
+    enabled_actions = set([])
+
+    door_locs = ["v{}".format(i) for i in range(2, 8)]
+    current_loc = state["location"]
+
+    # Door actions
+    for loc in door_locs:
+        if current_loc == loc:
+            if state["{}_door".format(loc)] == "closed":
+                enabled_actions.add("open_door")
+            elif state["{}_door".format(loc)] == "unknown":
+                enabled_actions.add("check_door")
+
+    # Navigation
+    for edge in GRAPH[current_loc]:
+        if CORRESPONDING_DOOR[edge] == None:  # No door to worry about
+            enabled_actions.add(edge)
+        elif state["{}_door".format(CORRESPONDING_DOOR[edge])] == "open":
+            enabled_actions.add(edge)
+
+    return list(enabled_actions)
+
+
 def random_policy(state):
     """A random policy for data collection.
 
     Args:
         state: The current state of the system
     """
-    actions = [
-        "e12",
-        "e14",
-        "e58",
-        "e78",
-        "e13",
-        "e36",
-        "e68",
-        "e25",
-        "e47",
-        "e26",
-        "e35",
-        "e46",
-        "e37",
-        "e23",
-        "e34",
-        "e56",
-        "e67",
-        "check_door",
-        "open_door",
-    ]
+    # actions = [
+    #    "e12",
+    #    "e14",
+    #    "e58",
+    #    "e78",
+    #    "e13",
+    #    "e36",
+    #    "e68",
+    #    "e25",
+    #    "e47",
+    #    "e26",
+    #    "e35",
+    #    "e46",
+    #    "e37",
+    #    "e23",
+    #    "e34",
+    #    "e56",
+    #    "e67",
+    #    "check_door",
+    #    "open_door",
+    # ]
 
-    return np.random.choice(actions)
+    return np.random.choice(_enabled_actions(state))
 
 
 def run_data_collection():
@@ -324,7 +385,7 @@ def run_data_collection():
     i = 1
     while collection.estimated_document_count() < 10000:
         print("Starting Simulation Run: {}".format(i))
-        run_sim(random_policy, mongo_collection=collection)
+        run_sim(random_policy, mongo_collection=collection, stop_at_goal=False)
         i += 1
 
 
@@ -462,8 +523,9 @@ def initial_vs_refined_comparison(refined_bt):
 
 
 if __name__ == "__main__":
-    # run_data_collection()
-    # write_mongodb_to_yaml()
-    # learn_options()
-    bt = run_planner()
-    initial_vs_refined_comparison(bt)
+
+    run_data_collection()
+    write_mongodb_to_yaml()
+    learn_options()
+    # bt = run_planner()
+    # initial_vs_refined_comparison(bt)
