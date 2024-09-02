@@ -221,8 +221,8 @@ def _step_forward(state, option):
         if option in GRAPH[state["location"]]:
             # Check if door needs to be opened
             can_nav = True
-            if option in BLOCKED_EDGES[state["location"]]:
-                door_sf = "{}_door".format(state["location"])
+            if CORRESPONDING_DOOR[option] != None:
+                door_sf = "{}_door".format(CORRESPONDING_DOOR[option])
                 if state[door_sf] != "open":
                     can_nav = False
             if can_nav:  # Update location and sample cost
