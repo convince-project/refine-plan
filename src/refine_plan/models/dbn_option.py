@@ -84,13 +84,9 @@ class DBNOption(Option):
         for i in range(len(sf_names)):
             name = sf_names[i]
             vals = set([str(v) for v in self._sf_list[i].get_valid_values()])
-            trans_0_values = set(
-                self._transition_dbn.variableFromName("{}0".format(name)).labels()
-            )
-            trans_t_values = set(
-                self._transition_dbn.variableFromName("{}t".format(name)).labels()
-            )
-            r_values = set(self._reward_dbn.variableFromName(name).labels())
+            trans_0_values = set(self._transition_dbn["{}0".format(name)].labels())
+            trans_t_values = set(self._transition_dbn["{}t".format(name)].labels())
+            r_values = set(self._reward_dbn[name].labels())
 
             if trans_0_values != vals or trans_t_values != vals or r_values != vals:
                 raise Exception("State factor values don't match with those in DBNs")
@@ -104,7 +100,7 @@ class DBNOption(Option):
         Returns:
             The corresponding state factor value for r (a numerical value)
         """
-        return float(self._reward_dbn.variableFromName("r").labels()[x["r"]])
+        return float(self._reward_dbn["r"].labels()[x["r"]])
 
     def _get_independent_groups(self):
         """Compute the set of independent transition DBN variable groups.
