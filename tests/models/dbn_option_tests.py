@@ -163,6 +163,7 @@ class CheckValidDBNs(unittest.TestCase):
             option._check_valid_dbns()
 
         # Test 9: Change one of the state factor value ranges (add one sf to deal with this)
+        # This should pass because we only need a subset :)
         option = DBNOption("test", "transition.bifxml", "reward.bifxml", sf_list)
         option._sf_list = sf_list + [StateFactor("z", [False, True, "Dunno"])]
         option._transition_dbn.add(
@@ -172,8 +173,7 @@ class CheckValidDBNs(unittest.TestCase):
             gum.LabelizedVariable("zt", "zt?", ["False", "True"])
         )
         option._reward_dbn.add(gum.LabelizedVariable("z", "z?", ["False", "True"]))
-        with self.assertRaises(Exception):
-            option._check_valid_dbns()
+        option._check_valid_dbns()
 
         os.remove("transition.bifxml")
         os.remove("reward.bifxml")

@@ -81,6 +81,7 @@ class DBNOption(Option):
             raise Exception("Reward variables do not match with state factors")
 
         # Step 3: Check the values for each state variable
+        # The values for each DBN node should be a subset of the state factor values
         for i in range(len(sf_names)):
             name = sf_names[i]
             vals = set([str(v) for v in self._sf_list[i].get_valid_values()])
@@ -88,7 +89,10 @@ class DBNOption(Option):
             trans_t_values = set(self._transition_dbn["{}t".format(name)].labels())
             r_values = set(self._reward_dbn[name].labels())
 
-            if trans_0_values != vals or trans_t_values != vals or r_values != vals:
+            # Python sets can use <= for subset checks
+            if not (
+                trans_0_values <= vals and trans_t_values <= vals and r_values <= vals
+            ):
                 raise Exception("State factor values don't match with those in DBNs")
 
     def _expected_val_fn(self, x):
