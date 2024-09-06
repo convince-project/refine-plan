@@ -8,6 +8,7 @@ Owner: Charlie Street
 from pymongo import MongoClient
 import pyAgrum as gum
 import pandas as pd
+import numpy as np
 import yaml
 import os
 
@@ -32,6 +33,32 @@ def _initialise_dict_for_option(yaml_dict, option, sf_list):
     yaml_dict[option]["reward"]["r"] = []
 
 
+def _is_zero_cost_loop(doc, sf_list):
+    """Test whether a MongoDB document captures a zero-cost self loop.
+
+    These represent unenabled actions and should be filtered out.
+    If left in, DBN learning doesn't perform well.
+
+    Args:
+        doc: The MongoDB document
+        sf_list: The list of state factors to expect in the MongoDB
+
+    Returns:
+        Whether the doc captures a zero-cost self loop
+    """
+
+    # If duration not 0, not zero cost self loop
+    if not np.isclose(doc["duration"], 0.0):
+        return False
+
+    # If a state factor has changed, not a self loop
+    for sf in sf_list:
+        if doc["{}0".format(sf.get_name())] != doc["{}t".format(sf.get_name())]:
+            return False
+
+    return True
+
+
 def mongodb_to_yaml(connection_str, db_name, collection_name, sf_list, out_file):
     """Processes a mongodb collection into a yaml dataset for DBN learning.
 
@@ -51,6 +78,8 @@ def mongodb_to_yaml(connection_str, db_name, collection_name, sf_list, out_file)
 
     # Search through all documents
     for doc in collection.find({}):
+        if _is_zero_cost_loop(doc, sf_list):
+            continue
         option = doc["option"]
         if option not in yaml_dict:
             _initialise_dict_for_option(yaml_dict, option, sf_list)

@@ -13,6 +13,7 @@ from refine_plan.learning.option_learning import (
     _dataset_vals_to_str,
     _setup_learners,
     learn_dbns,
+    _is_zero_cost_loop,
 )
 from pymongo import MongoClient
 import pyAgrum as gum
@@ -45,6 +46,50 @@ class InitialiseDictForOptionTest(unittest.TestCase):
         }
 
         self.assertEqual(dataset, expected)
+
+
+class IsZeroCostLoopTest(unittest.TestCase):
+
+    def test_function(self):
+        doc_1 = {
+            "option": "test",
+            "x0": 1,
+            "xt": 1,
+            "y0": False,
+            "yt": False,
+            "duration": 0,
+        }
+        doc_2 = {
+            "option": "test",
+            "x0": 1,
+            "xt": 1,
+            "y0": False,
+            "yt": False,
+            "duration": 5,
+        }
+        doc_3 = {
+            "option": "test",
+            "x0": 3,
+            "xt": 1,
+            "y0": False,
+            "yt": True,
+            "duration": 0,
+        }
+        doc_4 = {
+            "option": "test",
+            "x0": 1,
+            "xt": 2,
+            "y0": False,
+            "yt": False,
+            "duration": 5,
+        }
+
+        sf_list = [StateFactor("x", [1, 2, 3]), BoolStateFactor("y")]
+
+        self.assertTrue(_is_zero_cost_loop(doc_1, sf_list))
+        self.assertFalse(_is_zero_cost_loop(doc_2, sf_list))
+        self.assertFalse(_is_zero_cost_loop(doc_3, sf_list))
+        self.assertFalse(_is_zero_cost_loop(doc_4, sf_list))
 
 
 @unittest.skipIf(not MONGO_RUNNING, "MongoDB server not running.")
@@ -82,7 +127,15 @@ class MongodbToYamlTest(unittest.TestCase):
             "yt": True,
             "duration": 7,
         }
-        collection.insert_many([doc_1, doc_2, doc_3])
+        doc_4 = {  # Zero cost self loop, should be removed
+            "option": "test",
+            "x0": 1,
+            "xt": 1,
+            "y0": False,
+            "yt": False,
+            "duration": 0,
+        }
+        collection.insert_many([doc_1, doc_2, doc_3, doc_4])
 
         yaml_file = "dataset_test.yaml"
 

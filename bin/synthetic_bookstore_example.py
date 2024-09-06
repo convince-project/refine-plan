@@ -49,18 +49,6 @@ GRAPH = {
     "v8": {"e58": "v5", "e68": "v6", "e78": "v7"},
 }
 
-# Edges which require the door at that node to be opened
-BLOCKED_EDGES = {
-    "v1": [],
-    "v2": ["e25", "e26"],
-    "v3": ["e35", "e36", "e37"],
-    "v4": ["e46", "e47"],
-    "v5": ["e58", "e25", "e35"],
-    "v6": ["e68", "e26", "e36", "e46"],
-    "v7": ["e78", "e37", "e47"],
-    "v8": ["e58", "e68", "e78"],
-}
-
 CORRESPONDING_DOOR = {
     "e12": None,
     "e14": None,
