@@ -64,12 +64,20 @@ class ConstructorTest(unittest.TestCase):
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
 
-        option = DBNOption("test", "transition.bifxml", "reward.bifxml", sf_list)
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+        )
 
         self.assertEqual(option.get_name(), "test")
         self.assertEqual(option._sf_list, sf_list)
         self.assertEqual(option._transition_dbn, gum.loadBN("transition.bifxml"))
         self.assertEqual(option._reward_dbn, gum.loadBN("reward.bifxml"))
+        self.assertTrue(option._is_enabled("state"))
+
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: False
+        )
+        self.assertFalse(option._is_enabled("state"))
 
         os.remove("transition.bifxml")
         os.remove("reward.bifxml")
@@ -83,7 +91,9 @@ class CheckValidDBNsTest(unittest.TestCase):
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
 
         # Test 1: Bad variable in transition
-        option = DBNOption("test", "transition.bifxml", "reward.bifxml", sf_list)
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+        )
         option._transition_dbn.add(
             gum.LabelizedVariable("xy", "xy?", ["False", "True"])
         )
@@ -92,7 +102,9 @@ class CheckValidDBNsTest(unittest.TestCase):
             option._check_valid_dbns()
 
         # Test 2: Variable not in state factors in transition DBN
-        option = DBNOption("test", "transition.bifxml", "reward.bifxml", sf_list)
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+        )
         option._transition_dbn.add(
             gum.LabelizedVariable("z0", "z0?", ["False", "True"])
         )
@@ -101,28 +113,36 @@ class CheckValidDBNsTest(unittest.TestCase):
             option._check_valid_dbns()
 
         # Test 3: Deleted variable in transition DBN
-        option = DBNOption("test", "transition.bifxml", "reward.bifxml", sf_list)
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+        )
         option._transition_dbn.erase("x0")
 
         with self.assertRaises(Exception):
             option._check_valid_dbns()
 
         # Test 4: Remove 'r' from reward DBN
-        option = DBNOption("test", "transition.bifxml", "reward.bifxml", sf_list)
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+        )
         option._reward_dbn.erase("r")
 
         with self.assertRaises(Exception):
             option._check_valid_dbns()
 
         # Test 5: Remove one of the state factors from reward DBN
-        option = DBNOption("test", "transition.bifxml", "reward.bifxml", sf_list)
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+        )
         option._reward_dbn.erase("x")
 
         with self.assertRaises(Exception):
             option._check_valid_dbns()
 
         # Test 6: Change one of the x0 value ranges (add one sf to deal with this)
-        option = DBNOption("test", "transition.bifxml", "reward.bifxml", sf_list)
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+        )
         option._sf_list = sf_list + [BoolStateFactor("z")]
         option._transition_dbn.add(
             gum.LabelizedVariable("z0", "z0?", ["False", "True", "Dunno"])
@@ -135,7 +155,9 @@ class CheckValidDBNsTest(unittest.TestCase):
             option._check_valid_dbns()
 
         # Test 7: Change one of the xt value ranges (add one sf to deal with this)
-        option = DBNOption("test", "transition.bifxml", "reward.bifxml", sf_list)
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+        )
         option._sf_list = sf_list + [BoolStateFactor("z")]
         option._transition_dbn.add(
             gum.LabelizedVariable("z0", "z0?", ["False", "True"])
@@ -148,7 +170,9 @@ class CheckValidDBNsTest(unittest.TestCase):
             option._check_valid_dbns()
 
         # Test 8: Change one of the reward value ranges (add one sf to deal with this)
-        option = DBNOption("test", "transition.bifxml", "reward.bifxml", sf_list)
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+        )
         option._sf_list = sf_list + [BoolStateFactor("z")]
         option._transition_dbn.add(
             gum.LabelizedVariable("z0", "z0?", ["False", "True"])
@@ -164,7 +188,9 @@ class CheckValidDBNsTest(unittest.TestCase):
 
         # Test 9: Change one of the state factor value ranges (add one sf to deal with this)
         # This should pass because we only need a subset :)
-        option = DBNOption("test", "transition.bifxml", "reward.bifxml", sf_list)
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+        )
         option._sf_list = sf_list + [StateFactor("z", [False, True, "Dunno"])]
         option._transition_dbn.add(
             gum.LabelizedVariable("z0", "z0?", ["False", "True"])
@@ -185,7 +211,9 @@ class PruneDistsTest(unittest.TestCase):
         create_two_bns()
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
-        option = DBNOption("test", "transition.bifxml", "reward.bifxml", sf_list)
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+        )
 
         option._transition_dbn.cpt("xt")[{"x0": "False", "y0": "False"}] = [
             0.0001,
@@ -238,7 +266,9 @@ class ExpectedValFnTest(unittest.TestCase):
         create_two_bns()
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
-        option = DBNOption("test", "transition.bifxml", "reward.bifxml", sf_list)
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+        )
 
         labels = option._reward_dbn.variableFromName("r").labels()
         self.assertEqual(sorted(list(labels)), ["0", "1", "2", "3"])
@@ -277,7 +307,9 @@ class GetTransitionProbTest(unittest.TestCase):
         create_two_bns()
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
-        option = DBNOption("test", "transition.bifxml", "reward.bifxml", sf_list)
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+        )
 
         state_ff = State({sf_list[0]: False, sf_list[1]: False})
         state_ft = State({sf_list[0]: False, sf_list[1]: True})
@@ -307,6 +339,47 @@ class GetTransitionProbTest(unittest.TestCase):
         os.remove("transition.bifxml")
         os.remove("reward.bifxml")
 
+    def test_enabled_actions(self):
+        create_two_bns()
+
+        def is_enabled(s):
+            if s["x"] == True and s["y"] == False:
+                return False
+            return True
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, is_enabled
+        )
+
+        state_ff = State({sf_list[0]: False, sf_list[1]: False})
+        state_ft = State({sf_list[0]: False, sf_list[1]: True})
+        state_tf = State({sf_list[0]: True, sf_list[1]: False})
+        state_tt = State({sf_list[0]: True, sf_list[1]: True})
+
+        self.assertAlmostEqual(option.get_transition_prob(state_ff, state_ff), 0.32)
+        self.assertAlmostEqual(option.get_transition_prob(state_ff, state_ft), 0.08)
+        self.assertAlmostEqual(option.get_transition_prob(state_ff, state_tf), 0.48)
+        self.assertAlmostEqual(option.get_transition_prob(state_ff, state_tt), 0.12)
+
+        self.assertAlmostEqual(option.get_transition_prob(state_ft, state_ff), 0.05)
+        self.assertAlmostEqual(option.get_transition_prob(state_ft, state_ft), 0.45)
+        self.assertAlmostEqual(option.get_transition_prob(state_ft, state_tf), 0.05)
+        self.assertAlmostEqual(option.get_transition_prob(state_ft, state_tt), 0.45)
+
+        self.assertAlmostEqual(option.get_transition_prob(state_tf, state_ff), 0.0)
+        self.assertAlmostEqual(option.get_transition_prob(state_tf, state_ft), 0.0)
+        self.assertAlmostEqual(option.get_transition_prob(state_tf, state_tf), 0.0)
+        self.assertAlmostEqual(option.get_transition_prob(state_tf, state_tt), 0.0)
+
+        self.assertAlmostEqual(option.get_transition_prob(state_tt, state_ff), 0.06)
+        self.assertAlmostEqual(option.get_transition_prob(state_tt, state_ft), 0.24)
+        self.assertAlmostEqual(option.get_transition_prob(state_tt, state_tf), 0.14)
+        self.assertAlmostEqual(option.get_transition_prob(state_tt, state_tt), 0.56)
+
+        os.remove("transition.bifxml")
+        os.remove("reward.bifxml")
+
 
 class GetRewardTest(unittest.TestCase):
 
@@ -314,7 +387,9 @@ class GetRewardTest(unittest.TestCase):
         create_two_bns()
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
-        option = DBNOption("test", "transition.bifxml", "reward.bifxml", sf_list)
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+        )
 
         state_ff = State({sf_list[0]: False, sf_list[1]: False})
         state_ft = State({sf_list[0]: False, sf_list[1]: True})
@@ -329,6 +404,32 @@ class GetRewardTest(unittest.TestCase):
         os.remove("transition.bifxml")
         os.remove("reward.bifxml")
 
+    def test_enabled_actions(self):
+        create_two_bns()
+
+        def is_enabled(s):
+            if s["x"] == True and s["y"] == False:
+                return False
+            return True
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, is_enabled
+        )
+
+        state_ff = State({sf_list[0]: False, sf_list[1]: False})
+        state_ft = State({sf_list[0]: False, sf_list[1]: True})
+        state_tf = State({sf_list[0]: True, sf_list[1]: False})
+        state_tt = State({sf_list[0]: True, sf_list[1]: True})
+
+        self.assertAlmostEqual(option.get_reward(state_ff), 2.3)
+        self.assertAlmostEqual(option.get_reward(state_ft), 1.7)
+        self.assertAlmostEqual(option.get_reward(state_tf), 0.0)
+        self.assertAlmostEqual(option.get_reward(state_tt), 2.1)
+
+        os.remove("transition.bifxml")
+        os.remove("reward.bifxml")
+
 
 class GetTransitionPrismStringTest(unittest.TestCase):
 
@@ -336,7 +437,9 @@ class GetTransitionPrismStringTest(unittest.TestCase):
         create_two_bns()
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
-        option = DBNOption("test", "transition.bifxml", "reward.bifxml", sf_list)
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+        )
 
         prism_str = option.get_transition_prism_string()
 
@@ -406,7 +509,9 @@ class GetTransitionPrismStringTest(unittest.TestCase):
         create_two_bns()
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
-        option = DBNOption("test", "transition.bifxml", "reward.bifxml", sf_list)
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+        )
 
         option._transition_dbn.cpt("xt")[{"x0": "False", "y0": "False"}] = [1.0, 0.0]
         option._transition_dbn.cpt("yt")[{"x0": "False", "y0": "False"}] = [1.0, 0.0]
@@ -470,7 +575,9 @@ class GetRewardPrismStringTest(unittest.TestCase):
         create_two_bns()
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
-        option = DBNOption("test", "transition.bifxml", "reward.bifxml", sf_list)
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+        )
 
         prism_str = option.get_reward_prism_string()
 
