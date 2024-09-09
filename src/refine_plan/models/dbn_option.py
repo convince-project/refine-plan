@@ -28,10 +28,17 @@ class DBNOption(Option):
         _transition_dbn: The transition function DBN.
         _reward_dbn: The reward function DBN.
         _sf_list: A list of state factor objects that define the state space
+        _is_enabled: A function which returns whether the option is enabled in a state
     """
 
     def __init__(
-        self, name, transition_dbn_path, reward_dbn_path, sf_list, prune_dists=True
+        self,
+        name,
+        transition_dbn_path,
+        reward_dbn_path,
+        sf_list,
+        is_enabled,
+        prune_dists=True,
     ):
         """Initialise attributes.
 
@@ -40,12 +47,14 @@ class DBNOption(Option):
             transition_dbn_path: A path to a .bifxml file for the transition DBN.
             reward_dbn_path: A path to a .bifxml file for the reward function DBN.
             sf_list: The list of state factors that make up the state space
+            is_enabled: A function which returns whether the option is enabled in a state
             prune_dists: If True, remove small probs in transition DBN and renormalise
         """
         super(DBNOption, self).__init__(name, [], [])
         self._transition_dbn = gum.loadBN(transition_dbn_path)
         self._reward_dbn = gum.loadBN(reward_dbn_path)
         self._sf_list = sf_list
+        self._is_enabled = is_enabled
         self._check_valid_dbns()
 
         if prune_dists:
@@ -187,9 +196,7 @@ class DBNOption(Option):
             for var in group:
                 parent_set.update(self._transition_dbn.parents(var))
 
-            parent_set = set(
-                [[self._transition_dbn.variable(p).name() for p in parent_set]]
-            )
+            parent_set = set([[self._transition_dbn[p].name() for p in parent_set]])
 
             # Remove any 't' variables
             parents.append(parent_set.difference(succ_vars))
@@ -206,6 +213,11 @@ class DBNOption(Option):
         Returns:
             The transition probability
         """
+
+        # Check option is enabled in state
+        if not self._is_enabled(state):
+            return 0.0
+
         # The state is the prior
         evidence = {"{}0".format(sf): str(state[sf]) for sf in state._state_dict}
 
@@ -236,6 +248,10 @@ class DBNOption(Option):
         Returns:
             The reward at the state
         """
+        # Check option is enabled in state
+        if not self._is_enabled(state):
+            return 0.0
+
         # The state is the prior in the reward DBN
         evidence = {sf: str(state[sf]) for sf in state._state_dict}
 
@@ -253,15 +269,16 @@ class DBNOption(Option):
         """
         prism_str = ""
         inf_eng = gum.LazyPropagation(self._transition_dbn)
-        sf_vals = [sf.get_valid_values() for sf in self._sf_list]
         ev_vars = ["{}0".format(sf.get_name()) for sf in self._sf_list]
+        pre_iterator = [list(self._transition_dbn[v].labels()) for v in ev_vars]
         target = ["{}t".format(sf.get_name()) for sf in self._sf_list]
+        post_iterator = [list(self._transition_dbn[v].labels()) for v in target]
 
         inf_eng.addJointTarget(set(target))
         instantiation = gum.Instantiation()
         instantiation.addVarsFromModel(self._transition_dbn, target)
 
-        for pre_state_vals in itertools.product(*sf_vals):
+        for pre_state_vals in itertools.product(*pre_iterator):
             # Build the predecessor state object
             pre_state_dict, evidence = {}, {}
             for i in range(len(pre_state_vals)):
@@ -269,11 +286,15 @@ class DBNOption(Option):
                 evidence[ev_vars[i]] = str(pre_state_vals[i])
             pre_state = State(pre_state_dict)
 
+            # Check action is enabled
+            if not self._is_enabled(pre_state):
+                continue
+
             inf_eng.setEvidence(evidence)  # Setting evidence for posterior
             posterior = inf_eng.jointPosterior(set(target))
             post_cond_str = ""
 
-            for next_state_vals in itertools.product(*sf_vals):
+            for next_state_vals in itertools.product(*post_iterator):
                 # Build the successor state object
                 next_state_dict, inst_dict = {}, {}
                 for i in range(len(next_state_vals)):
@@ -315,7 +336,9 @@ class DBNOption(Option):
         prism_str = ""
 
         # Get all states
-        sf_vals = [sf.get_valid_values() for sf in self._sf_list]
+        sf_vals = [
+            list(self._reward_dbn[sf.get_name()].labels()) for sf in self._sf_list
+        ]
         for state_vals in itertools.product(*sf_vals):
 
             # Build the current state object
@@ -323,6 +346,10 @@ class DBNOption(Option):
             for i in range(len(state_vals)):
                 state_dict[self._sf_list[i]] = state_vals[i]
             state = State(state_dict)
+
+            # If not enabled in this state, move to next state
+            if not self._is_enabled(state):
+                continue
 
             # Get the reward
             evidence = {sf.get_name(): state_dict[sf] for sf in state_dict}

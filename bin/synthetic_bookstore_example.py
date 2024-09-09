@@ -467,7 +467,11 @@ def run_planner():
         print("Reading in option: {}".format(option))
         t_path = "../data/synthetic_bookstore/{}_transition.bifxml".format(option)
         r_path = "../data/synthetic_bookstore/{}_reward.bifxml".format(option)
-        option_list.append(DBNOption(option, t_path, r_path, sf_list))
+        option_list.append(
+            DBNOption(
+                option, t_path, r_path, sf_list, lambda s: option in _enabled_actions(s)
+            )
+        )
 
     return synthesise_bt_from_options(
         sf_list, option_list, labels, prism_prop='Rmin=?[F "goal"]'
