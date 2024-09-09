@@ -30,7 +30,9 @@ class DBNOption(Option):
         _sf_list: A list of state factor objects that define the state space
     """
 
-    def __init__(self, name, transition_dbn_path, reward_dbn_path, sf_list):
+    def __init__(
+        self, name, transition_dbn_path, reward_dbn_path, sf_list, prune_dists=True
+    ):
         """Initialise attributes.
 
         Args:
@@ -38,12 +40,16 @@ class DBNOption(Option):
             transition_dbn_path: A path to a .bifxml file for the transition DBN.
             reward_dbn_path: A path to a .bifxml file for the reward function DBN.
             sf_list: The list of state factors that make up the state space
+            prune_dists: If True, remove small probs in transition DBN and renormalise
         """
         super(DBNOption, self).__init__(name, [], [])
         self._transition_dbn = gum.loadBN(transition_dbn_path)
         self._reward_dbn = gum.loadBN(reward_dbn_path)
         self._sf_list = sf_list
         self._check_valid_dbns()
+
+        if prune_dists:
+            self._prune_dists()
 
     def _check_valid_dbns(self):
         """Check the DBNs have values for all state factors.
@@ -94,6 +100,30 @@ class DBNOption(Option):
                 trans_0_values <= vals and trans_t_values <= vals and r_values <= vals
             ):
                 raise Exception("State factor values don't match with those in DBNs")
+
+    def _prune_dists(self, prune_threshold=1e-4):
+        """Prune small probabilities from transition DBN and renormalise.
+
+        Args:
+            prune_threshold: The point at which to set probabilities to zero.
+        """
+        sf_names = [sf.get_name() for sf in self._sf_list]
+        to_normalise = ["{}t".format(name) for name in sf_names]
+
+        for var in to_normalise:
+            parents = [
+                self._transition_dbn[p].name()
+                for p in self._transition_dbn.parents(var)
+            ]
+            instance = gum.Instantiation()
+            instance.addVarsFromModel(self._transition_dbn, parents)
+
+            while not instance.end():
+                dist = self._transition_dbn.cpt(var)[instance.todict()]
+                norm_dist = [0.0 if v < prune_threshold else v for v in dist]
+                norm_dist = [v / np.sum(norm_dist) for v in norm_dist]
+                self._transition_dbn.cpt(var)[instance.todict()] = norm_dist
+                instance.inc()
 
     def _expected_val_fn(self, x):
         """The auxiliary function for computing the expected reward value.
