@@ -75,7 +75,7 @@ class ConstructorTest(unittest.TestCase):
         os.remove("reward.bifxml")
 
 
-class CheckValidDBNs(unittest.TestCase):
+class CheckValidDBNsTest(unittest.TestCase):
 
     def test_function(self):
         create_two_bns()
@@ -174,6 +174,59 @@ class CheckValidDBNs(unittest.TestCase):
         )
         option._reward_dbn.add(gum.LabelizedVariable("z", "z?", ["False", "True"]))
         option._check_valid_dbns()
+
+        os.remove("transition.bifxml")
+        os.remove("reward.bifxml")
+
+
+class PruneDistsTest(unittest.TestCase):
+
+    def test_function(self):
+        create_two_bns()
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption("test", "transition.bifxml", "reward.bifxml", sf_list)
+
+        option._transition_dbn.cpt("xt")[{"x0": "False", "y0": "False"}] = [
+            0.0001,
+            0.9999,
+        ]
+        option._transition_dbn.cpt("xt")[{"x0": "False", "y0": "True"}] = [0.5, 0.5]
+        option._transition_dbn.cpt("xt")[{"x0": "True", "y0": "False"}] = [
+            0.00001,
+            0.99999,
+        ]
+        option._transition_dbn.cpt("xt")[{"x0": "True", "y0": "True"}] = [0.3, 0.7]
+
+        option._transition_dbn.cpt("yt")[{"x0": "False", "y0": "False"}] = [0.8, 0.2]
+        option._transition_dbn.cpt("yt")[{"x0": "False", "y0": "True"}] = [0.1, 0.9]
+        option._transition_dbn.cpt("yt")[{"x0": "True", "y0": "False"}] = [
+            0.000001,
+            0.999999,
+        ]
+        option._transition_dbn.cpt("yt")[{"x0": "True", "y0": "True"}] = [0.2, 0.8]
+
+        option._prune_dists()
+
+        xt_ff = option._transition_dbn.cpt("xt")[{"x0": "False", "y0": "False"}]
+        xt_ft = option._transition_dbn.cpt("xt")[{"x0": "False", "y0": "True"}]
+        xt_tf = option._transition_dbn.cpt("xt")[{"x0": "True", "y0": "False"}]
+        xt_tt = option._transition_dbn.cpt("xt")[{"x0": "True", "y0": "True"}]
+
+        yt_ff = option._transition_dbn.cpt("yt")[{"x0": "False", "y0": "False"}]
+        yt_ft = option._transition_dbn.cpt("yt")[{"x0": "False", "y0": "True"}]
+        yt_tf = option._transition_dbn.cpt("yt")[{"x0": "True", "y0": "False"}]
+        yt_tt = option._transition_dbn.cpt("yt")[{"x0": "True", "y0": "True"}]
+
+        self.assertEqual(list(xt_ff), [0.0, 1.0])
+        self.assertEqual(list(xt_ft), [0.5, 0.5])
+        self.assertEqual(list(xt_tf), [0.0, 1.0])
+        self.assertEqual(list(xt_tt), [0.3, 0.7])
+
+        self.assertEqual(list(yt_ff), [0.8, 0.2])
+        self.assertEqual(list(yt_ft), [0.1, 0.9])
+        self.assertEqual(list(yt_tf), [0.0, 1.0])
+        self.assertEqual(list(yt_tt), [0.2, 0.8])
 
         os.remove("transition.bifxml")
         os.remove("reward.bifxml")

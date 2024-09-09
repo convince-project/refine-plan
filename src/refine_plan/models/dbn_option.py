@@ -120,7 +120,7 @@ class DBNOption(Option):
 
             while not instance.end():
                 dist = self._transition_dbn.cpt(var)[instance.todict()]
-                norm_dist = [0.0 if v < prune_threshold else v for v in dist]
+                norm_dist = [0.0 if v <= prune_threshold else v for v in dist]
                 norm_dist = [v / np.sum(norm_dist) for v in norm_dist]
                 self._transition_dbn.cpt(var)[instance.todict()] = norm_dist
                 instance.inc()
