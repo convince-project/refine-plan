@@ -603,6 +603,70 @@ class GetTransitionPrismStringTest(unittest.TestCase):
         os.remove("transition.bifxml")
         os.remove("reward.bifxml")
 
+    def test_enabled_actions(self):
+        create_two_bns()
+
+        def is_enabled(s):
+            if s["x"] == True and s["y"] == False:
+                return False
+            return True
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, is_enabled
+        )
+
+        prism_str = option.get_transition_prism_string()
+
+        state_ff = State({sf_list[0]: False, sf_list[1]: False})
+        state_ft = State({sf_list[0]: False, sf_list[1]: True})
+        state_tf = State({sf_list[0]: True, sf_list[1]: False})
+        state_tt = State({sf_list[0]: True, sf_list[1]: True})
+
+        ff_ff = option.get_transition_prob(state_ff, state_ff)
+        ff_ft = option.get_transition_prob(state_ff, state_ft)
+        ff_tf = option.get_transition_prob(state_ff, state_tf)
+        ff_tt = option.get_transition_prob(state_ff, state_tt)
+
+        ft_ff = option.get_transition_prob(state_ft, state_ff)
+        ft_ft = option.get_transition_prob(state_ft, state_ft)
+        ft_tf = option.get_transition_prob(state_ft, state_tf)
+        ft_tt = option.get_transition_prob(state_ft, state_tt)
+
+        tt_ff = option.get_transition_prob(state_tt, state_ff)
+        tt_ft = option.get_transition_prob(state_tt, state_ft)
+        tt_tf = option.get_transition_prob(state_tt, state_tf)
+        tt_tt = option.get_transition_prob(state_tt, state_tt)
+
+        expected = "[test] ((x = 0) & (y = 0)) -> {}:(x' = 0) & (y' = 0) + ".format(
+            ff_ff
+        )
+        expected += "{}:(x' = 0) & (y' = 1) + {}:(x' = 1) & (y' = 0) + ".format(
+            ff_ft, ff_tf
+        )
+        expected += "{}:(x' = 1) & (y' = 1); \n".format(ff_tt)
+
+        expected += "[test] ((x = 0) & (y = 1)) -> {}:(x' = 0) & (y' = 0) + ".format(
+            ft_ff
+        )
+        expected += "{}:(x' = 0) & (y' = 1) + {}:(x' = 1) & (y' = 0) + ".format(
+            ft_ft, ft_tf
+        )
+        expected += "{}:(x' = 1) & (y' = 1); \n".format(ft_tt)
+
+        expected += "[test] ((x = 1) & (y = 1)) -> {}:(x' = 0) & (y' = 0) + ".format(
+            tt_ff
+        )
+        expected += "{}:(x' = 0) & (y' = 1) + {}:(x' = 1) & (y' = 0) + ".format(
+            tt_ft, tt_tf
+        )
+        expected += "{}:(x' = 1) & (y' = 1); \n".format(tt_tt)
+
+        self.assertEqual(prism_str, expected)
+
+        os.remove("transition.bifxml")
+        os.remove("reward.bifxml")
+
 
 class GetRewardPrismStringTest(unittest.TestCase):
 
@@ -624,6 +688,34 @@ class GetRewardPrismStringTest(unittest.TestCase):
         expected = "[test] ((x = 0) & (y = 0)): {};\n".format(ff_r)
         expected += "[test] ((x = 0) & (y = 1)): {};\n".format(ft_r)
         expected += "[test] ((x = 1) & (y = 0)): {};\n".format(tf_r)
+        expected += "[test] ((x = 1) & (y = 1)): {};\n".format(tt_r)
+
+        self.assertEqual(prism_str, expected)
+
+        os.remove("transition.bifxml")
+        os.remove("reward.bifxml")
+
+    def test_enabled_actions(self):
+        create_two_bns()
+
+        def is_enabled(s):
+            if s["x"] == True and s["y"] == False:
+                return False
+            return True
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, is_enabled
+        )
+
+        prism_str = option.get_reward_prism_string()
+
+        ff_r = 0.2 * 1.0 + 0.3 * 2.0 + 0.5 * 3.0
+        ft_r = 0.6 * 1.0 + 0.1 * 2.0 + 0.3 * 3.0
+        tt_r = 0.3 * 1.0 + 0.3 * 2.0 + 0.4 * 3.0
+
+        expected = "[test] ((x = 0) & (y = 0)): {};\n".format(ff_r)
+        expected += "[test] ((x = 0) & (y = 1)): {};\n".format(ft_r)
         expected += "[test] ((x = 1) & (y = 1)): {};\n".format(tt_r)
 
         self.assertEqual(prism_str, expected)
