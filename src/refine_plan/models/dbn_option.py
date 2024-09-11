@@ -5,6 +5,7 @@ Author: Charlie Street
 Owner: Charlie Street
 """
 
+from refine_plan.models.state_factor import BoolStateFactor, IntStateFactor
 from refine_plan.models.option import Option
 from refine_plan.models.state import State
 import pyAgrum as gum
@@ -203,6 +204,31 @@ class DBNOption(Option):
 
         return parents
 
+    def _str_to_sf_vals(self, str_sf_vals):
+        """Converts a list of list of strings into appropriate state factor values.
+
+        PyAgrum converts all values into strings.
+        We need to convert them back to the correct state factor values (e.g. bool/int).
+
+        Args:
+            str_sf_vals: A list of lists of values. The list must follow the order of self._sf_list.
+
+        Returns:
+            A list of lists of state factor values
+        """
+        sf_vals = []
+
+        assert len(str_sf_vals) == len(self._sf_list)
+
+        for i in range(len(str_sf_vals)):
+            if isinstance(self._sf_list[i], BoolStateFactor) or isinstance(
+                self._sf_list[i], IntStateFactor
+            ):
+                sf_vals.append([eval(v) for v in str_sf_vals[i]])
+            else:  # StateFactor -> string values (so eval doesn't work)
+                sf_vals.append([str(v) for v in str_sf_vals[i]])
+        return sf_vals
+
     def get_transition_prob(self, state, next_state):
         """Return the transition probability for an (s,s') pair.
 
@@ -270,9 +296,13 @@ class DBNOption(Option):
         prism_str = ""
         inf_eng = gum.LazyPropagation(self._transition_dbn)
         ev_vars = ["{}0".format(sf.get_name()) for sf in self._sf_list]
-        pre_iterator = [list(self._transition_dbn[v].labels()) for v in ev_vars]
+        pre_iterator = self._str_to_sf_vals(
+            [list(self._transition_dbn[v].labels()) for v in ev_vars]
+        )
         target = ["{}t".format(sf.get_name()) for sf in self._sf_list]
-        post_iterator = [list(self._transition_dbn[v].labels()) for v in target]
+        post_iterator = self._str_to_sf_vals(
+            [list(self._transition_dbn[v].labels()) for v in target]
+        )
 
         inf_eng.addJointTarget(set(target))
         instantiation = gum.Instantiation()
@@ -336,9 +366,9 @@ class DBNOption(Option):
         prism_str = ""
 
         # Get all states
-        sf_vals = [
-            list(self._reward_dbn[sf.get_name()].labels()) for sf in self._sf_list
-        ]
+        sf_vals = self._str_to_sf_vals(
+            [list(self._reward_dbn[sf.get_name()].labels()) for sf in self._sf_list]
+        )
         for state_vals in itertools.product(*sf_vals):
 
             # Build the current state object

@@ -5,7 +5,7 @@ Author: Charlie Street
 Owner: Charlie Street
 """
 
-from refine_plan.models.state_factor import BoolStateFactor, StateFactor
+from refine_plan.models.state_factor import BoolStateFactor, StateFactor, IntStateFactor
 from refine_plan.models.dbn_option import DBNOption
 from refine_plan.models.state import State
 import pyAgrum as gum
@@ -296,6 +296,41 @@ class ExpectedValFnTest(unittest.TestCase):
         x["r"] = 4
         with self.assertRaises(Exception):
             option._expected_val_fn(x)
+
+        os.remove("transition.bifxml")
+        os.remove("reward.bifxml")
+
+
+class StrToSfValsTest(unittest.TestCase):
+
+    def test_function(self):
+        create_two_bns()
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+        )
+
+        str_sf_vals = [
+            ["False", "True"],
+            ["1", "2", "3"],
+            ["val1", "val2", "val3"],
+            ["4", "5", "6"],
+        ]
+
+        option._sf_list = [
+            BoolStateFactor("a"),
+            IntStateFactor("b", 1, 3),
+            StateFactor("c", ["val1", "val2", "val3"]),
+            StateFactor("d", ["4", "5", "6"]),
+        ]
+
+        sf_vals = option._str_to_sf_vals(str_sf_vals)
+
+        self.assertEqual(
+            sf_vals,
+            [[False, True], [1, 2, 3], ["val1", "val2", "val3"], ["4", "5", "6"]],
+        )
 
         os.remove("transition.bifxml")
         os.remove("reward.bifxml")
