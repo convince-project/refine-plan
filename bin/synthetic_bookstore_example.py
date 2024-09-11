@@ -462,6 +462,10 @@ def run_planner():
 
     assert len(set(option_names)) == 19  # Quick safety check
 
+    init_state_dict = {sf: "unknown" for sf in door_sfs}
+    init_state_dict[loc_sf] = "v1"
+    init_state = State(init_state_dict)
+
     option_list = []
     for option in option_names:
         print("Reading in option: {}".format(option))
@@ -472,9 +476,11 @@ def run_planner():
                 option, t_path, r_path, sf_list, lambda s: option in _enabled_actions(s)
             )
         )
-
     return synthesise_bt_from_options(
-        sf_list, option_list, labels, prism_prop='Rmin=?[F "goal"]'
+        sf_list,
+        option_list,
+        labels,
+        prism_prop='Rmin=?[F "goal"]',
     )
 
 
@@ -516,8 +522,8 @@ def initial_vs_refined_comparison(refined_bt):
 
 if __name__ == "__main__":
 
-    run_data_collection()
-    write_mongodb_to_yaml()
-    learn_options()
-    # bt = run_planner()
-    # initial_vs_refined_comparison(bt)
+    # run_data_collection()
+    # write_mongodb_to_yaml()
+    # learn_options()
+    bt = run_planner()
+    initial_vs_refined_comparison(bt)
