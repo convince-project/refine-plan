@@ -14,6 +14,8 @@ from refine_plan.learning.option_learning import (
     _setup_learners,
     learn_dbns,
     _is_zero_cost_loop,
+    _remove_unchanging_vars,
+    _remove_edgeless_vars,
 )
 from pymongo import MongoClient
 import pyAgrum as gum
@@ -408,6 +410,50 @@ class DatasetValsToStrTest(unittest.TestCase):
         self.assertEqual(str_dataset, expected)
 
 
+class RemoveUnchangingVarsTest(unittest.TestCase):
+
+    def test_function(self):
+        option_1_dataset = {
+            "transition": {
+                "x0": [1, 2, 3],
+                "xt": [2, 3, 1],
+                "y0": [False, True, False],
+                "yt": [False, False, True],
+            },
+            "reward": {"x": [1, 2, 3], "y": [False, False, True], "r": [5, 5, 7]},
+        }
+
+        option_2_dataset = {
+            "transition": {
+                "x0": [1, 2, 3],
+                "xt": [2, 3, 1],
+                "y0": [False, False, True],
+                "yt": [False, False, True],
+            },
+            "reward": {"x": [1, 2, 3], "y": [False, False, True], "r": [5, 5, 7]},
+        }
+
+        dataset = {"opt1": option_1_dataset, "opt2": option_2_dataset}
+
+        sf_list = [StateFactor("x", [1, 2, 3]), BoolStateFactor("y")]
+
+        new_dataset = _remove_unchanging_vars(dataset, sf_list)
+
+        self.assertEqual(len(new_dataset), 2)
+        self.assertEqual(new_dataset["opt1"], option_1_dataset)
+
+        ex_opt2_filtered = {
+            "transition": {
+                "x0": [1, 2, 3],
+                "xt": [2, 3, 1],
+                "y0": [False, False, True],
+            },
+            "reward": {"x": [1, 2, 3], "y": [False, False, True], "r": [5, 5, 7]},
+        }
+
+        self.assertEqual(new_dataset["opt2"], ex_opt2_filtered)
+
+
 class SetupLearnersTest(unittest.TestCase):
 
     def test_function(self):
@@ -451,6 +497,99 @@ class SetupLearnersTest(unittest.TestCase):
         self.assertTrue("r->x" in reward_forbidden_arcs)
         self.assertEqual(len(reward_forbidden_arcs), 36)
 
+    def test_with_removed_var(self):
+        dataset = {
+            "test": {
+                "transition": {
+                    "x0": ["1", "2", "3"],
+                    "xt": ["2", "3", "1"],
+                    "y0": ["False", "True", "False"],
+                },
+                "reward": {
+                    "x": ["1", "2", "3"],
+                    "y": ["False", "False", "True"],
+                    "r": ["5", "5", "7"],
+                },
+            }
+        }
+
+        sf_list = [StateFactor("x", [1, 2, 3]), BoolStateFactor("y")]
+
+        trans_learner, reward_learner = _setup_learners(dataset["test"], sf_list)
+
+        trans_forbidden_arcs = trans_learner.state()["Constraint Forbidden Arcs"][0]
+        self.assertTrue("x0->x0" in trans_forbidden_arcs)
+        self.assertTrue("y0->y0" in trans_forbidden_arcs)
+        self.assertTrue("x0->y0" in trans_forbidden_arcs)
+        self.assertTrue("y0->x0" in trans_forbidden_arcs)
+        self.assertTrue("xt->x0" in trans_forbidden_arcs)
+        self.assertTrue("xt->y0" in trans_forbidden_arcs)
+        self.assertEqual(len(trans_forbidden_arcs), 48)
+
+        reward_forbidden_arcs = reward_learner.state()["Constraint Forbidden Arcs"][0]
+        self.assertTrue("x->x" in reward_forbidden_arcs)
+        self.assertTrue("y->y" in reward_forbidden_arcs)
+        self.assertTrue("x->y" in reward_forbidden_arcs)
+        self.assertTrue("y->x" in reward_forbidden_arcs)
+        self.assertTrue("r->y" in reward_forbidden_arcs)
+        self.assertTrue("r->x" in reward_forbidden_arcs)
+        self.assertEqual(len(reward_forbidden_arcs), 36)
+
+
+class RemoveEdgelessVarsTest(unittest.TestCase):
+
+    def test_function(self):
+        # Create the transition function DBN
+        t_bn = gum.BayesNet()
+        _ = t_bn.add(gum.LabelizedVariable("x0", "x0?", ["False", "True"]))
+        _ = t_bn.add(gum.LabelizedVariable("xt", "xt?", ["False", "True"]))
+        _ = t_bn.add(gum.LabelizedVariable("y0", "y0?", ["False", "True"]))
+        _ = t_bn.add(gum.LabelizedVariable("yt", "yt?", ["False", "True"]))
+        t_bn.addArc("x0", "xt")
+        t_bn.addArc("x0", "yt")
+        t_bn.addArc("y0", "xt")
+        t_bn.addArc("y0", "yt")
+
+        t_bn.cpt("xt")[{"x0": "False", "y0": "False"}] = [0.4, 0.6]
+        t_bn.cpt("xt")[{"x0": "False", "y0": "True"}] = [0.5, 0.5]
+        t_bn.cpt("xt")[{"x0": "True", "y0": "False"}] = [0.6, 0.4]
+        t_bn.cpt("xt")[{"x0": "True", "y0": "True"}] = [0.3, 0.7]
+
+        t_bn.cpt("yt")[{"x0": "False", "y0": "False"}] = [0.8, 0.2]
+        t_bn.cpt("yt")[{"x0": "False", "y0": "True"}] = [0.1, 0.9]
+        t_bn.cpt("yt")[{"x0": "True", "y0": "False"}] = [0.7, 0.3]
+        t_bn.cpt("yt")[{"x0": "True", "y0": "True"}] = [0.2, 0.8]
+
+        # Create the reward DBN
+        r_bn = gum.BayesNet()
+        _ = r_bn.add(gum.LabelizedVariable("x", "x?", ["False", "True"]))
+        _ = r_bn.add(gum.LabelizedVariable("y", "y?", ["False", "True"]))
+        _ = r_bn.add(gum.LabelizedVariable("r", "r?", ["0", "1", "2", "3"]))
+        r_bn.addArc("x", "r")
+        r_bn.addArc("y", "r")
+
+        r_bn.cpt("x").fillWith([0.5, 0.5])
+        r_bn.cpt("y").fillWith([0.5, 0.5])
+        r_bn.cpt("r")[{"x": "False", "y": "False"}] = [0.0, 0.2, 0.3, 0.5]
+        r_bn.cpt("r")[{"x": "False", "y": "True"}] = [0.0, 0.6, 0.1, 0.3]
+        r_bn.cpt("r")[{"x": "True", "y": "False"}] = [0.0, 0.4, 0.4, 0.2]
+        r_bn.cpt("r")[{"x": "True", "y": "True"}] = [0.0, 0.3, 0.3, 0.4]
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+
+        _remove_edgeless_vars(t_bn, sf_list, True)
+        self.assertEqual(sorted(list(t_bn.names())), sorted(["x0", "xt", "y0", "yt"]))
+        t_bn.eraseArc("y0", "xt")
+        t_bn.eraseArc("y0", "yt")
+        _remove_edgeless_vars(t_bn, sf_list, True)
+        self.assertEqual(sorted(list(t_bn.names())), sorted(["x0", "xt", "yt"]))
+
+        _remove_edgeless_vars(r_bn, sf_list, False)
+        self.assertEqual(sorted(list(r_bn.names())), sorted(["x", "y", "r"]))
+        r_bn.eraseArc("x", "r")
+        _remove_edgeless_vars(r_bn, sf_list, False)
+        self.assertEqual(sorted(list(r_bn.names())), sorted(["y", "r"]))
+
 
 class LearnDBNsTest(unittest.TestCase):
 
@@ -484,6 +623,42 @@ class LearnDBNsTest(unittest.TestCase):
         self.assertEqual(sorted(list(reward_bn.names())), sorted(["x", "y", "r"]))
         self.assertEqual(
             sorted(list(transition_bn.names())), sorted(["x0", "y0", "xt", "yt"])
+        )
+
+        os.remove("test_dataset.yaml")
+        os.remove("/home/charlie/work/test_reward.bifxml")
+        os.remove("/home/charlie/work/test_transition.bifxml")
+
+    def test_with_useless_vars(self):
+        dataset = {
+            "test": {
+                "transition": {
+                    "x0": [1, 2, 3],
+                    "xt": [2, 3, 1],
+                    "y0": [False, True, False],
+                    "yt": [False, True, False],
+                },
+                "reward": {"x": [1, 2, 3], "y": [False, False, True], "r": [5, 5, 7]},
+            }
+        }
+
+        with open("test_dataset.yaml", "w") as yaml_in:
+            yaml.dump(dataset, yaml_in)
+
+        output_dir = "/home/charlie/work"
+        sf_list = [StateFactor("x", [1, 2, 3]), BoolStateFactor("y")]
+
+        learn_dbns("test_dataset.yaml", output_dir, sf_list)
+
+        self.assertTrue(os.path.exists("/home/charlie/work/test_reward.bifxml"))
+        self.assertTrue(os.path.exists("/home/charlie/work/test_transition.bifxml"))
+
+        reward_bn = gum.loadBN("/home/charlie/work/test_reward.bifxml")
+        transition_bn = gum.loadBN("/home/charlie/work/test_transition.bifxml")
+
+        self.assertEqual(sorted(list(reward_bn.names())), sorted(["x", "y", "r"]))
+        self.assertEqual(
+            sorted(list(transition_bn.names())), sorted(["x0", "y0", "xt"])
         )
 
         os.remove("test_dataset.yaml")
