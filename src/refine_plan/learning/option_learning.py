@@ -180,6 +180,41 @@ def _dataset_vals_to_str(dataset):
     return str_dataset
 
 
+def _remove_unchanging_vars(dataset, sf_list):
+    """Removes {}t variables from transition datasets if they are unchanged.
+
+    These variables don't need to be in the DBN as they never change under an option.
+
+    If included, they have a tendency to mess up structure learning.
+
+    Args:
+        dataset: A dictionary from option to transition and reward information
+        sf_list: The list of state factors which appear in the dataset
+
+    Return:
+        The dataset with the unchanging variables removed
+    """
+
+    filtered_dataset = {}
+
+    for option in dataset:
+
+        filtered_dataset[option] = {
+            "transition": {},
+            "reward": dataset[option]["reward"],
+        }
+        for sf in sf_list:
+            name_0 = "{}0".format(sf.get_name())
+            name_t = "{}t".format(sf.get_name())
+            vals_at_0 = dataset[option]["transition"][name_0]
+            vals_at_t = dataset[option]["transition"][name_t]
+            filtered_dataset[option]["transition"][name_0] = vals_at_0
+            if vals_at_0 != vals_at_t:
+                filtered_dataset[option]["transition"][name_t] = vals_at_t
+
+    return filtered_dataset
+
+
 def _setup_learners(option_dataset, sf_list):
     """Setup the BNLearner objects for the transition and reward function for an option.
 
@@ -207,9 +242,35 @@ def _setup_learners(option_dataset, sf_list):
             sf_2_name = "{}0".format(sf_2.get_name())
             trans_learner.addForbiddenArc(sf_name, sf_2_name)
             reward_learner.addForbiddenArc(sf.get_name(), sf_2.get_name())
-            trans_learner.addForbiddenArc(sf_name_t, sf_2_name)
+            # Some {}t variables might have been removed by this point
+            if sf_name_t in option_dataset["transition"]:
+                trans_learner.addForbiddenArc(sf_name_t, sf_2_name)
 
     return trans_learner, reward_learner
+
+
+def _remove_edgeless_vars(bn, sf_list, is_transition_dbn):
+    """Remove state factor variables from Bayesian networks with no in/out edges.
+
+    These variables are useless to the network and can be removed.
+
+    If bn is a transition DBN, we look at all {}0 variables.
+    If bn is a reward DBN, we look at all variables except r.
+
+    Args:
+        bn: The Bayesian network
+        sf_list: The list of state factors captured in the network
+        is_transition_dbn: If True, bn is a transition DBN, else it is a reward DBN
+    """
+    for sf in sf_list:
+        if is_transition_dbn:
+            var_name = "{}0".format(sf.get_name())
+        else:
+            var_name = sf.get_name()
+
+        # If no parents and no descendants, the node is isolated and can be removed
+        if len(bn.parents(var_name)) == 0 and len(bn.descendants(var_name)) == 0:
+            bn.erase(var_name)
 
 
 def learn_dbns(dataset_path, output_dir, sf_list):
@@ -233,6 +294,10 @@ def learn_dbns(dataset_path, output_dir, sf_list):
 
     # Test the dataset has the correct format
     _check_dataset(dataset, sf_list)
+
+    # Remove any unchanging variables
+    dataset = _remove_unchanging_vars(dataset, sf_list)
+
     dataset = _dataset_vals_to_str(dataset)
 
     for option in dataset:
@@ -240,10 +305,12 @@ def learn_dbns(dataset_path, output_dir, sf_list):
 
         print("LEARNING TRANSITION DBN FOR OPTION: {}".format(option))
         trans_bn = trans_learner.learnBN()
+        _remove_edgeless_vars(trans_bn, sf_list, True)
         trans_out = os.path.join(output_dir, "{}_transition.bifxml".format(option))
         trans_bn.saveBIFXML(trans_out)
 
         print("LEARNING REWARD DBN FOR OPTION: {}".format(option))
         reward_bn = reward_learner.learnBN()
+        _remove_edgeless_vars(reward_bn, sf_list, False)
         reward_out = os.path.join(output_dir, "{}_reward.bifxml".format(option))
         reward_bn.saveBIFXML(reward_out)
