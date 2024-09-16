@@ -113,13 +113,12 @@ class CheckValidDBNsTest(unittest.TestCase):
             option._check_valid_dbns()
 
         # Test 3: Deleted variable in transition DBN
+        # Allowed as not all state factors are required
         option = DBNOption(
             "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
         )
         option._transition_dbn.erase("x0")
-
-        with self.assertRaises(Exception):
-            option._check_valid_dbns()
+        option._check_valid_dbns()
 
         # Test 4: Remove 'r' from reward DBN
         option = DBNOption(
@@ -131,13 +130,12 @@ class CheckValidDBNsTest(unittest.TestCase):
             option._check_valid_dbns()
 
         # Test 5: Remove one of the state factors from reward DBN
+        # Allowed as not all state factors are required
         option = DBNOption(
             "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
         )
         option._reward_dbn.erase("x")
-
-        with self.assertRaises(Exception):
-            option._check_valid_dbns()
+        option._check_valid_dbns()
 
         # Test 6: Change one of the x0 value ranges (add one sf to deal with this)
         option = DBNOption(
@@ -325,7 +323,7 @@ class StrToSfValsTest(unittest.TestCase):
             StateFactor("d", ["4", "5", "6"]),
         ]
 
-        sf_vals = option._str_to_sf_vals(str_sf_vals)
+        sf_vals = option._str_to_sf_vals(str_sf_vals, option._sf_list)
 
         self.assertEqual(
             sf_vals,

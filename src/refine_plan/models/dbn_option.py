@@ -20,15 +20,16 @@ class DBNOption(Option):
     The DBNs assume all state factor values are strings.
     This is to stop lookup errors with integers.
     States can be passed in without considering this however.
-    The transition function must use two variables for each state factor sf: sf0 and sft.
+    The transition function uses up to two variables for each state factor sf: sf0 and sft.
     The reward function should just use one variable per state factor, and one more called r
     which represents the reward.
+    Some state factors may not appear in the transition or reward DBNs.
 
     Attributes:
         Same as superclass, plus:
         _transition_dbn: The transition function DBN.
         _reward_dbn: The reward function DBN.
-        _sf_list: A list of state factor objects that define the state space
+        _sf_list: The list of state factors that make up the state space
         _is_enabled: A function which returns whether the option is enabled in a state
     """
 
@@ -79,7 +80,7 @@ class DBNOption(Option):
             else:
                 raise Exception("Invalid variable in transition DBN: {}".format(var))
 
-        if set(zero_names) != set(sf_names) or set(t_names) != set(sf_names):
+        if not (set(zero_names) <= set(sf_names) and set(t_names) <= set(sf_names)):
             raise Exception("Transition variables do not match with state factors")
 
         # Step 2: Check the reward function has the correct variables
@@ -93,7 +94,7 @@ class DBNOption(Option):
         if not r_found:
             raise Exception("No r variable in reward DBN")
 
-        if set(r_names) != set(sf_names):
+        if not (set(r_names) <= set(sf_names)):
             raise Exception("Reward variables do not match with state factors")
 
         # Step 3: Check the values for each state variable
@@ -101,9 +102,23 @@ class DBNOption(Option):
         for i in range(len(sf_names)):
             name = sf_names[i]
             vals = set([str(v) for v in self._sf_list[i].get_valid_values()])
-            trans_0_values = set(self._transition_dbn["{}0".format(name)].labels())
-            trans_t_values = set(self._transition_dbn["{}t".format(name)].labels())
-            r_values = set(self._reward_dbn[name].labels())
+            name_0 = "{}0".format(name)
+            name_t = "{}t".format(name)
+
+            if name_0 in self._transition_dbn.names():
+                trans_0_values = set(self._transition_dbn[name_0].labels())
+            else:
+                trans_0_values = set([])
+
+            if name_t in self._transition_dbn.names():
+                trans_t_values = set(self._transition_dbn[name_t].labels())
+            else:
+                trans_t_values = set([])
+
+            if name in self._reward_dbn.names():
+                r_values = set(self._reward_dbn[name].labels())
+            else:
+                r_values = set([])
 
             # Python sets can use <= for subset checks
             if not (
@@ -117,10 +132,8 @@ class DBNOption(Option):
         Args:
             prune_threshold: The point at which to set probabilities to zero.
         """
-        sf_names = [sf.get_name() for sf in self._sf_list]
-        to_normalise = ["{}t".format(name) for name in sf_names]
-
-        for var in to_normalise:
+        sf_names = list(filter(lambda x: x[-1] == "t", self._transition_dbn.names()))
+        for var in sf_names:
             parents = [
                 self._transition_dbn[p].name()
                 for p in self._transition_dbn.parents(var)
@@ -204,7 +217,7 @@ class DBNOption(Option):
 
         return parents
 
-    def _str_to_sf_vals(self, str_sf_vals):
+    def _str_to_sf_vals(self, str_sf_vals, sfs_used):
         """Converts a list of list of strings into appropriate state factor values.
 
         PyAgrum converts all values into strings.
@@ -212,17 +225,18 @@ class DBNOption(Option):
 
         Args:
             str_sf_vals: A list of lists of values. The list must follow the order of self._sf_list.
+            sfs_used: A list of state factors. sfs_used[i] is the state factor for str_sf_vals[i].
 
         Returns:
             A list of lists of state factor values
         """
         sf_vals = []
 
-        assert len(str_sf_vals) == len(self._sf_list)
+        assert len(str_sf_vals) == len(sfs_used)
 
         for i in range(len(str_sf_vals)):
-            if isinstance(self._sf_list[i], BoolStateFactor) or isinstance(
-                self._sf_list[i], IntStateFactor
+            if isinstance(sfs_used[i], BoolStateFactor) or isinstance(
+                sfs_used[i], IntStateFactor
             ):
                 sf_vals.append([eval(v) for v in str_sf_vals[i]])
             else:  # StateFactor -> string values (so eval doesn't work)
@@ -244,8 +258,28 @@ class DBNOption(Option):
         if not self._is_enabled(state):
             return 0.0
 
-        # The state is the prior
-        evidence = {"{}0".format(sf): str(state[sf]) for sf in state._state_dict}
+        # The state is the prior - only use state factors in the transition DBN
+        evidence = {}
+        for sf in state._state_dict:
+            name_0 = "{}0".format(sf)
+            if name_0 in self._transition_dbn.names():
+                evidence[name_0] = str(state[sf])
+
+        # Find the target variables and those which should remain unchanged
+        # SFs without a {}t variable in the DBN should remain unchanged.
+        target = set([])
+        unchanged = []
+        for sf in next_state._state_dict:
+            name_t = "{}t".format(sf)
+            if name_t in self._transition_dbn.names():
+                target.add(name_t)
+            else:
+                unchanged.append(sf)
+
+        # Check unchanged variables are unchanged
+        for sf in unchanged:
+            if state[sf] != next_state[sf]:
+                return 0.0
 
         # Create the inference object, set evidence, and set the posterior target
         inf_eng = gum.LazyPropagation(self._transition_dbn)
@@ -279,13 +313,43 @@ class DBNOption(Option):
             return 0.0
 
         # The state is the prior in the reward DBN
-        evidence = {sf: str(state[sf]) for sf in state._state_dict}
+        evidence = {}
+        for sf in state._state_dict:
+            if sf in self._reward_dbn.names():  # Only use SFs that appear in the DBN
+                evidence[sf] = str(state[sf])
 
         # Create the inference engine and set the evidence
         inf_eng = gum.LazyPropagation(self._reward_dbn)
         inf_eng.setEvidence(evidence)
 
         return inf_eng.jointPosterior(set("r")).expectedValue(self._expected_val_fn)
+
+    def _get_vals_and_sfs(self, dbn, var_suffix):
+        """Gets all values for a set of DBN nodes alongside the SFs.
+
+        The values are given as a list of lists. Each sub-list has all values for that
+        state factor in the DBN.
+
+        Args:
+            dbn: The DBN we're getting values from
+            var_suffix: The suffix on the variable name after the state factor
+
+        Returns:
+            A list of variable names, a list of lists of values, and a list
+            of the corresponding state factors
+        """
+        vars_used = []
+        sfs_used = []
+        for sf in self._sf_list:
+            var_name = sf.get_name() + var_suffix
+            if var_name in dbn.names():
+                vars_used.append(var_name)
+                sfs_used.append(sf)
+        vals = self._str_to_sf_vals(
+            [list(dbn[v].labels()) for v in vars_used], sfs_used
+        )
+
+        return vars_used, vals, sfs_used
 
     def get_transition_prism_string(self):
         """Return a PRISM string which captures all transitions for this option.
@@ -295,13 +359,12 @@ class DBNOption(Option):
         """
         prism_str = ""
         inf_eng = gum.LazyPropagation(self._transition_dbn)
-        ev_vars = ["{}0".format(sf.get_name()) for sf in self._sf_list]
-        pre_iterator = self._str_to_sf_vals(
-            [list(self._transition_dbn[v].labels()) for v in ev_vars]
+
+        ev_vars, pre_iterator, ev_sfs_used = self._get_vals_and_sfs(
+            self._transition_dbn, "0"
         )
-        target = ["{}t".format(sf.get_name()) for sf in self._sf_list]
-        post_iterator = self._str_to_sf_vals(
-            [list(self._transition_dbn[v].labels()) for v in target]
+        target, post_iterator, target_sfs_used = self._get_vals_and_sfs(
+            self._transition_dbn, "t"
         )
 
         inf_eng.addJointTarget(set(target))
@@ -312,7 +375,7 @@ class DBNOption(Option):
             # Build the predecessor state object
             pre_state_dict, evidence = {}, {}
             for i in range(len(pre_state_vals)):
-                pre_state_dict[self._sf_list[i]] = pre_state_vals[i]
+                pre_state_dict[ev_sfs_used[i]] = pre_state_vals[i]
                 evidence[ev_vars[i]] = str(pre_state_vals[i])
             pre_state = State(pre_state_dict)
 
@@ -328,7 +391,7 @@ class DBNOption(Option):
                 # Build the successor state object
                 next_state_dict, inst_dict = {}, {}
                 for i in range(len(next_state_vals)):
-                    next_state_dict[self._sf_list[i]] = next_state_vals[i]
+                    next_state_dict[target_sfs_used[i]] = next_state_vals[i]
                     inst_dict[target[i]] = str(next_state_vals[i])
                 next_state = State(next_state_dict)
 
@@ -366,15 +429,14 @@ class DBNOption(Option):
         prism_str = ""
 
         # Get all states
-        sf_vals = self._str_to_sf_vals(
-            [list(self._reward_dbn[sf.get_name()].labels()) for sf in self._sf_list]
-        )
+        _, sf_vals, sfs_used = self._get_vals_and_sfs(self._reward_dbn, "")
+
         for state_vals in itertools.product(*sf_vals):
 
             # Build the current state object
             state_dict = {}
             for i in range(len(state_vals)):
-                state_dict[self._sf_list[i]] = state_vals[i]
+                state_dict[sfs_used[i]] = state_vals[i]
             state = State(state_dict)
 
             # If not enabled in this state, move to next state
