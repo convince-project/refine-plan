@@ -284,7 +284,6 @@ class DBNOption(Option):
         # Create the inference object, set evidence, and set the posterior target
         inf_eng = gum.LazyPropagation(self._transition_dbn)
         inf_eng.setEvidence(evidence)
-        target = set(["{}t".format(sf[:-1]) for sf in evidence.keys()])
         inf_eng.addJointTarget(target)
 
         posterior = inf_eng.jointPosterior(target)
@@ -292,9 +291,7 @@ class DBNOption(Option):
         # The successor state needs to be written as a pyAgrum Instantiation
         pyagrum_next_state = gum.Instantiation()
         pyagrum_next_state.addVarsFromModel(self._transition_dbn, list(target))
-        next_state_dict = {
-            "{}t".format(sf): str(next_state[sf]) for sf in next_state._state_dict
-        }
+        next_state_dict = {var: str(next_state[var[:-1]]) for var in target}
         pyagrum_next_state.fromdict(next_state_dict)
 
         return posterior.get(pyagrum_next_state)

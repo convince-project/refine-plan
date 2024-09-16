@@ -257,6 +257,44 @@ class PruneDistsTest(unittest.TestCase):
         os.remove("transition.bifxml")
         os.remove("reward.bifxml")
 
+    def test_fewer_sfs(self):
+        create_two_bns()
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+        )
+
+        option._transition_dbn.erase("yt")
+
+        option._transition_dbn.cpt("xt")[{"x0": "False", "y0": "False"}] = [
+            0.0001,
+            0.9999,
+        ]
+        option._transition_dbn.cpt("xt")[{"x0": "False", "y0": "True"}] = [0.5, 0.5]
+        option._transition_dbn.cpt("xt")[{"x0": "True", "y0": "False"}] = [
+            0.00001,
+            0.99999,
+        ]
+        option._transition_dbn.cpt("xt")[{"x0": "True", "y0": "True"}] = [0.3, 0.7]
+
+        option._prune_dists()
+
+        xt_ff = option._transition_dbn.cpt("xt")[{"x0": "False", "y0": "False"}]
+        xt_ft = option._transition_dbn.cpt("xt")[{"x0": "False", "y0": "True"}]
+        xt_tf = option._transition_dbn.cpt("xt")[{"x0": "True", "y0": "False"}]
+        xt_tt = option._transition_dbn.cpt("xt")[{"x0": "True", "y0": "True"}]
+
+        self.assertFalse("yt" in option._transition_dbn.names())
+
+        self.assertEqual(list(xt_ff), [0.0, 1.0])
+        self.assertEqual(list(xt_ft), [0.5, 0.5])
+        self.assertEqual(list(xt_tf), [0.0, 1.0])
+        self.assertEqual(list(xt_tt), [0.3, 0.7])
+
+        os.remove("transition.bifxml")
+        os.remove("reward.bifxml")
+
 
 class ExpectedValFnTest(unittest.TestCase):
 
@@ -328,6 +366,12 @@ class StrToSfValsTest(unittest.TestCase):
         self.assertEqual(
             sf_vals,
             [[False, True], [1, 2, 3], ["val1", "val2", "val3"], ["4", "5", "6"]],
+        )
+
+        sf_vals = option._str_to_sf_vals(str_sf_vals[:-1], option._sf_list[:-1])
+        self.assertEqual(
+            sf_vals,
+            [[False, True], [1, 2, 3], ["val1", "val2", "val3"]],
         )
 
         os.remove("transition.bifxml")
@@ -413,6 +457,86 @@ class GetTransitionProbTest(unittest.TestCase):
         os.remove("transition.bifxml")
         os.remove("reward.bifxml")
 
+    def test_fewer_sfs(self):
+        create_two_bns()
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+        )
+
+        option._transition_dbn.erase("yt")
+
+        state_ff = State({sf_list[0]: False, sf_list[1]: False})
+        state_ft = State({sf_list[0]: False, sf_list[1]: True})
+        state_tf = State({sf_list[0]: True, sf_list[1]: False})
+        state_tt = State({sf_list[0]: True, sf_list[1]: True})
+
+        self.assertAlmostEqual(option.get_transition_prob(state_ff, state_ff), 0.4)
+        self.assertAlmostEqual(option.get_transition_prob(state_ff, state_ft), 0.0)
+        self.assertAlmostEqual(option.get_transition_prob(state_ff, state_tf), 0.6)
+        self.assertAlmostEqual(option.get_transition_prob(state_ff, state_tt), 0.0)
+
+        self.assertAlmostEqual(option.get_transition_prob(state_ft, state_ff), 0.0)
+        self.assertAlmostEqual(option.get_transition_prob(state_ft, state_ft), 0.5)
+        self.assertAlmostEqual(option.get_transition_prob(state_ft, state_tf), 0.0)
+        self.assertAlmostEqual(option.get_transition_prob(state_ft, state_tt), 0.5)
+
+        self.assertAlmostEqual(option.get_transition_prob(state_tf, state_ff), 0.6)
+        self.assertAlmostEqual(option.get_transition_prob(state_tf, state_ft), 0.0)
+        self.assertAlmostEqual(option.get_transition_prob(state_tf, state_tf), 0.4)
+        self.assertAlmostEqual(option.get_transition_prob(state_tf, state_tt), 0.0)
+
+        self.assertAlmostEqual(option.get_transition_prob(state_tt, state_ff), 0.0)
+        self.assertAlmostEqual(option.get_transition_prob(state_tt, state_ft), 0.3)
+        self.assertAlmostEqual(option.get_transition_prob(state_tt, state_tf), 0.0)
+        self.assertAlmostEqual(option.get_transition_prob(state_tt, state_tt), 0.7)
+
+        os.remove("transition.bifxml")
+        os.remove("reward.bifxml")
+
+    def test_removed_sf(self):
+        create_two_bns()
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+        )
+
+        option._transition_dbn.erase("yt")
+        option._transition_dbn.erase("y0")
+
+        option._transition_dbn.cpt("xt")[{"x0": "False"}] = [0.4, 0.6]
+        option._transition_dbn.cpt("xt")[{"x0": "True"}] = [0.5, 0.5]
+
+        state_ff = State({sf_list[0]: False, sf_list[1]: False})
+        state_ft = State({sf_list[0]: False, sf_list[1]: True})
+        state_tf = State({sf_list[0]: True, sf_list[1]: False})
+        state_tt = State({sf_list[0]: True, sf_list[1]: True})
+
+        self.assertAlmostEqual(option.get_transition_prob(state_ff, state_ff), 0.4)
+        self.assertAlmostEqual(option.get_transition_prob(state_ff, state_ft), 0.0)
+        self.assertAlmostEqual(option.get_transition_prob(state_ff, state_tf), 0.6)
+        self.assertAlmostEqual(option.get_transition_prob(state_ff, state_tt), 0.0)
+
+        self.assertAlmostEqual(option.get_transition_prob(state_ft, state_ff), 0.0)
+        self.assertAlmostEqual(option.get_transition_prob(state_ft, state_ft), 0.4)
+        self.assertAlmostEqual(option.get_transition_prob(state_ft, state_tf), 0.0)
+        self.assertAlmostEqual(option.get_transition_prob(state_ft, state_tt), 0.6)
+
+        self.assertAlmostEqual(option.get_transition_prob(state_tf, state_ff), 0.5)
+        self.assertAlmostEqual(option.get_transition_prob(state_tf, state_ft), 0.0)
+        self.assertAlmostEqual(option.get_transition_prob(state_tf, state_tf), 0.5)
+        self.assertAlmostEqual(option.get_transition_prob(state_tf, state_tt), 0.0)
+
+        self.assertAlmostEqual(option.get_transition_prob(state_tt, state_ff), 0.0)
+        self.assertAlmostEqual(option.get_transition_prob(state_tt, state_ft), 0.5)
+        self.assertAlmostEqual(option.get_transition_prob(state_tt, state_tf), 0.0)
+        self.assertAlmostEqual(option.get_transition_prob(state_tt, state_tt), 0.5)
+
+        os.remove("transition.bifxml")
+        os.remove("reward.bifxml")
+
 
 class GetRewardTest(unittest.TestCase):
 
@@ -459,6 +583,79 @@ class GetRewardTest(unittest.TestCase):
         self.assertAlmostEqual(option.get_reward(state_ft), 1.7)
         self.assertAlmostEqual(option.get_reward(state_tf), 0.0)
         self.assertAlmostEqual(option.get_reward(state_tt), 2.1)
+
+        os.remove("transition.bifxml")
+        os.remove("reward.bifxml")
+
+    def test_fewer_sfs(self):
+        create_two_bns()
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+        )
+
+        state_ff = State({sf_list[0]: False, sf_list[1]: False})
+        state_ft = State({sf_list[0]: False, sf_list[1]: True})
+        state_tf = State({sf_list[0]: True, sf_list[1]: False})
+        state_tt = State({sf_list[0]: True, sf_list[1]: True})
+
+        option._reward_dbn.erase("y")
+        option._reward_dbn.cpt("r")[{"x": "False"}] = [0.2, 0.2, 0.2, 0.4]
+        option._reward_dbn.cpt("r")[{"x": "True"}] = [0.0, 0.3, 0.4, 0.3]
+        self.assertAlmostEqual(option.get_reward(state_ff), 1.8)
+        self.assertAlmostEqual(option.get_reward(state_ft), 1.8)
+        self.assertAlmostEqual(option.get_reward(state_tf), 2.0)
+        self.assertAlmostEqual(option.get_reward(state_tt), 2.0)
+
+        os.remove("transition.bifxml")
+        os.remove("reward.bifxml")
+
+
+class GetValsAndSfsTest(unittest.TestCase):
+
+    def test_function(self):
+        create_two_bns()
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+        )
+
+        option._transition_dbn.erase("yt")
+
+        # Test 1: Transition with all variables with suffix available
+        vars_used, vals, sfs_used = option._get_vals_and_sfs(
+            option._transition_dbn, "0"
+        )
+
+        self.assertEqual(vars_used, ["x0", "y0"])
+        self.assertEqual(vals, [[False, True], [False, True]])
+        self.assertEqual(sfs_used, sf_list)
+
+        # Test 2: Transition with some variables with suffix unavailable
+        vars_used, vals, sfs_used = option._get_vals_and_sfs(
+            option._transition_dbn, "t"
+        )
+
+        self.assertEqual(vars_used, ["xt"])
+        self.assertEqual(vals, [[False, True]])
+        self.assertEqual(sfs_used, [sf_list[0]])
+
+        # Test 3: Reward DBN with all variables available
+        vars_used, vals, sfs_used = option._get_vals_and_sfs(option._reward_dbn, "")
+
+        self.assertEqual(vars_used, ["x", "y"])
+        self.assertEqual(vals, [[False, True], [False, True]])
+        self.assertEqual(sfs_used, sf_list)
+
+        # Test 4: Reward DBN with some variables unavailable
+        option._reward_dbn.erase("x")
+        vars_used, vals, sfs_used = option._get_vals_and_sfs(option._reward_dbn, "")
+
+        self.assertEqual(vars_used, ["y"])
+        self.assertEqual(vals, [[False, True]])
+        self.assertEqual(sfs_used, [sf_list[1]])
 
         os.remove("transition.bifxml")
         os.remove("reward.bifxml")
@@ -665,6 +862,91 @@ class GetTransitionPrismStringTest(unittest.TestCase):
         os.remove("transition.bifxml")
         os.remove("reward.bifxml")
 
+    def test_fewer_sfs(self):
+        create_two_bns()
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+        )
+
+        option._transition_dbn.erase("yt")
+
+        prism_str = option.get_transition_prism_string()
+
+        state_ff = State({sf_list[0]: False, sf_list[1]: False})
+        state_ft = State({sf_list[0]: False, sf_list[1]: True})
+        state_tf = State({sf_list[0]: True, sf_list[1]: False})
+        state_tt = State({sf_list[0]: True, sf_list[1]: True})
+
+        ff_f = option.get_transition_prob(state_ff, state_ff)
+        ff_t = option.get_transition_prob(state_ff, state_tf)
+
+        ft_f = option.get_transition_prob(state_ft, state_ft)
+        ft_t = option.get_transition_prob(state_ft, state_tt)
+
+        tf_f = option.get_transition_prob(state_tf, state_ff)
+        tf_t = option.get_transition_prob(state_tf, state_tf)
+
+        tt_f = option.get_transition_prob(state_tt, state_ft)
+        tt_t = option.get_transition_prob(state_tt, state_tt)
+
+        expected = "[test] ((x = 0) & (y = 0)) -> {}:(x' = 0) + {}:(x' = 1); \n".format(
+            ff_f, ff_t
+        )
+        expected += (
+            "[test] ((x = 0) & (y = 1)) -> {}:(x' = 0) + {}:(x' = 1); \n".format(
+                ft_f, ft_t
+            )
+        )
+        expected += (
+            "[test] ((x = 1) & (y = 0)) -> {}:(x' = 0) + {}:(x' = 1); \n".format(
+                tf_f, tf_t
+            )
+        )
+        expected += (
+            "[test] ((x = 1) & (y = 1)) -> {}:(x' = 0) + {}:(x' = 1); \n".format(
+                tt_f, tt_t
+            )
+        )
+
+        self.assertEqual(prism_str, expected)
+
+        os.remove("transition.bifxml")
+        os.remove("reward.bifxml")
+
+    def test_removed_sf(self):
+        create_two_bns()
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+        )
+
+        option._transition_dbn.erase("yt")
+        option._transition_dbn.erase("y0")
+
+        option._transition_dbn.cpt("xt")[{"x0": "False"}] = [0.4, 0.6]
+        option._transition_dbn.cpt("xt")[{"x0": "True"}] = [0.5, 0.5]
+
+        prism_str = option.get_transition_prism_string()
+
+        state_f = State({sf_list[0]: False})
+        state_t = State({sf_list[0]: True})
+
+        f_f = option.get_transition_prob(state_f, state_f)
+        f_t = option.get_transition_prob(state_f, state_t)
+        t_f = option.get_transition_prob(state_t, state_f)
+        t_t = option.get_transition_prob(state_t, state_t)
+
+        expected = "[test] ((x = 0)) -> {}:(x' = 0) + {}:(x' = 1); \n".format(f_f, f_t)
+        expected += "[test] ((x = 1)) -> {}:(x' = 0) + {}:(x' = 1); \n".format(t_f, t_t)
+
+        self.assertEqual(prism_str, expected)
+
+        os.remove("transition.bifxml")
+        os.remove("reward.bifxml")
+
 
 class GetRewardPrismStringTest(unittest.TestCase):
 
@@ -715,6 +997,31 @@ class GetRewardPrismStringTest(unittest.TestCase):
         expected = "[test] ((x = 0) & (y = 0)): {};\n".format(ff_r)
         expected += "[test] ((x = 0) & (y = 1)): {};\n".format(ft_r)
         expected += "[test] ((x = 1) & (y = 1)): {};\n".format(tt_r)
+
+        self.assertEqual(prism_str, expected)
+
+        os.remove("transition.bifxml")
+        os.remove("reward.bifxml")
+
+    def test_fewer_sfs(self):
+        create_two_bns()
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+        )
+
+        option._reward_dbn.erase("y")
+        option._reward_dbn.cpt("r")[{"x": "False"}] = [0.2, 0.2, 0.2, 0.4]
+        option._reward_dbn.cpt("r")[{"x": "True"}] = [0.0, 0.3, 0.4, 0.3]
+
+        prism_str = option.get_reward_prism_string()
+
+        f_r = 0.2 * 1.0 + 0.2 * 2.0 + 0.4 * 3.0
+        t_r = 0.3 * 1.0 + 0.4 * 2.0 + 0.3 * 3.0
+
+        expected = "[test] ((x = 0)): {};\n".format(f_r)
+        expected += "[test] ((x = 1)): {};\n".format(t_r)
 
         self.assertEqual(prism_str, expected)
 
