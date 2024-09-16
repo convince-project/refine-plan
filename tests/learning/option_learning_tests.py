@@ -609,16 +609,15 @@ class LearnDBNsTest(unittest.TestCase):
         with open("test_dataset.yaml", "w") as yaml_in:
             yaml.dump(dataset, yaml_in)
 
-        output_dir = "/home/charlie/work"
         sf_list = [StateFactor("x", [1, 2, 3]), BoolStateFactor("y")]
 
-        learn_dbns("test_dataset.yaml", output_dir, sf_list)
+        learn_dbns("test_dataset.yaml", "", sf_list)
 
-        self.assertTrue(os.path.exists("/home/charlie/work/test_reward.bifxml"))
-        self.assertTrue(os.path.exists("/home/charlie/work/test_transition.bifxml"))
+        self.assertTrue(os.path.exists("test_reward.bifxml"))
+        self.assertTrue(os.path.exists("test_transition.bifxml"))
 
-        reward_bn = gum.loadBN("/home/charlie/work/test_reward.bifxml")
-        transition_bn = gum.loadBN("/home/charlie/work/test_transition.bifxml")
+        reward_bn = gum.loadBN("test_reward.bifxml")
+        transition_bn = gum.loadBN("test_transition.bifxml")
 
         self.assertEqual(sorted(list(reward_bn.names())), sorted(["x", "y", "r"]))
         self.assertEqual(
@@ -626,8 +625,8 @@ class LearnDBNsTest(unittest.TestCase):
         )
 
         os.remove("test_dataset.yaml")
-        os.remove("/home/charlie/work/test_reward.bifxml")
-        os.remove("/home/charlie/work/test_transition.bifxml")
+        os.remove("test_reward.bifxml")
+        os.remove("test_transition.bifxml")
 
     def test_with_useless_vars(self):
         dataset = {
@@ -645,16 +644,16 @@ class LearnDBNsTest(unittest.TestCase):
         with open("test_dataset.yaml", "w") as yaml_in:
             yaml.dump(dataset, yaml_in)
 
-        output_dir = "/home/charlie/work"
+        output_dir = ""
         sf_list = [StateFactor("x", [1, 2, 3]), BoolStateFactor("y")]
 
         learn_dbns("test_dataset.yaml", output_dir, sf_list)
 
-        self.assertTrue(os.path.exists("/home/charlie/work/test_reward.bifxml"))
-        self.assertTrue(os.path.exists("/home/charlie/work/test_transition.bifxml"))
+        self.assertTrue(os.path.exists("test_reward.bifxml"))
+        self.assertTrue(os.path.exists("test_transition.bifxml"))
 
-        reward_bn = gum.loadBN("/home/charlie/work/test_reward.bifxml")
-        transition_bn = gum.loadBN("/home/charlie/work/test_transition.bifxml")
+        reward_bn = gum.loadBN("test_reward.bifxml")
+        transition_bn = gum.loadBN("test_transition.bifxml")
 
         self.assertEqual(sorted(list(reward_bn.names())), sorted(["x", "y", "r"]))
         self.assertEqual(
@@ -662,8 +661,8 @@ class LearnDBNsTest(unittest.TestCase):
         )
 
         os.remove("test_dataset.yaml")
-        os.remove("/home/charlie/work/test_reward.bifxml")
-        os.remove("/home/charlie/work/test_transition.bifxml")
+        os.remove("test_reward.bifxml")
+        os.remove("test_transition.bifxml")
 
 
 if __name__ == "__main__":
