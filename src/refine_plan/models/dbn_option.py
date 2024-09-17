@@ -6,8 +6,17 @@ Owner: Charlie Street
 """
 
 from refine_plan.models.state_factor import BoolStateFactor, IntStateFactor
+from pyeda.boolalg.expr import Complement, Variable, AndOp, OrOp
 from refine_plan.models.option import Option
 from refine_plan.models.state import State
+from refine_plan.models.condition import (
+    TrueCondition,
+    NotCondition,
+    AddCondition,
+    AndCondition,
+    OrCondition,
+)
+from pyeda.inter import expr
 import pyAgrum as gum
 import numpy as np
 import itertools
@@ -56,6 +65,7 @@ class DBNOption(Option):
         self._transition_dbn = gum.loadBN(transition_dbn_path)
         self._reward_dbn = gum.loadBN(reward_dbn_path)
         self._sf_list = sf_list
+        assert enabled_cond.is_pre_cond()
         self._enabled_cond = enabled_cond
         self._check_valid_dbns()
 
@@ -102,8 +112,7 @@ class DBNOption(Option):
         for i in range(len(sf_names)):
             name = sf_names[i]
             vals = set([str(v) for v in self._sf_list[i].get_valid_values()])
-            name_0 = "{}0".format(name)
-            name_t = "{}t".format(name)
+            name_0, name_t = "{}0".format(name), "{}t".format(name)
 
             if name_0 in self._transition_dbn.names():
                 trans_0_values = set(self._transition_dbn[name_0].labels())
@@ -348,6 +357,116 @@ class DBNOption(Option):
 
         return vars_used, vals, sfs_used
 
+    def _sub_state_info_into_enabled_cond(self, state, cond):
+        """Substitute the truth values from a state into the enabled condition.
+
+        Parts of the enabled condition which hold/don't hold will be set to True/False.
+
+        Args:
+            state: The (partial) state
+            cond: The portion of self._enabled_cond
+
+        Returns:
+            A modified version of self._enabled_cond with truth values inserted
+        """
+
+        if isinstance(cond, TrueCondition):
+            return TrueCondition()
+        elif isinstance(cond, NotCondition):
+            return NotCondition(
+                self._sub_state_info_into_enabled_cond(state, cond._cond)
+            )
+        elif isinstance(cond, AddCondition):
+            raise Exception("AddCondition cannot be used for self._enabled_cond")
+        elif isinstance(cond, AndCondition):
+            new_and = AndCondition()
+            for c in cond._cond_list:
+                new_and.add_cond(self._sub_state_info_into_enabled_cond(state, c))
+            return new_and
+        elif isinstance(cond, OrCondition):
+            new_or = OrCondition()
+            for c in cond._cond_list:
+                new_or.add_cond(self._sub_state_info_into_enabled_cond(state, c))
+            return new_or
+        else:  # These are all single state factor conditions, e.g. ==, !=, <, <=, >, >=
+            if cond._sf.get_name() not in state._state_dict:
+                return cond
+
+            if cond.is_satisfied(state):
+                return TrueCondition()
+            else:
+                return NotCondition(TrueCondition())
+
+    def _pyeda_to_cond(self, pyeda_expr, var_map):
+        """Convert a Pyeda expression into a Condition object.
+
+        Args:
+            pyeda_expr: The Pyeda expression
+            var_map: A map from Pyeda variables to leaf Condition objects
+
+        Returns:
+            The corresponding Condition object
+        """
+
+        if pyeda_expr == expr(True):
+            return TrueCondition()
+        elif pyeda_expr == expr(False):
+            return NotCondition(TrueCondition())
+        elif isinstance(pyeda_expr, Variable):
+            return var_map[str(pyeda_expr)]
+        elif isinstance(pyeda_expr, Complement):
+            return NotCondition(self._pyeda_to_cond(pyeda_expr.inputs[0], var_map))
+        elif isinstance(pyeda_expr, AndOp):
+            and_cond = AndCondition()
+            for sub_expr in pyeda_expr.xs:
+                and_cond.add_cond(self._pyeda_to_cond(sub_expr, var_map))
+            return and_cond
+        elif isinstance(pyeda_expr, OrOp):
+            or_cond = OrCondition()
+            for sub_expr in pyeda_expr.xs:
+                or_cond.add_cond(self._pyeda_to_cond(sub_expr, var_map))
+            return or_cond
+
+    def _get_prism_guard_for_state(self, state):
+        """Get the PRISM guard for a state.
+
+        This is the conjunction of the state with anything that still
+        needs to be satisfied in self._enabled_cond.
+
+        If state is incompatible with self._enabled_cond, this returns None
+
+        Args:
+            state: The (partial) state we want the guard for
+
+        Returns:
+            The guard for this state in the PRISM string, or None
+        """
+
+        # Step 1: Sub state info into enabled cond
+        subbed_cond = self._sub_state_info_into_enabled_cond(state, self._enabled_cond)
+
+        # Step 2: Convert to pyeda, which implicitly simplifies the expression
+        pyeda_expr, var_map = subbed_cond.to_pyeda_expr()
+
+        # Step 3: Bail now if the pyeda expr is simply True or False
+        guard = state.to_and_cond()
+        if pyeda_expr == expr(True):
+            return guard
+        elif pyeda_expr == expr(False):  # Can't satisfy the enabled condition
+            return None
+
+        # Step 3: Convert the pyeda expression back into a condition
+        remaining_cond = self._pyeda_to_cond(pyeda_expr, var_map)
+
+        # Step 4: Compute the guard
+        if isinstance(remaining_cond, AndCondition):  # Avoid unnecessary nesting
+            for cond in remaining_cond._cond_list:
+                guard.add_cond(cond)
+        else:
+            guard.add_cond(remaining_cond)
+
+        return guard
+
     def get_transition_prism_string(self):
         """Return a PRISM string which captures all transitions for this option.
 
@@ -376,8 +495,11 @@ class DBNOption(Option):
                 evidence[ev_vars[i]] = str(pre_state_vals[i])
             pre_state = State(pre_state_dict)
 
-            # Check action is enabled
-            if not self._is_enabled(pre_state):
+            # Check action is enabled and get the enabled condition for this state
+            # We need this as during learning, all options were executed only in enabled states
+            # We need to capture this here by adding on the 'rest' of the enabled condition
+            pre_state_cond = self._get_prism_guard_for_state(pre_state)
+            if pre_state_cond is None:
                 continue
 
             inf_eng.setEvidence(evidence)  # Setting evidence for posterior
@@ -406,7 +528,7 @@ class DBNOption(Option):
 
             if post_cond_str != "":  # Only write out if there are valid transitions
                 prism_str += "[{}] {} -> ".format(  # Write precondition to PRISM
-                    self.get_name(), pre_state.to_and_cond().to_prism_string()
+                    self.get_name(), pre_state_cond.to_prism_string()
                 )
                 prism_str += post_cond_str
                 prism_str = prism_str[:-3] + "; \n"  # Remove final " + "
@@ -436,8 +558,11 @@ class DBNOption(Option):
                 state_dict[sfs_used[i]] = state_vals[i]
             state = State(state_dict)
 
-            # If not enabled in this state, move to next state
-            if not self._is_enabled(state):
+            # Check action is enabled and get the enabled condition for this state
+            # We need this as during learning, all options were executed only in enabled states
+            # We need to capture this here by adding on the 'rest' of the enabled condition
+            state_cond = self._get_prism_guard_for_state(state)
+            if state_cond is None:
                 continue
 
             # Get the reward
@@ -449,7 +574,7 @@ class DBNOption(Option):
             # Add to the PRISM string
             if not np.isclose(r, 0.0):
                 prism_str += "[{}] {}: {};\n".format(
-                    self.get_name(), state.to_and_cond().to_prism_string(), r
+                    self.get_name(), state_cond.to_prism_string(), r
                 )
 
         return prism_str
