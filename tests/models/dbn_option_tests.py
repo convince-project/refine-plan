@@ -11,9 +11,12 @@ from refine_plan.models.condition import (
     NotCondition,
     AndCondition,
     EqCondition,
+    OrCondition,
+    AddCondition,
 )
 from refine_plan.models.dbn_option import DBNOption
 from refine_plan.models.state import State
+from pyeda.inter import expr, Not, And, Or
 import pyAgrum as gum
 import unittest
 import os
@@ -672,6 +675,188 @@ class GetValsAndSfsTest(unittest.TestCase):
         os.remove("reward.bifxml")
 
 
+class SubStateInfoIntoEnabledCondTest(unittest.TestCase):
+
+    def test_function(self):
+        create_two_bns()
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
+        )
+
+        loc_sf = StateFactor("loc", ["v1", "v2", "v3", "v4"])
+        v2_door_sf = BoolStateFactor("v2_door")
+        v3_door_sf = BoolStateFactor("v3_door")
+
+        cond = TrueCondition()
+
+        self.assertEqual(
+            option._sub_state_info_into_enabled_cond(None, cond), TrueCondition()
+        )
+
+        cond = NotCondition(EqCondition(loc_sf, "v2"))
+        state = State({loc_sf: "v2", v2_door_sf: False})
+        new_cond = option._sub_state_info_into_enabled_cond(state, cond)
+        self.assertEqual(new_cond, NotCondition(TrueCondition()))
+
+        state = State({loc_sf: "v3", v2_door_sf: False})
+        new_cond = option._sub_state_info_into_enabled_cond(state, cond)
+        self.assertEqual(new_cond, NotCondition(NotCondition(TrueCondition())))
+
+        cond = NotCondition(EqCondition(v3_door_sf, True))
+        new_cond = option._sub_state_info_into_enabled_cond(state, cond)
+        self.assertEqual(new_cond, cond)
+
+        int_sf = IntStateFactor("bad", 1, 3)
+        cond = AddCondition(int_sf, 1)
+        with self.assertRaises(Exception):
+            option._sub_state_info_into_enabled_cond(state, cond)
+
+        cond = AndCondition(EqCondition(loc_sf, "v2"), EqCondition(v2_door_sf, True))
+        state = State({loc_sf: "v3", v2_door_sf: True, v3_door_sf: True})
+        new_cond = option._sub_state_info_into_enabled_cond(state, cond)
+        expected_cond = AndCondition(NotCondition(TrueCondition()), TrueCondition())
+        self.assertEqual(new_cond, expected_cond)
+
+        cond = OrCondition(EqCondition(loc_sf, "v2"), EqCondition(v2_door_sf, True))
+        state = State({v2_door_sf: True, v3_door_sf: True})
+        new_cond = option._sub_state_info_into_enabled_cond(state, cond)
+        expected_cond = OrCondition(EqCondition(loc_sf, "v2"), TrueCondition())
+        self.assertEqual(new_cond, expected_cond)
+
+        os.remove("transition.bifxml")
+        os.remove("reward.bifxml")
+
+
+class PyedaToCondTest(unittest.TestCase):
+
+    def test_function(self):
+        create_two_bns()
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
+        )
+
+        loc_sf = StateFactor("loc", ["v1", "v2", "v3", "v4"])
+        v2_door_sf = BoolStateFactor("v2_door")
+
+        pyeda_expr = expr(True)
+        var_map = {}
+        self.assertEqual(option._pyeda_to_cond(pyeda_expr, var_map), TrueCondition())
+
+        pyeda_expr = expr(False)
+        self.assertEqual(
+            option._pyeda_to_cond(pyeda_expr, var_map), NotCondition(TrueCondition())
+        )
+
+        pyeda_expr = expr("locEQv2")
+        var_map = {"locEQv2": EqCondition(loc_sf, "v2")}
+        cond = option._pyeda_to_cond(pyeda_expr, var_map)
+        self.assertEqual(cond, EqCondition(loc_sf, "v2"))
+
+        pyeda_expr = Not(expr("locEQv2"))
+        cond = option._pyeda_to_cond(pyeda_expr, var_map)
+        self.assertEqual(cond, NotCondition(EqCondition(loc_sf, "v2")))
+
+        pyeda_expr = And(Not(expr("locEQv2")), expr("v2_doorEQTrue"))
+        var_map["v2_doorEQTrue"] = EqCondition(v2_door_sf, True)
+        cond = option._pyeda_to_cond(pyeda_expr, var_map)
+        self.assertEqual(
+            cond,
+            AndCondition(
+                NotCondition(EqCondition(loc_sf, "v2")), EqCondition(v2_door_sf, True)
+            ),
+        )
+
+        pyeda_expr = Or(Not(expr("locEQv2")), expr("v2_doorEQTrue"))
+        cond = option._pyeda_to_cond(pyeda_expr, var_map)
+        self.assertEqual(
+            cond,
+            OrCondition(
+                NotCondition(EqCondition(loc_sf, "v2")), EqCondition(v2_door_sf, True)
+            ),
+        )
+
+        os.remove("transition.bifxml")
+        os.remove("reward.bifxml")
+
+
+class GetPrismGuardForStateTest(unittest.TestCase):
+
+    def test_function(self):
+        create_two_bns()
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
+        )
+
+        loc_sf = StateFactor("loc", ["v1", "v2", "v3", "v4"])
+        v2_door_sf = BoolStateFactor("v2_door")
+        v3_door_sf = BoolStateFactor("v3_door")
+
+        option._sf_list = [loc_sf, v2_door_sf, v3_door_sf]
+        option._enabled_cond = EqCondition(loc_sf, "v2")
+
+        state = State({loc_sf: "v2", v2_door_sf: True, v3_door_sf: False})
+        guard = option._get_prism_guard_for_state(state)
+
+        self.assertTrue(isinstance(guard, AndCondition))
+        self.assertEqual(len(guard._cond_list), 3)
+        self.assertTrue(EqCondition(loc_sf, "v2") in guard._cond_list)
+        self.assertTrue(EqCondition(v2_door_sf, True) in guard._cond_list)
+        self.assertTrue(EqCondition(v3_door_sf, False) in guard._cond_list)
+
+        state = State({loc_sf: "v3", v2_door_sf: True, v3_door_sf: False})
+        guard = option._get_prism_guard_for_state(state)
+        self.assertEqual(guard, None)
+
+        option._enabled_cond = AndCondition(
+            EqCondition(loc_sf, "v2"),
+            EqCondition(v2_door_sf, False),
+            EqCondition(v3_door_sf, False),
+        )
+
+        state = State({loc_sf: "v2"})
+        guard = option._get_prism_guard_for_state(state)
+        self.assertTrue(isinstance(guard, AndCondition))
+        self.assertEqual(len(guard._cond_list), 3)
+        self.assertTrue(EqCondition(loc_sf, "v2") in guard._cond_list)
+        self.assertTrue(EqCondition(v2_door_sf, False) in guard._cond_list)
+        self.assertTrue(EqCondition(v3_door_sf, False) in guard._cond_list)
+
+        option._enabled_cond = AndCondition(
+            EqCondition(loc_sf, "v2"),
+            OrCondition(
+                EqCondition(v2_door_sf, False),
+                EqCondition(v3_door_sf, False),
+            ),
+        )
+        guard = option._get_prism_guard_for_state(state)
+        self.assertTrue(isinstance(guard, AndCondition))
+        self.assertEqual(len(guard._cond_list), 2)
+        self.assertTrue(EqCondition(loc_sf, "v2") in guard._cond_list)
+        self.assertTrue(
+            OrCondition(EqCondition(v2_door_sf, False), EqCondition(v3_door_sf, False))
+            in guard._cond_list
+        )
+
+        option._enabled_cond = OrCondition(
+            AndCondition(EqCondition(loc_sf, "v2"), EqCondition(v2_door_sf, True)),
+            AndCondition(EqCondition(loc_sf, "v3"), EqCondition(v3_door_sf, True)),
+        )
+        guard = option._get_prism_guard_for_state(state)
+        self.assertTrue(isinstance(guard, AndCondition))
+        self.assertEqual(len(guard._cond_list), 2)
+        self.assertTrue(EqCondition(loc_sf, "v2") in guard._cond_list)
+        self.assertTrue(EqCondition(v2_door_sf, True) in guard._cond_list)
+
+        os.remove("transition.bifxml")
+        os.remove("reward.bifxml")
+
+
 class GetTransitionPrismStringTest(unittest.TestCase):
 
     def test_function(self):
@@ -961,6 +1146,59 @@ class GetTransitionPrismStringTest(unittest.TestCase):
         os.remove("transition.bifxml")
         os.remove("reward.bifxml")
 
+    def test_fewer_sfs_and_extra_enabled_sf(self):
+        create_two_bns()
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
+        )
+
+        loc_sf = StateFactor("loc", ["v1", "v2", "v3", "v4"])
+        option._sf_list.append(loc_sf)
+        option._enabled_cond = AndCondition(
+            OrCondition(EqCondition(sf_list[0], False), EqCondition(sf_list[0], True)),
+            EqCondition(loc_sf, "v2"),
+        )
+
+        option._transition_dbn.erase("yt")
+
+        prism_str = option.get_transition_prism_string()
+
+        state_ff = State({sf_list[0]: False, sf_list[1]: False, loc_sf: "v2"})
+        state_ft = State({sf_list[0]: False, sf_list[1]: True, loc_sf: "v2"})
+        state_tf = State({sf_list[0]: True, sf_list[1]: False, loc_sf: "v2"})
+        state_tt = State({sf_list[0]: True, sf_list[1]: True, loc_sf: "v2"})
+
+        ff_f = option.get_transition_prob(state_ff, state_ff)
+        ff_t = option.get_transition_prob(state_ff, state_tf)
+
+        ft_f = option.get_transition_prob(state_ft, state_ft)
+        ft_t = option.get_transition_prob(state_ft, state_tt)
+
+        tf_f = option.get_transition_prob(state_tf, state_ff)
+        tf_t = option.get_transition_prob(state_tf, state_tf)
+
+        tt_f = option.get_transition_prob(state_tt, state_ft)
+        tt_t = option.get_transition_prob(state_tt, state_tt)
+
+        expected = "[test] ((x = 0) & (y = 0) & (loc = 1)) -> {}:(x' = 0) + {}:(x' = 1); \n".format(
+            ff_f, ff_t
+        )
+        expected += "[test] ((x = 0) & (y = 1) & (loc = 1)) -> {}:(x' = 0) + {}:(x' = 1); \n".format(
+            ft_f, ft_t
+        )
+        expected += "[test] ((x = 1) & (y = 0) & (loc = 1)) -> {}:(x' = 0) + {}:(x' = 1); \n".format(
+            tf_f, tf_t
+        )
+        expected += "[test] ((x = 1) & (y = 1) & (loc = 1)) -> {}:(x' = 0) + {}:(x' = 1); \n".format(
+            tt_f, tt_t
+        )
+        self.assertEqual(prism_str, expected)
+
+        os.remove("transition.bifxml")
+        os.remove("reward.bifxml")
+
 
 class GetRewardPrismStringTest(unittest.TestCase):
 
@@ -1039,6 +1277,38 @@ class GetRewardPrismStringTest(unittest.TestCase):
 
         expected = "[test] ((x = 0)): {};\n".format(f_r)
         expected += "[test] ((x = 1)): {};\n".format(t_r)
+
+        self.assertEqual(prism_str, expected)
+
+        os.remove("transition.bifxml")
+        os.remove("reward.bifxml")
+
+    def test_fewer_sfs_and_extra_enabled_sf(self):
+        create_two_bns()
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
+        )
+
+        loc_sf = StateFactor("loc", ["v1", "v2", "v3", "v4"])
+        option._sf_list.append(loc_sf)
+        option._enabled_cond = AndCondition(
+            OrCondition(EqCondition(sf_list[0], False), EqCondition(sf_list[0], True)),
+            EqCondition(loc_sf, "v2"),
+        )
+
+        option._reward_dbn.erase("y")
+        option._reward_dbn.cpt("r")[{"x": "False"}] = [0.2, 0.2, 0.2, 0.4]
+        option._reward_dbn.cpt("r")[{"x": "True"}] = [0.0, 0.3, 0.4, 0.3]
+
+        prism_str = option.get_reward_prism_string()
+
+        f_r = 0.2 * 1.0 + 0.2 * 2.0 + 0.4 * 3.0
+        t_r = 0.3 * 1.0 + 0.4 * 2.0 + 0.3 * 3.0
+
+        expected = "[test] ((x = 0) & (loc = 1)): {};\n".format(f_r)
+        expected += "[test] ((x = 1) & (loc = 1)): {};\n".format(t_r)
 
         self.assertEqual(prism_str, expected)
 
