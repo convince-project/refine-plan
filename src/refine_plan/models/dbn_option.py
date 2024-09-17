@@ -30,7 +30,7 @@ class DBNOption(Option):
         _transition_dbn: The transition function DBN.
         _reward_dbn: The reward function DBN.
         _sf_list: The list of state factors that make up the state space
-        _is_enabled: A function which returns whether the option is enabled in a state
+        _enabled_cond: A Condition which captures the states where this option is enabled
     """
 
     def __init__(
@@ -39,7 +39,7 @@ class DBNOption(Option):
         transition_dbn_path,
         reward_dbn_path,
         sf_list,
-        is_enabled,
+        enabled_cond,
         prune_dists=True,
     ):
         """Initialise attributes.
@@ -49,14 +49,14 @@ class DBNOption(Option):
             transition_dbn_path: A path to a .bifxml file for the transition DBN.
             reward_dbn_path: A path to a .bifxml file for the reward function DBN.
             sf_list: The list of state factors that make up the state space
-            is_enabled: A function which returns whether the option is enabled in a state
+            enabled_cond: A Condition which captures the states where this option is enabled
             prune_dists: If True, remove small probs in transition DBN and renormalise
         """
         super(DBNOption, self).__init__(name, [], [])
         self._transition_dbn = gum.loadBN(transition_dbn_path)
         self._reward_dbn = gum.loadBN(reward_dbn_path)
         self._sf_list = sf_list
-        self._is_enabled = is_enabled
+        self._enabled_cond = enabled_cond
         self._check_valid_dbns()
 
         if prune_dists:
@@ -255,7 +255,7 @@ class DBNOption(Option):
         """
 
         # Check option is enabled in state
-        if not self._is_enabled(state):
+        if not self._enabled_cond.is_satisfied(state):
             return 0.0
 
         # The state is the prior - only use state factors in the transition DBN
@@ -306,7 +306,7 @@ class DBNOption(Option):
             The reward at the state
         """
         # Check option is enabled in state
-        if not self._is_enabled(state):
+        if not self._enabled_cond.is_satisfied(state):
             return 0.0
 
         # The state is the prior in the reward DBN

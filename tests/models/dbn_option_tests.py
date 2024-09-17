@@ -6,6 +6,12 @@ Owner: Charlie Street
 """
 
 from refine_plan.models.state_factor import BoolStateFactor, StateFactor, IntStateFactor
+from refine_plan.models.condition import (
+    TrueCondition,
+    NotCondition,
+    AndCondition,
+    EqCondition,
+)
 from refine_plan.models.dbn_option import DBNOption
 from refine_plan.models.state import State
 import pyAgrum as gum
@@ -65,19 +71,23 @@ class ConstructorTest(unittest.TestCase):
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
 
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
         )
 
         self.assertEqual(option.get_name(), "test")
         self.assertEqual(option._sf_list, sf_list)
         self.assertEqual(option._transition_dbn, gum.loadBN("transition.bifxml"))
         self.assertEqual(option._reward_dbn, gum.loadBN("reward.bifxml"))
-        self.assertTrue(option._is_enabled("state"))
+        self.assertTrue(option._enabled_cond.is_satisfied("state"))
 
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: False
+            "test",
+            "transition.bifxml",
+            "reward.bifxml",
+            sf_list,
+            NotCondition(TrueCondition()),
         )
-        self.assertFalse(option._is_enabled("state"))
+        self.assertFalse(option._enabled_cond.is_satisfied("state"))
 
         os.remove("transition.bifxml")
         os.remove("reward.bifxml")
@@ -92,7 +102,7 @@ class CheckValidDBNsTest(unittest.TestCase):
 
         # Test 1: Bad variable in transition
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
         )
         option._transition_dbn.add(
             gum.LabelizedVariable("xy", "xy?", ["False", "True"])
@@ -103,7 +113,7 @@ class CheckValidDBNsTest(unittest.TestCase):
 
         # Test 2: Variable not in state factors in transition DBN
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
         )
         option._transition_dbn.add(
             gum.LabelizedVariable("z0", "z0?", ["False", "True"])
@@ -115,14 +125,14 @@ class CheckValidDBNsTest(unittest.TestCase):
         # Test 3: Deleted variable in transition DBN
         # Allowed as not all state factors are required
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
         )
         option._transition_dbn.erase("x0")
         option._check_valid_dbns()
 
         # Test 4: Remove 'r' from reward DBN
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
         )
         option._reward_dbn.erase("r")
 
@@ -132,14 +142,14 @@ class CheckValidDBNsTest(unittest.TestCase):
         # Test 5: Remove one of the state factors from reward DBN
         # Allowed as not all state factors are required
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
         )
         option._reward_dbn.erase("x")
         option._check_valid_dbns()
 
         # Test 6: Change one of the x0 value ranges (add one sf to deal with this)
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
         )
         option._sf_list = sf_list + [BoolStateFactor("z")]
         option._transition_dbn.add(
@@ -154,7 +164,7 @@ class CheckValidDBNsTest(unittest.TestCase):
 
         # Test 7: Change one of the xt value ranges (add one sf to deal with this)
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
         )
         option._sf_list = sf_list + [BoolStateFactor("z")]
         option._transition_dbn.add(
@@ -169,7 +179,7 @@ class CheckValidDBNsTest(unittest.TestCase):
 
         # Test 8: Change one of the reward value ranges (add one sf to deal with this)
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
         )
         option._sf_list = sf_list + [BoolStateFactor("z")]
         option._transition_dbn.add(
@@ -187,7 +197,7 @@ class CheckValidDBNsTest(unittest.TestCase):
         # Test 9: Change one of the state factor value ranges (add one sf to deal with this)
         # This should pass because we only need a subset :)
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
         )
         option._sf_list = sf_list + [StateFactor("z", [False, True, "Dunno"])]
         option._transition_dbn.add(
@@ -210,7 +220,7 @@ class PruneDistsTest(unittest.TestCase):
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
         )
 
         option._transition_dbn.cpt("xt")[{"x0": "False", "y0": "False"}] = [
@@ -262,7 +272,7 @@ class PruneDistsTest(unittest.TestCase):
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
         )
 
         option._transition_dbn.erase("yt")
@@ -303,7 +313,7 @@ class ExpectedValFnTest(unittest.TestCase):
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
         )
 
         labels = option._reward_dbn.variableFromName("r").labels()
@@ -344,7 +354,7 @@ class StrToSfValsTest(unittest.TestCase):
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
         )
 
         str_sf_vals = [
@@ -385,7 +395,7 @@ class GetTransitionProbTest(unittest.TestCase):
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
         )
 
         state_ff = State({sf_list[0]: False, sf_list[1]: False})
@@ -419,14 +429,12 @@ class GetTransitionProbTest(unittest.TestCase):
     def test_enabled_actions(self):
         create_two_bns()
 
-        def is_enabled(s):
-            if s["x"] == True and s["y"] == False:
-                return False
-            return True
-
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        enabled_cond = NotCondition(
+            AndCondition(EqCondition(sf_list[0], True), EqCondition(sf_list[1], False))
+        )
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, is_enabled
+            "test", "transition.bifxml", "reward.bifxml", sf_list, enabled_cond
         )
 
         state_ff = State({sf_list[0]: False, sf_list[1]: False})
@@ -462,7 +470,7 @@ class GetTransitionProbTest(unittest.TestCase):
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
         )
 
         option._transition_dbn.erase("yt")
@@ -500,7 +508,7 @@ class GetTransitionProbTest(unittest.TestCase):
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
         )
 
         option._transition_dbn.erase("yt")
@@ -545,7 +553,7 @@ class GetRewardTest(unittest.TestCase):
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
         )
 
         state_ff = State({sf_list[0]: False, sf_list[1]: False})
@@ -570,8 +578,11 @@ class GetRewardTest(unittest.TestCase):
             return True
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        enabled_cond = NotCondition(
+            AndCondition(EqCondition(sf_list[0], True), EqCondition(sf_list[1], False))
+        )
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, is_enabled
+            "test", "transition.bifxml", "reward.bifxml", sf_list, enabled_cond
         )
 
         state_ff = State({sf_list[0]: False, sf_list[1]: False})
@@ -592,7 +603,7 @@ class GetRewardTest(unittest.TestCase):
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
         )
 
         state_ff = State({sf_list[0]: False, sf_list[1]: False})
@@ -619,7 +630,7 @@ class GetValsAndSfsTest(unittest.TestCase):
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
         )
 
         option._transition_dbn.erase("yt")
@@ -668,7 +679,7 @@ class GetTransitionPrismStringTest(unittest.TestCase):
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
         )
 
         prism_str = option.get_transition_prism_string()
@@ -740,7 +751,7 @@ class GetTransitionPrismStringTest(unittest.TestCase):
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
         )
 
         option._transition_dbn.cpt("xt")[{"x0": "False", "y0": "False"}] = [1.0, 0.0]
@@ -807,8 +818,11 @@ class GetTransitionPrismStringTest(unittest.TestCase):
             return True
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        enabled_cond = NotCondition(
+            AndCondition(EqCondition(sf_list[0], True), EqCondition(sf_list[1], False))
+        )
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, is_enabled
+            "test", "transition.bifxml", "reward.bifxml", sf_list, enabled_cond
         )
 
         prism_str = option.get_transition_prism_string()
@@ -867,7 +881,7 @@ class GetTransitionPrismStringTest(unittest.TestCase):
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
         )
 
         option._transition_dbn.erase("yt")
@@ -920,7 +934,7 @@ class GetTransitionPrismStringTest(unittest.TestCase):
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
         )
 
         option._transition_dbn.erase("yt")
@@ -955,7 +969,7 @@ class GetRewardPrismStringTest(unittest.TestCase):
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
         )
 
         prism_str = option.get_reward_prism_string()
@@ -984,8 +998,11 @@ class GetRewardPrismStringTest(unittest.TestCase):
             return True
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        enabled_cond = NotCondition(
+            AndCondition(EqCondition(sf_list[0], True), EqCondition(sf_list[1], False))
+        )
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, is_enabled
+            "test", "transition.bifxml", "reward.bifxml", sf_list, enabled_cond
         )
 
         prism_str = option.get_reward_prism_string()
@@ -1008,7 +1025,7 @@ class GetRewardPrismStringTest(unittest.TestCase):
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
         option = DBNOption(
-            "test", "transition.bifxml", "reward.bifxml", sf_list, lambda s: True
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
         )
 
         option._reward_dbn.erase("y")
