@@ -135,7 +135,7 @@ class DBNOption(Option):
             ):
                 raise Exception("State factor values don't match with those in DBNs")
 
-    def _prune_dists(self, prune_threshold=1e-4):
+    def _prune_dists(self, prune_threshold=1e-3):
         """Prune small probabilities from transition DBN and renormalise.
 
         Args:
