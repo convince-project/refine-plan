@@ -5,15 +5,16 @@ Author: Charlie Street
 Owner: Charlie Street
 """
 
+from refine_plan.models.condition import Label, EqCondition, AndCondition, OrCondition
 from refine_plan.learning.option_learning import mongodb_to_yaml, learn_dbns
 from refine_plan.algorithms.refine import synthesise_bt_from_options
-from refine_plan.models.condition import Label, EqCondition
 from refine_plan.models.state_factor import StateFactor
 from refine_plan.models.dbn_option import DBNOption
 from refine_plan.models.state import State
 from pymongo import MongoClient
 from datetime import datetime
 import numpy as np
+import itertools
 import random
 import copy
 
@@ -334,34 +335,109 @@ def _enabled_actions(state):
     return list(enabled_actions)
 
 
+def _get_enabled_cond(sf_list, option):
+    """Get the enabled condition for an option.
+
+    Args:
+        sf_list: The list of state factors
+        option: The option we want the condition for
+
+    Returns:
+        The enabled condition for the option
+    """
+    sf_dict = {sf.get_name(): sf for sf in sf_list}
+
+    door_locs = ["v{}".format(i) for i in range(2, 8)]
+
+    if option == "check_door" or option == "open_door":
+        enabled_cond = OrCondition()
+        door_status = "unknown" if option == "check_door" else "closed"
+        for door in door_locs:
+            enabled_cond.add_cond(
+                AndCondition(
+                    EqCondition(sf_dict["location"], door),
+                    EqCondition(sf_dict["{}_door".format(door)], door_status),
+                )
+            )
+        return enabled_cond
+    else:  # edge navigation option
+        enabled_cond = OrCondition()
+        for node in GRAPH:
+            if option in GRAPH[node]:
+                enabled_cond.add_cond(EqCondition(sf_dict["location"], node))
+        door = CORRESPONDING_DOOR[option]
+        if door != None:
+            enabled_cond = AndCondition(
+                enabled_cond, EqCondition(sf_dict["{}_door".format(door)], "open")
+            )
+        return enabled_cond
+
+
+def enabled_cond_test():
+    """Test that the enabled actions function matches the enabled conditions."""
+    loc_sf = StateFactor("location", ["v{}".format(i) for i in range(1, 9)])
+    door_sfs = [
+        StateFactor("v2_door", ["unknown", "closed", "open"]),
+        StateFactor("v3_door", ["unknown", "closed", "open"]),
+        StateFactor("v4_door", ["unknown", "closed", "open"]),
+        StateFactor("v5_door", ["unknown", "closed", "open"]),
+        StateFactor("v6_door", ["unknown", "closed", "open"]),
+        StateFactor("v7_door", ["unknown", "closed", "open"]),
+    ]
+    sf_list = [loc_sf] + door_sfs
+
+    option_names = [
+        "e12",
+        "e14",
+        "e58",
+        "e78",
+        "e13",
+        "e36",
+        "e68",
+        "e25",
+        "e47",
+        "e26",
+        "e35",
+        "e46",
+        "e37",
+        "e23",
+        "e34",
+        "e56",
+        "e67",
+        "check_door",
+        "open_door",
+    ]
+
+    state_values = [sf.get_valid_values() for sf in sf_list]
+
+    for option in option_names:
+        print("Testing Option: {}".format(option))
+
+        enabled_cond = _get_enabled_cond(sf_list, option)
+        print("Enabled Condition: {}".format(enabled_cond))
+
+        for state_tuple in itertools.product(*state_values):
+            state = State({sf_list[i]: state_tuple[i] for i in range(len(sf_list))})
+
+            fn_result = option in _enabled_actions(state)
+            cond_result = enabled_cond.is_satisfied(state)
+
+            if fn_result != cond_result:
+                raise Exception(
+                    "INCONSISTENCY AT STATE {} - FN: {}, COND: {}.".format(
+                        state, fn_result, cond_result
+                    )
+                )
+
+    print("***Enabled conditions consistent with enabled actions function***")
+
+
 def random_policy(state):
     """A random policy for data collection.
 
     Args:
         state: The current state of the system
     """
-    # actions = [
-    #    "e12",
-    #    "e14",
-    #    "e58",
-    #    "e78",
-    #    "e13",
-    #    "e36",
-    #    "e68",
-    #    "e25",
-    #    "e47",
-    #    "e26",
-    #    "e35",
-    #    "e46",
-    #    "e37",
-    #    "e23",
-    #    "e34",
-    #    "e56",
-    #    "e67",
-    #    "check_door",
-    #    "open_door",
-    # ]
-
     return np.random.choice(_enabled_actions(state))
 
 
@@ -473,7 +549,7 @@ def run_planner():
         r_path = "../data/synthetic_bookstore/{}_reward.bifxml".format(option)
         option_list.append(
             DBNOption(
-                option, t_path, r_path, sf_list, lambda s: option in _enabled_actions(s)
+                option, t_path, r_path, sf_list, _get_enabled_cond(sf_list, option)
             )
         )
     return synthesise_bt_from_options(
@@ -522,6 +598,7 @@ def initial_vs_refined_comparison(refined_bt):
 
 if __name__ == "__main__":
 
+    # enabled_cond_test()
     # run_data_collection()
     # write_mongodb_to_yaml()
     # learn_options()
