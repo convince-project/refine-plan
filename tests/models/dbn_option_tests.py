@@ -857,6 +857,40 @@ class GetPrismGuardForStateTest(unittest.TestCase):
         os.remove("reward.bifxml")
 
 
+class PrunePosteriorTest(unittest.TestCase):
+
+    def test_function(self):
+        create_two_bns()
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
+        )
+
+        option._transition_dbn.erase("yt")
+        option._transition_dbn.erase("y0")
+
+        option._transition_dbn.cpt("xt")[{"x0": "False"}] = [0.4, 0.6]
+        option._transition_dbn.cpt("xt")[{"x0": "True"}] = [0.001, 0.9999]
+
+        state_f = State({sf_list[0]: False})
+        state_t = State({sf_list[0]: True})
+
+        # Testing indirectly through get_transition_prob
+        ff = option.get_transition_prob(state_f, state_f)
+        ft = option.get_transition_prob(state_f, state_t)
+        tf = option.get_transition_prob(state_t, state_f)
+        tt = option.get_transition_prob(state_t, state_t)
+
+        self.assertEqual(ff, 0.4)
+        self.assertEqual(ft, 0.6)
+        self.assertEqual(tf, 0.0)
+        self.assertEqual(tt, 1.0)
+
+        os.remove("transition.bifxml")
+        os.remove("reward.bifxml")
+
+
 class GetTransitionPrismStringTest(unittest.TestCase):
 
     def test_function(self):

@@ -296,6 +296,7 @@ class DBNOption(Option):
         inf_eng.addJointTarget(target)
 
         posterior = inf_eng.jointPosterior(target)
+        self._prune_posterior(posterior)
 
         # The successor state needs to be written as a pyAgrum Instantiation
         pyagrum_next_state = gum.Instantiation()
@@ -467,6 +468,19 @@ class DBNOption(Option):
 
         return guard
 
+    def _prune_posterior(self, posterior, threshold=1e-3):
+        """Prune small probabilities from a posterior and re-normalise.
+
+        Args:
+            posterior: The posterior as a PyAgrum Potential object
+            threshold: The pruning threshold
+        """
+        for i in posterior.loopIn():
+            if posterior.get(i) <= threshold:
+                posterior.set(i, 0.0)
+
+        posterior.normalize()
+
     def get_transition_prism_string(self):
         """Return a PRISM string which captures all transitions for this option.
 
@@ -504,6 +518,7 @@ class DBNOption(Option):
 
             inf_eng.setEvidence(evidence)  # Setting evidence for posterior
             posterior = inf_eng.jointPosterior(set(target))
+            self._prune_posterior(posterior)
             post_cond_str = ""
 
             for next_state_vals in itertools.product(*post_iterator):
