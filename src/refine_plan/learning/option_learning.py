@@ -229,6 +229,10 @@ def _setup_learners(option_dataset, sf_list):
     trans_learner = gum.BNLearner(pd.DataFrame(data=option_dataset["transition"]))
     reward_learner = gum.BNLearner(pd.DataFrame(data=option_dataset["reward"]))
 
+    # I have found empirically that hill climbing works nicely
+    trans_learner.useGreedyHillClimbing()
+    reward_learner.useGreedyHillClimbing()
+
     # Restrict the edges allowed in the BN
     # 1: Transition DBN - 0 vars can't go to other 0 vars
     # 2: Reward DBN - sf vars can't go between each other
