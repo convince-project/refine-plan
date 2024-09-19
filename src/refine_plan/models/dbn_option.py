@@ -468,7 +468,7 @@ class DBNOption(Option):
 
         return guard
 
-    def _prune_posterior(self, posterior, threshold=1e-3):
+    def _prune_posterior(self, posterior, threshold=1e-2):
         """Prune small probabilities from a posterior and re-normalise.
 
         Args:
