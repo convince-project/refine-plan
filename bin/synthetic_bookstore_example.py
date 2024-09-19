@@ -5,11 +5,15 @@ Author: Charlie Street
 Owner: Charlie Street
 """
 
+from refine_plan.models.semi_mdp import SemiMDP
+from refine_plan.algorithms.semi_mdp_solver import synthesise_policy
+
 from refine_plan.models.condition import Label, EqCondition, AndCondition, OrCondition
 from refine_plan.learning.option_learning import mongodb_to_yaml, learn_dbns
 from refine_plan.algorithms.refine import synthesise_bt_from_options
 from refine_plan.models.state_factor import StateFactor
 from refine_plan.models.dbn_option import DBNOption
+from refine_plan.models.option import Option
 from refine_plan.models.state import State
 from pymongo import MongoClient
 from datetime import datetime
@@ -255,6 +259,7 @@ def run_sim(
     ) and t < max_timesteps:
 
         option = policy_fn(current_state)
+        # print("STATE: {}; OPTION: {}".format(current_state, option))
         next_state, cost = _step_forward(current_state, option)
 
         logs.append((current_state, option, next_state, cost))
@@ -301,6 +306,93 @@ def initial_bt(state):
         return "e68"
     else:
         return None
+
+
+def _generate_exact_options(sf_list):
+    """Generate the exact options for the exact model.
+
+    Args:
+        sf_list: The list of state factors
+
+    Returns:
+        A list of options
+    """
+    sf_dict = {sf.get_name(): sf for sf in sf_list}
+    option_list = []
+
+    # Check door and open door
+    check_trans = []
+    open_trans = []
+    open_rewards = [(_get_enabled_cond(sf_list, "open_door"), DOOR_OPEN_COST)]
+    door_locs = ["v{}".format(i) for i in range(2, 8)]
+    for door in door_locs:
+        loc_cond = EqCondition(sf_dict["location"], door)
+        unknown = EqCondition(sf_dict["{}_door".format(door)], "unknown")
+        closed = EqCondition(sf_dict["{}_door".format(door)], "closed")
+        d_open = EqCondition(sf_dict["{}_door".format(door)], "open")
+
+        open_trans.append((AndCondition(loc_cond, closed), {d_open: 1.0}))
+        check_trans.append(
+            (
+                AndCondition(loc_cond, unknown),
+                {closed: DOOR_DISTS[door][0], d_open: DOOR_DISTS[door][1]},
+            )
+        )
+
+    option_list.append(Option("check_door", check_trans, []))
+    option_list.append(Option("open_door", open_trans, open_rewards))
+
+    edge_trans = {}
+
+    for node in GRAPH:
+        for edge in GRAPH[node]:
+            pre_cond = EqCondition(sf_dict["location"], node)
+            post_cond = EqCondition(sf_dict["location"], GRAPH[node][edge])
+            door = CORRESPONDING_DOOR[edge]
+            if door != None:
+                door_cond = EqCondition(sf_dict["{}_door".format(door)], "open")
+                pre_cond = AndCondition(pre_cond, door_cond)
+
+            if edge not in edge_trans:
+                edge_trans[edge] = []
+            edge_trans[edge].append((pre_cond, {post_cond: 1.0}))
+
+    for edge in edge_trans:
+        r_list = [(_get_enabled_cond(sf_list, edge), EDGE_MEANS[edge])]
+        option_list.append(Option(edge, edge_trans[edge], r_list))
+
+    return option_list
+
+
+def generate_optimal_bt():
+    """Create the true semi-MDP and solve it to obtain an optimal policy.
+
+    Returns:
+        The optimal BT (policy)
+    """
+    loc_sf = StateFactor("location", ["v{}".format(i) for i in range(1, 9)])
+    door_sfs = [
+        StateFactor("v2_door", ["unknown", "closed", "open"]),
+        StateFactor("v3_door", ["unknown", "closed", "open"]),
+        StateFactor("v4_door", ["unknown", "closed", "open"]),
+        StateFactor("v5_door", ["unknown", "closed", "open"]),
+        StateFactor("v6_door", ["unknown", "closed", "open"]),
+        StateFactor("v7_door", ["unknown", "closed", "open"]),
+    ]
+    sf_list = [loc_sf] + door_sfs
+
+    labels = [Label("goal", EqCondition(loc_sf, "v8"))]
+
+    init_state_dict = {sf: "unknown" for sf in door_sfs}
+    init_state_dict[loc_sf] = "v1"
+    init_state = State(init_state_dict)
+
+    option_list = _generate_exact_options(sf_list)
+
+    semi_mdp = SemiMDP(sf_list, option_list, labels, initial_state=init_state)
+
+    print("Synthesising Optimal Policy...")
+    return synthesise_policy(semi_mdp, prism_prop='Rmin=?[F "goal"]')
 
 
 def _enabled_actions(state):
@@ -552,48 +644,86 @@ def run_planner():
                 option, t_path, r_path, sf_list, _get_enabled_cond(sf_list, option)
             )
         )
+
+    semi_mdp = SemiMDP(sf_list, option_list, labels, initial_state=init_state)
+    print("Synthesising Policy...")
+    return synthesise_policy(semi_mdp, prism_prop='Rmin=?[F "goal"]')
+    # NOTE: Running just policy generation until I can fix BT conversion
+
     return synthesise_bt_from_options(
         sf_list,
         option_list,
         labels,
         prism_prop='Rmin=?[F "goal"]',
+        initial_state=init_state,
     )
 
 
-def initial_vs_refined_comparison(refined_bt):
-    """Compare the initial BT to the refined BT.
+def initial_optimal_refined_comparison(refined_bt):
+    """Compare the initial BT to the refined BT and the optimal BT.
 
     Args:
         refined_bt: The refined BT
     """
     initial_bt_costs = []
+    optimal_bt_costs = []
     refined_bt_costs = []
 
-    for i in range(40):
+    optimal_bt = generate_optimal_bt()
+
+    for i in range(10000):
         print("Experiment Repeat {}".format(i))
 
+        print("WITH INITIAL BT")
         goal_reached, cost = run_sim(initial_bt)
         if not goal_reached:
             print("GOAL NOT REACHED INITIAL BT")
         else:
             initial_bt_costs.append(cost)
 
-        goal_reached, cost = run_sim(refined_bt.tick_at_state)
+        print("WITH OPTIMAL BT")
+        goal_reached, cost = run_sim(optimal_bt.get_action)
+        if not goal_reached:
+            print("GOAL NOT REACHED OPTIMAL BT")
+        else:
+            optimal_bt_costs.append(cost)
+
+        print("WITH REFINED BT")
+        goal_reached, cost = run_sim(refined_bt.get_action)
         if not goal_reached:
             print("GOAL NOT REACHED REFINED BT")
         else:
             refined_bt_costs.append(cost)
 
     print(
-        "INITIAL BT SUCCESSES: {}; AVG COST: {}".format(
-            len(initial_bt_costs), np.mean(initial_bt_costs)
+        "INITIAL BT SUCCESSES: {}; AVG COST: {}; VARIANCE: {}".format(
+            len(initial_bt_costs), np.mean(initial_bt_costs), np.var(initial_bt_costs)
         )
     )
     print(
-        "REFINED BT SUCCESSES: {}; AVG COST: {}".format(
-            len(refined_bt_costs), np.mean(refined_bt_costs)
+        "OPTIMAL BT SUCCESSES: {}; AVG COST: {}; VARIANCE: {}".format(
+            len(optimal_bt_costs), np.mean(optimal_bt_costs), np.var(optimal_bt_costs)
         )
     )
+    print(
+        "REFINED BT SUCCESSES: {}; AVG COST: {}; VARIANCE: {}".format(
+            len(refined_bt_costs), np.mean(refined_bt_costs), np.var(refined_bt_costs)
+        )
+    )
+
+    non_none = 0
+    for s in optimal_bt._state_action_dict:
+        if optimal_bt[s] != None:
+            non_none += 1
+    print("OPTIMAL NON NONE: {}".format(non_none))
+    print("OPTIMAL POLICY SIZE: {}".format(len(optimal_bt._state_action_dict)))
+
+    non_none = 0
+    for s in refined_bt._state_action_dict:
+        if refined_bt[s] != None:
+            non_none += 1
+    print("REFINED NON NONE: {}".format(non_none))
+    print("REFINED POLICY SIZE: {}".format(len(refined_bt._state_action_dict)))
 
 
 if __name__ == "__main__":
@@ -603,4 +733,4 @@ if __name__ == "__main__":
     # write_mongodb_to_yaml()
     # learn_options()
     bt = run_planner()
-    initial_vs_refined_comparison(bt)
+    initial_optimal_refined_comparison(bt)
