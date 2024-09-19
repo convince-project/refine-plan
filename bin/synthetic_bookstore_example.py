@@ -5,16 +5,16 @@ Author: Charlie Street
 Owner: Charlie Street
 """
 
-from refine_plan.models.semi_mdp import SemiMDP
-from refine_plan.algorithms.semi_mdp_solver import synthesise_policy
-
 from refine_plan.models.condition import Label, EqCondition, AndCondition, OrCondition
 from refine_plan.learning.option_learning import mongodb_to_yaml, learn_dbns
+from refine_plan.algorithms.semi_mdp_solver import synthesise_policy
 from refine_plan.algorithms.refine import synthesise_bt_from_options
 from refine_plan.models.state_factor import StateFactor
 from refine_plan.models.dbn_option import DBNOption
+from refine_plan.models.semi_mdp import SemiMDP
 from refine_plan.models.option import Option
 from refine_plan.models.state import State
+from scipy.stats import mannwhitneyu
 from pymongo import MongoClient
 from datetime import datetime
 import numpy as np
@@ -224,7 +224,9 @@ def _step_forward(state, option):
                 next_state_dict = {
                     state._sf_dict[sf]: next_state_dict[sf] for sf in next_state_dict
                 }
-                return State(next_state_dict), np.random.exponential(EDGE_MEANS[option])
+                return State(next_state_dict), EDGE_MEANS[option] + np.random.uniform(
+                    -0.5, 0.5
+                )
 
         return copy.deepcopy(state), 0.0
 
@@ -724,6 +726,29 @@ def initial_optimal_refined_comparison(refined_bt):
             non_none += 1
     print("REFINED NON NONE: {}".format(non_none))
     print("REFINED POLICY SIZE: {}".format(len(refined_bt._state_action_dict)))
+
+    print("*** STATISTICAL SIGNIFICANCE RESULTS ***")
+    p = mannwhitneyu(
+        refined_bt_costs,
+        initial_bt_costs,
+        alternative="less",
+    )[1]
+    print(
+        "REFINED BT BETTER THAN INITIAL BT: p = {}, stat sig better = {}".format(
+            p, p < 0.05
+        )
+    )
+
+    p = mannwhitneyu(
+        optimal_bt_costs,
+        refined_bt_costs,
+        alternative="less",
+    )[1]
+    print(
+        "OPTIMAL BT BETTER THAN REFINED BT: p = {}, stat sig better = {}".format(
+            p, p < 0.05
+        )
+    )
 
 
 if __name__ == "__main__":
