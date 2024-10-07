@@ -619,7 +619,7 @@ class LearnDBNsTest(unittest.TestCase):
         reward_bn = gum.loadBN("test_reward.bifxml")
         transition_bn = gum.loadBN("test_transition.bifxml")
 
-        self.assertEqual(sorted(list(reward_bn.names())), sorted(["x", "y", "r"]))
+        self.assertEqual(sorted(list(reward_bn.names())), sorted(["y", "r"]))
         self.assertEqual(
             sorted(list(transition_bn.names())), sorted(["x0", "y0", "xt", "yt"])
         )
@@ -655,7 +655,7 @@ class LearnDBNsTest(unittest.TestCase):
         reward_bn = gum.loadBN("test_reward.bifxml")
         transition_bn = gum.loadBN("test_transition.bifxml")
 
-        self.assertEqual(sorted(list(reward_bn.names())), sorted(["x", "y", "r"]))
+        self.assertEqual(sorted(list(reward_bn.names())), sorted(["y", "r"]))
         self.assertEqual(
             sorted(list(transition_bn.names())), sorted(["x0", "y0", "xt"])
         )
