@@ -647,17 +647,15 @@ def run_planner():
             )
         )
 
-    semi_mdp = SemiMDP(sf_list, option_list, labels, initial_state=init_state)
-    print("Synthesising Policy...")
-    return synthesise_policy(semi_mdp, prism_prop='Rmin=?[F "goal"]')
-    # NOTE: Running just policy generation until I can fix BT conversion
-
+    print("Synthesising BT...")
     return synthesise_bt_from_options(
         sf_list,
         option_list,
         labels,
         prism_prop='Rmin=?[F "goal"]',
         initial_state=init_state,
+        bt_converter="simple",
+        out_file="synthetic_bookstore_bt.xml",
     )
 
 
@@ -691,7 +689,7 @@ def initial_optimal_refined_comparison(refined_bt):
             optimal_bt_costs.append(cost)
 
         print("WITH REFINED BT")
-        goal_reached, cost = run_sim(refined_bt.get_action)
+        goal_reached, cost = run_sim(refined_bt.tick_at_state)
         if not goal_reached:
             print("GOAL NOT REACHED REFINED BT")
         else:
@@ -720,12 +718,12 @@ def initial_optimal_refined_comparison(refined_bt):
     print("OPTIMAL NON NONE: {}".format(non_none))
     print("OPTIMAL POLICY SIZE: {}".format(len(optimal_bt._state_action_dict)))
 
-    non_none = 0
-    for s in refined_bt._state_action_dict:
-        if refined_bt[s] != None:
-            non_none += 1
-    print("REFINED NON NONE: {}".format(non_none))
-    print("REFINED POLICY SIZE: {}".format(len(refined_bt._state_action_dict)))
+    # non_none = 0
+    # for s in refined_bt._state_action_dict:
+    #     if refined_bt[s] != None:
+    #         non_none += 1
+    # print("REFINED NON NONE: {}".format(non_none))
+    # print("REFINED POLICY SIZE: {}".format(len(refined_bt._state_action_dict)))
 
     print("*** STATISTICAL SIGNIFICANCE RESULTS ***")
     p = mannwhitneyu(
