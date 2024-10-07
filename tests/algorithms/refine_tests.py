@@ -255,6 +255,48 @@ class SynthesiseBTFromOptionsTest(unittest.TestCase):
         self.assertTrue(os.path.exists("/tmp/graph_bt.xml"))
         os.unlink("/tmp/graph_bt.xml")
 
+    def test_toy_semi_mdp(self):
+        # The tests in this class also test _extract_policy
+        sf_list, option_list, labels = build_toy_semi_mdp_components()
+        prop = 'Pmax=?[ F "goal" ]'
+
+        bt = synthesise_bt_from_options(
+            sf_list,
+            option_list,
+            labels,
+            prism_prop=prop,
+            default_action="dummy",
+            out_file="/tmp/toy_bt.xml",
+        )
+
+        self.assertEqual(bt.tick_at_state(State({sf_list[0]: 0})), "a2")
+        self.assertEqual(bt.tick_at_state(State({sf_list[0]: 1})), "loop")
+        self.assertEqual(bt.tick_at_state(State({sf_list[0]: 2})), "dummy")
+
+        self.assertTrue(os.path.exists("/tmp/toy_bt.xml"))
+        os.unlink("/tmp/toy_bt.xml")
+
+    def test_simple_converter(self):
+        sf_list, option_list, labels = build_graph_semi_mdp_components()
+        prop = 'Rmin=?[ F "goal" ]'
+
+        bt = synthesise_bt_from_options(
+            sf_list,
+            option_list,
+            labels,
+            prism_prop=prop,
+            out_file="/tmp/graph_bt.xml",
+            bt_converter="simple",
+        )
+
+        self.assertEqual(bt.tick_at_state(State({sf_list[0]: "v1"})), "e12")
+        self.assertEqual(bt.tick_at_state(State({sf_list[0]: "v2"})), "e25")
+        self.assertEqual(bt.tick_at_state(State({sf_list[0]: "v3"})), "e35")
+        self.assertEqual(bt.tick_at_state(State({sf_list[0]: "v4"})), "e41")
+
+        self.assertTrue(os.path.exists("/tmp/graph_bt.xml"))
+        os.unlink("/tmp/graph_bt.xml")
+
 
 if __name__ == "__main__":
     unittest.main()
