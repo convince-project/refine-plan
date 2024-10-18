@@ -79,6 +79,12 @@ class ReadWriteTest(unittest.TestCase):
         policy.write_policy(tmp.name)
         read_policy = Policy({}, policy_file=tmp.name)
 
+        sf_dict = list(read_policy._state_action_dict.keys())[0]._sf_dict
+        self.assertEqual(len(sf_dict), 3)
+        self.assertEqual(sf_dict["loc"], loc)
+        self.assertEqual(sf_dict["door"], door)
+        self.assertEqual(sf_dict["battery"], battery)
+
         self.assertEqual(
             set(policy._state_action_dict.keys()),
             set(read_policy._state_action_dict.keys()),
