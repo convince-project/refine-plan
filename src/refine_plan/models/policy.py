@@ -113,12 +113,12 @@ class Policy(object):
         # Now write out the value function (if not None)
         value_list = []
         if self._value_dict is not None:
-            for state in self._state_action_dict:
+            for state in self._value_dict:
                 state_value = {}
                 for sf in state._state_dict:
                     state_value[sf] = state[sf]
                 state_value["value"] = self.get_value(state)
-                value_list.append(state_action)
+                value_list.append(state_value)
 
         full_dict = {"state_factors": sf_dict, "state_action_map": policy_list}
         if value_list != []:
@@ -156,20 +156,23 @@ class Policy(object):
             state_dict = {}
             action = None
             for key in state_action_pair:
-                if key == "action" and state_action_pair[key] != "None":
-                    action = state_action_pair[key]
+                if key == "action":
+                    if state_action_pair[key] != "None":
+                        action = state_action_pair[key]
                 else:
                     state_dict[sf_dict[key]] = state_action_pair[key]
             self._state_action_dict[State(state_dict)] = action
 
         # Get the value function
-        self._value_dict = {}
-        for state_action_pair in policy_yaml["state_value_map"]:
-            state_dict = {}
-            value = None
-            for key in state_action_pair:
-                if key == "value":
-                    value = state_action_pair[key]
-                else:
-                    state_dict[sf_dict[key]] = state_action_pair[key]
-            self._value_dict[State(state_dict)] = value
+        self._value_dict = None
+        if "state_value_map" in policy_yaml:
+            self._value_dict = {}
+            for state_action_pair in policy_yaml["state_value_map"]:
+                state_dict = {}
+                value = None
+                for key in state_action_pair:
+                    if key == "value":
+                        value = state_action_pair[key]
+                    elif key != "action":
+                        state_dict[sf_dict[key]] = state_action_pair[key]
+                self._value_dict[State(state_dict)] = value

@@ -5,10 +5,11 @@ Author: Charlie Street
 Owner: Charlie Street
 """
 
-from refine_plan.models.state_factor import StateFactor
+from refine_plan.models.state_factor import StateFactor, IntStateFactor, BoolStateFactor
 from refine_plan.models.policy import Policy
 from refine_plan.models.state import State
 import unittest
+import tempfile
 
 
 class PolicyTest(unittest.TestCase):
@@ -53,6 +54,63 @@ class PolicyTest(unittest.TestCase):
                     self.assertEqual(policy.get_action(state), None)
                     self.assertEqual(policy[state], None)
                     self.assertEqual(policy.get_value(state), None)
+
+
+class ReadWriteTest(unittest.TestCase):
+
+    def test_function(self):
+        loc = StateFactor("loc", ["v1", "v2", "v3"])
+        door = BoolStateFactor("door")
+        battery = IntStateFactor("battery", 0, 10)
+
+        state_action_dict = {
+            State({loc: "v1", door: False, battery: 5}): "a1",
+            State({loc: "v2", door: True, battery: 9}): "a2",
+            State({loc: "v3", door: False, battery: 1}): None,
+        }
+
+        value_dict = {
+            State({loc: "v1", door: False, battery: 5}): 1.0,
+            State({loc: "v3", door: False, battery: 1}): 5.0,
+        }
+        policy = Policy(state_action_dict, value_dict=value_dict)
+
+        tmp = tempfile.NamedTemporaryFile()
+        policy.write_policy(tmp.name)
+        read_policy = Policy({}, policy_file=tmp.name)
+
+        self.assertEqual(
+            set(policy._state_action_dict.keys()),
+            set(read_policy._state_action_dict.keys()),
+        )
+
+        self.assertEqual(
+            set(policy._value_dict.keys()),
+            set(read_policy._value_dict.keys()),
+        )
+
+        for state in policy._state_action_dict:
+            self.assertEqual(policy[state], read_policy[state])
+
+        for state in policy._value_dict:
+            self.assertEqual(policy.get_value(state), read_policy.get_value(state))
+
+        # Now test without the value function
+        policy = Policy(state_action_dict)
+
+        tmp = tempfile.NamedTemporaryFile()
+        policy.write_policy(tmp.name)
+        read_policy = Policy({}, policy_file=tmp.name)
+
+        self.assertEqual(
+            set(policy._state_action_dict.keys()),
+            set(read_policy._state_action_dict.keys()),
+        )
+
+        self.assertEqual(read_policy._value_dict, None)
+
+        for state in policy._state_action_dict:
+            self.assertEqual(policy[state], read_policy[state])
 
 
 if __name__ == "__main__":
