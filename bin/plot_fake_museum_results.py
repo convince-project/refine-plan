@@ -48,7 +48,6 @@ def read_results_for_method(collection, sf_names):
                     in_order[i]["{}t".format(sf)] == in_order[i + 1]["{}0".format(sf)]
                 )
         total_duration += in_order[-1]["duration"]
-
         results.append(total_duration)
 
     assert len(results) == 100
@@ -134,10 +133,12 @@ def plot_box_plot(init_results, refined_results):
 
 if __name__ == "__main__":
 
+    sf_names = ["v{}_door".format(v) for v in range(2, 7)]
+    sf_names = ["location"] + sf_names
     client = MongoClient(sys.argv[1])
     db = client["refine-plan"]
-    init_results = read_results_for_method(db["fake-museum-initial"])
-    refined_results = read_results_for_method(db["fake-museum-refined"])
+    init_results = read_results_for_method(db["fake-museum-initial"], sf_names)
+    refined_results = read_results_for_method(db["fake-museum-refined"], sf_names)
 
     print_stats(init_results, refined_results)
     plot_box_plot(init_results, refined_results)
