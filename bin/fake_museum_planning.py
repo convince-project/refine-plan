@@ -212,7 +212,7 @@ def run_planner():
             )
         )
 
-    print("Synthesising Policy...")
+    print("Creating MDP...")
     semi_mdp = SemiMDP(sf_list, option_list, labels, initial_state=init_state)
     print("Synthesising Policy...")
     policy = synthesise_policy(semi_mdp, prism_prop='Rmin=?[F "goal"]')
@@ -221,6 +221,6 @@ def run_planner():
 
 if __name__ == "__main__":
 
-    write_mongodb_to_yaml(sys.argv[1])
+    # write_mongodb_to_yaml(sys.argv[1])
     # learn_options()
-    # run_planner()
+    run_planner()
