@@ -139,6 +139,5 @@ if __name__ == "__main__":
     db = client["refine-plan"]
     init_results = read_results_for_method(db["fake-museum-initial"], sf_names)
     refined_results = read_results_for_method(db["fake-museum-refined"], sf_names)
-
     print_stats(init_results, refined_results)
     plot_box_plot(init_results, refined_results)
