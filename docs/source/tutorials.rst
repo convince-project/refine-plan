@@ -7,7 +7,7 @@ How to synthesise a refined BT from a set of options
 For this tutorial, we will consider a basic graph search problem, where robot actions
 are navigation actions along edges.
 
-The source code for this tutorial can be found `here`_.
+The source code for this tutorial can be found `here <https://github.com/convince-project/refine-plan/blob/main/bin/graph_example.py>`__.
 
 Consider the following undirected graph, where values along edges represent the cost of traversal:
 
@@ -198,13 +198,292 @@ With this, we can now synthesise a BT using ``synthesise_bt_from_options``, whic
         out_file="/tmp/bt.xml",
     )
 
-This concludes the tutorial. The BT output by ``synthesise_bt_from_options`` cannot be directly executed BehaviorTree.cpp currently, but should give enough information as to how this could be achieved.
+This concludes the tutorial. The BT output by ``synthesise_bt_from_options`` cannot be directly executed by BehaviorTree.cpp currently, but should give enough information as to how this could be achieved.
 Executable BT XML files will be addressed in the next release.
+
+
+Learning a set of options represented as dynamic Bayesian networks from data
+----------------------------------------------------------------------------
+
+In the previous tutorial, we assumed that the options for each of the action nodes in the initial BT were known.
+In this tutorial, we show how to learn these options from **simulation data**.
+
+The source code for this tutorial can be found within the following `script <https://github.com/convince-project/refine-plan/blob/main/bin/fake_museum_planning.py>`__.
+
+Consider the robot in the robotic museum below:
+
+|Museum|
+
+Here, the robot must navigate from the start to the goal as quickly as possible, where the robot navigates along the edges of a topological map (shown by the red nodes and edges).
+In the museum, there are doors at nodes v\ :sub:`2`, v\ :sub:`3`, v\ :sub:`4`, v\ :sub:`5`, v\ :sub:`6`, and v\ :sub:`7`.
+Each of these doors are closed with some probability (as shown above).
+The robot can check whether a door is open when it reaches it. 
+If the door is closed, the robot may open it, however, this takes 30 seconds.
+
+**In this tutorial, we will construct a set of options for the edge navigation, door checking, and door opening actions.**
+
+We begin by importing all necessary code from ``refine_plan``. 
+We will cover these imports throughout the tutorial.
+
+.. code-block:: python
+
+    from refine_plan.models.condition import Label, EqCondition, AndCondition, OrCondition
+    from refine_plan.learning.option_learning import mongodb_to_yaml, learn_dbns
+    from refine_plan.models.state_factor import StateFactor
+    from refine_plan.models.dbn_option import DBNOption
+    from refine_plan.models.state import State
+
+Our first step for option learning is to define the state space that the options operate over.
+In future releases of REFINE-PLAN this will be extracted automatically, however in the current release it must be specified manually.
+We do this by defining a *state factor* which capture the robot's current node, and a state factor capturing the status of each door, which can be unknown, closed, or open.
+These state factors all use string values, and can be represented with the ``StateFactor`` class:
+
+.. code-block:: python
+
+    loc_sf = StateFactor("location", ["v{}".format(i) for i in range(1, 9)])
+    door_sfs = [
+        StateFactor("v2_door", ["unknown", "closed", "open"]),
+        StateFactor("v3_door", ["unknown", "closed", "open"]),
+        StateFactor("v4_door", ["unknown", "closed", "open"]),
+        StateFactor("v5_door", ["unknown", "closed", "open"]),
+        StateFactor("v6_door", ["unknown", "closed", "open"]),
+        StateFactor("v7_door", ["unknown", "closed", "open"]),
+    ]
+
+Next, we define the connectivity of the topological map, and the edges which are potentially blocked by doors.
+This can be achieved through a number of dictionaries:
+
+.. code-block:: python
+
+    GRAPH = {
+        "v1": {"e12": "v2", "e13": "v3", "e14": "v4"},
+        "v2": {"e12": "v1", "e23": "v3", "e25": "v5", "e26": "v6"},
+        "v3": {
+            "e13": "v1",
+            "e23": "v2",
+            "e34": "v4",
+            "e35": "v5",
+            "e36": "v6",
+            "e37": "v7",
+        },
+        "v4": {"e14": "v1", "e34": "v3", "e46": "v6", "e47": "v7"},
+        "v5": {"e25": "v2", "e35": "v3", "e56": "v6", "e58": "v8"},
+        "v6": {
+            "e26": "v2",
+            "e36": "v3",
+            "e46": "v4",
+            "e56": "v5",
+            "e67": "v7",
+            "e68": "v8",
+        },
+        "v7": {
+            "e37": "v3",
+            "e47": "v4",
+            "e67": "v6",
+            "e78": "v8",
+        },
+        "v8": {"e58": "v5", "e68": "v6", "e78": "v7"},
+    }
+
+    CORRESPONDING_DOOR = {
+        "e12": None,
+        "e14": None,
+        "e58": "v5",
+        "e78": "v7",
+        "e13": None,
+        "e36": "v3",
+        "e68": "v6",
+        "e25": "v2",
+        "e47": "v4",
+        "e26": "v2",
+        "e35": "v3",
+        "e46": "v4",
+        "e37": "v3",
+        "e23": None,
+        "e34": None,
+        "e56": None,
+        "e67": None,
+    }
+
+
+With this, we now move onto option learning.
+This tutorial assumes you have access to a MongoDB instance with simulation data for each action the robot may execute.
+Individual data items should have the following format:
+
+.. code-block:: python
+
+    {
+        _id: ObjectId('670ff634a4d98a85eee1487d'),
+        run_id: 502334331,
+        option: "e12",
+        duration: 15.007,
+        location0: "v1",
+        v2_door0: "unknown",
+        v3_door0: "unknown",
+        v4_door0: "unknown",
+        v5_door0: "unknown",
+        v6_door0: "unknown",
+        v7_door0: "unknown",
+        locationt: "v2",
+        v2_doort: "unknown",
+        v3_doort: "unknown",
+        v4_doort: "unknown",
+        v5_doort: "unknown",
+        v6_doort: "unknown",
+        v7_doort: "unknown"
+     }
+
+Here, ``_id`` represents the document ID; ``run_id`` is an identifier for the simulation run; ``option`` is the option/action being executed;
+``duration`` is the execution duration (corresponding to the reward/cost in this instance); ``location0(t)`` represents the robot's starting (finishing) location; and
+``vi_door0(t)`` represents the door status of v\ :sub:`i` before (after) executing the option.
+Given the Mongo database, we convert it into a YAML file for learning:
+
+.. code-block:: python
+
+    mongodb_to_yaml(
+        mongo_connection_str,
+        "refine-plan",
+        "fake-museum-data",
+        [loc_sf] + door_sfs,
+        "../data/fake_museum/dataset.yaml",
+    )
+
+In ``mongodb_to_yaml`` we require a MongoDB connection string, e.g. ``localhost:27017``.
+The second and third arguments refer to the database and collection name on the MongoDB instance, respectively.
+The fourth argument is the list of state factors, and the fifth is a path to output the dataset to.
+After writing the YAML dataset, we can learn dynamic Bayesian networks (DBNs) for the transition and reward (which corresponds to time in this example) functions for each option:
+
+.. code-block:: python
+
+        dataset_path = "../data/fake_museum/dataset.yaml"
+        output_dir = "../data/fake_museum/"
+
+        learn_dbns(dataset_path, output_dir, [loc_sf] + door_sfs)
+
+The ``learn_dbns`` function requires the YAML dataset, an output directory, and the list of state factors.
+Given the DBNs for each option, we now need to collect them into ``DBNOption`` objects.
+The ``DBNOption`` constructor requires a ``Condition`` object which describes the states in which this option can be executed.
+For the museum navigation problem we provide the function below, which captures edge connectivity and the effects of doors on navigation:
+
+.. code-block:: python
+
+    def _get_enabled_cond(sf_list, option):
+    """Get the enabled condition for an option.
+
+    Args:
+        sf_list: The list of state factors
+        option: The option we want the condition for
+
+    Returns:
+        The enabled condition for the option
+    """
+    sf_dict = {sf.get_name(): sf for sf in sf_list}
+
+    door_locs = ["v{}".format(i) for i in range(2, 8)]
+
+    if option == "check_door" or option == "open_door":
+        enabled_cond = OrCondition()
+        door_status = "unknown" if option == "check_door" else "closed"
+        for door in door_locs:
+            enabled_cond.add_cond(
+                AndCondition(
+                    EqCondition(sf_dict["location"], door),
+                    EqCondition(sf_dict["{}_door".format(door)], door_status),
+                )
+            )
+        return enabled_cond
+    else:  # edge navigation option
+        enabled_cond = OrCondition()
+        for node in GRAPH:
+            if option in GRAPH[node]:
+                enabled_cond.add_cond(EqCondition(sf_dict["location"], node))
+        door = CORRESPONDING_DOOR[option]
+        if door != None:
+            enabled_cond = AndCondition(
+                enabled_cond, EqCondition(sf_dict["{}_door".format(door)], "open")
+            )
+        return enabled_cond
+
+Given the enabled conditions for each option, we now create a series of ``DBNOption`` objects, one for each option.
+The ``DBNOption`` requires the name of the option, the file path for the transition and reward DBNs, the list of state factors, and the enabled condition:
+
+.. code-block:: python
+
+    sf_list = [loc_sf] + door_sfs
+
+    option_names = [
+        "e12",
+        "e14",
+        "e58",
+        "e78",
+        "e13",
+        "e36",
+        "e68",
+        "e25",
+        "e47",
+        "e26",
+        "e35",
+        "e46",
+        "e37",
+        "e23",
+        "e34",
+        "e56",
+        "e67",
+        "check_door",
+        "open_door",
+    ]
+
+    option_list = []
+    for option in option_names:
+        print("Reading in option: {}".format(option))
+        t_path = "../data/fake_museum/{}_transition.bifxml".format(option)
+        r_path = "../data/fake_museum/{}_reward.bifxml".format(option)
+        option_list.append(
+            DBNOption(
+                option, t_path, r_path, sf_list, _get_enabled_cond(sf_list, option)
+            )
+        )
+
+We now have a set of ``DBNOptions`` learned from data which capture the transition and reward dynamics for a set of robot actions.
+This concludes the tutorial on how to learn a set of options from simulation data.
+
+But we can go one step further. given the ``option_list`` above, we can now synthesise the refined BT similar to the previous tutorial.
+Recall that the robot must minimise the expected time to reach the goal.
+To plan using our learned options, we first define our initial state, which captures the robot at node v\ :sub:`1` with no knowledge of the doors.
+We then define a goal condition which is satisfied when the robot reaches node v\ :sub:`8`.
+We then call ``synthesise_bt_from_options`` as in the previous tutorial:
+
+.. code-block:: python
+
+    # Define the initial state
+    init_state_dict = {sf: "unknown" for sf in door_sfs}
+    init_state_dict[loc_sf] = "v1"
+    init_state = State(init_state_dict)
+
+    # Add a goal label
+    labels = [Label("goal", EqCondition(loc_sf, "v8"))]
+
+    synthesise_bt_from_options(
+        sf_list,
+        option_list,
+        labels,
+        initial_state=init_state,
+        prism_prop='Rmin=?[F "goal"]',
+        default_action="idle",
+        out_file="/tmp/bt.xml",
+    )
+
+This concludes the extended version of this tutorial. 
+Note that the BT output by ``synthesise_bt_from_options`` cannot currently be directly executed by BehaviorTree.cpp.
+This will be addressed in the next release.
 
 .. |Graph| image:: images/graph.png
   :width: 400
   :alt: A graph with seven nodes. Connectivity is defined in the pseudocode below.
 
-.. _here: https://github.com/convince-project/refine-plan/blob/main/bin/graph_example.py
+.. |Museum| image:: images/museum_annotated.png
+  :width: 400
+  :alt: A robot must navigate from the start to a goal in a museum, where the robot navigates alongside a topological map. Different nodes have different probabilities of being blocked.
+
 .. _PRISM modelling language: https://www.prismmodelchecker.org/manual/PropertySpecification/Introduction
 .. _XML format used by BehaviorTree.cpp: https://www.behaviortree.dev/docs/3.8/intro

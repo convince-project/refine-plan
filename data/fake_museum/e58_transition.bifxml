@@ -1,0 +1,53 @@
+<?xml version="1.0" ?>
+
+<BIF VERSION="0.3">
+<NETWORK>
+<NAME>unnamedBN</NAME>
+<PROPERTY>software aGrUM</PROPERTY>
+
+<!-- Variables -->
+<VARIABLE TYPE="nature">
+	<NAME>location0</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>v5</OUTCOME>
+	<OUTCOME>v8</OUTCOME>
+</VARIABLE>
+
+<VARIABLE TYPE="nature">
+	<NAME>locationt</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>v5</OUTCOME>
+	<OUTCOME>v8</OUTCOME>
+</VARIABLE>
+
+<VARIABLE TYPE="nature">
+	<NAME>v5_door0</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>open</OUTCOME>
+</VARIABLE>
+
+<!-- Probability distributions -->
+<DEFINITION>
+	<FOR>location0</FOR>
+	<TABLE>
+		0.48088 0.51912
+	</TABLE>
+</DEFINITION>
+<DEFINITION>
+	<FOR>locationt</FOR>
+	<GIVEN>location0</GIVEN>
+	<GIVEN>v5_door0</GIVEN>
+	<TABLE>
+		0.000994036 0.999006
+		0.999079 0.00092081
+	</TABLE>
+</DEFINITION>
+<DEFINITION>
+	<FOR>v5_door0</FOR>
+	<TABLE>
+		1
+	</TABLE>
+</DEFINITION>
+
+</NETWORK>
+</BIF>

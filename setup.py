@@ -12,5 +12,13 @@ setup(
     author_email="c.l.street@bham.ac.uk",
     packages=find_packages("src"),
     package_dir={"": "src"},
-    install_requires=["pyeda", "stormpy", "numpy", "sympy"],
+    install_requires=[
+        "pyeda",
+        "stormpy",
+        "numpy",
+        "sympy",
+        "pandas",
+        "pyAgrum",
+        "pymongo",
+    ],
 )

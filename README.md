@@ -14,12 +14,18 @@ COVERAGE-PLAN requires the following dependencies:
 * [Numpy](https://numpy.org/) (Tested with 26.4)
 * [Sympy](https://www.sympy.org/en/index.html) (Tested with 1.12)
 * [Pyeda](https://pyeda.readthedocs.io/en/latest/)  (Tested with 0.29.0)
+* [PyAgrum](https://pyagrum.readthedocs.io/en/1.15.1/index.html) (Tested with 1.14.1)
+* [PyMongo](https://pymongo.readthedocs.io/en/stable/index.html) (Tested with 4.8.0)
+* [Pandas](https://pandas.pydata.org/) (Tested with 2.2.1)
 * [Stormpy](https://moves-rwth.github.io/stormpy/index.html) (Tested with 1.8.0) 
+* [MongoDB](https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-ubuntu/) (Tested with 7.0.12) - only required for unit tests.
 
-The first three dependencies can be installed via:
+The first six dependencies can be installed via:
 ```
 pip install -r requirements.txt
 ```
+
+`MongoDB` can be installed using the [official instructions](https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-ubuntu/).
 
 Installing `stormpy` is more involved. Please see below.
 
@@ -111,6 +117,5 @@ If you want to clean the documentation, you can run:
 
 ```bash
 cd docs
-rm -r source/API
 make clean
 ```

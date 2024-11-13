@@ -30,6 +30,7 @@ autoapi_options = [
 ]
 
 autoapi_dirs = ["../../src"]
+autoapi_add_toctree_entry = False
 
 # intersphinx_mapping = {
 #     'python': ('https://docs.python.org/3/', None),
