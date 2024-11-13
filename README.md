@@ -117,6 +117,5 @@ If you want to clean the documentation, you can run:
 
 ```bash
 cd docs
-rm -r source/API
 make clean
 ```
