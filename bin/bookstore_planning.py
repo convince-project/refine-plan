@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-""" A script to run REFINE-PLAN on the fake museum simulation example.
+""" A script to run REFINE-PLAN in the bookstore domain.
 
 Author: Charlie Street
 Owner: Charlie Street
@@ -129,16 +129,16 @@ def write_mongodb_to_yaml(mongo_connection_str):
     mongodb_to_yaml(
         mongo_connection_str,
         "refine-plan",
-        "fake-museum-data",
+        "bookstore-data",
         [loc_sf] + door_sfs,
-        "../data/fake_museum/dataset.yaml",
+        "../data/bookstore/dataset.yaml",
     )
 
 
 def learn_options():
     """Learn the options from the YAML file."""
-    dataset_path = "../data/fake_museum/dataset.yaml"
-    output_dir = "../data/fake_museum/"
+    dataset_path = "../data/bookstore/dataset.yaml"
+    output_dir = "../data/bookstore/"
 
     loc_sf = StateFactor("location", ["v{}".format(i) for i in range(1, 9)])
     door_sfs = [
@@ -204,8 +204,8 @@ def run_planner():
     option_list = []
     for option in option_names:
         print("Reading in option: {}".format(option))
-        t_path = "../data/fake_museum/{}_transition.bifxml".format(option)
-        r_path = "../data/fake_museum/{}_reward.bifxml".format(option)
+        t_path = "../data/bookstore/{}_transition.bifxml".format(option)
+        r_path = "../data/bookstore/{}_reward.bifxml".format(option)
         option_list.append(
             DBNOption(
                 option, t_path, r_path, sf_list, _get_enabled_cond(sf_list, option)
@@ -216,11 +216,11 @@ def run_planner():
     semi_mdp = SemiMDP(sf_list, option_list, labels, initial_state=init_state)
     print("Synthesising Policy...")
     policy = synthesise_policy(semi_mdp, prism_prop='Rmin=?[F "goal"]')
-    policy.write_policy("../data/fake_museum/fake_museum_refined_policy.yaml")
+    policy.write_policy("../data/bookstore/bookstore_refined_policy.yaml")
 
 
 if __name__ == "__main__":
 
-    # write_mongodb_to_yaml(sys.argv[1])
+    write_mongodb_to_yaml(sys.argv[1])
     # learn_options()
-    run_planner()
+    # run_planner()
