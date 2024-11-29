@@ -133,6 +133,7 @@ def write_mongodb_to_yaml(mongo_connection_str):
         [loc_sf] + door_sfs,
         "../data/bookstore/dataset.yaml",
     )
+    print("YAML Dataset Created")
 
 
 def learn_options():
