@@ -172,6 +172,7 @@ if __name__ == "__main__":
     db = client["refine-plan"]
     init_results = read_results_for_method(db["bookstore-initial"], sf_names)
     print("Initial Results Complete")
-    # refined_results = read_results_for_method(db["bookstore-refined"], sf_names)
-    # print_stats(init_results, refined_results)
-    # plot_box_plot(init_results, refined_results)
+    refined_results = read_results_for_method(db["bookstore-refined"], sf_names)
+    print("Refined Results Complete")
+    print_stats(init_results, refined_results)
+    plot_box_plot(init_results, refined_results)
