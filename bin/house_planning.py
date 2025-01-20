@@ -112,7 +112,7 @@ def run_planner():
         The refined BT
     """
 
-    loc_sf = StateFactor("location", ["v{}".format(i) for i in range(1, 9)])
+    loc_sf = StateFactor("location", ["v{}".format(i) for i in range(1, 12)])
     wire_sfs = [
         StateFactor("wire_at_v2", ["unknown", "no", "yes"]),
         StateFactor("wire_at_v7", ["unknown", "no", "yes"]),
