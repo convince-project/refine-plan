@@ -172,7 +172,7 @@ def plot_box_plot(init_results, refined_results):
     )
     plt.ylabel("Time to Find Cable (s)")
 
-    plt.xticks([1, 2], ["Initial BT", "Refined Behaviour"])
+    plt.xticks([1, 2], ["Initial BT", "Refined Policy"])
 
     plt.show()
 
