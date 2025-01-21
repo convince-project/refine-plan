@@ -170,7 +170,7 @@ def plot_box_plot(init_results, refined_results):
         labelbottom=True,  # labels along the bottom edge are offcd
         labelsize=40,
     )
-    plt.ylabel("Time to Find Cable (s)")
+    plt.ylabel("Time to Reach Wire Location (s)")
 
     plt.xticks([1, 2], ["Initial BT", "Refined Policy"])
 
