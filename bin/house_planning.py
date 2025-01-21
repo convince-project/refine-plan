@@ -122,8 +122,14 @@ def run_planner():
     sf_list = [loc_sf] + wire_sfs
 
     goal_cond = OrCondition()
-    for sf in wire_sfs:
-        goal_cond.add_cond(EqCondition(sf, "yes"))
+    wire_locs = ["v2", "v7", "v10", "v11"]
+    for i in range(len(wire_locs)):
+        goal_cond.add_cond(
+            AndCondition(
+                EqCondition(loc_sf, wire_locs[i]), EqCondition(wire_sfs[i], "yes")
+            )
+        )
+
     labels = [Label("goal", goal_cond)]
 
     option_names = set([])
