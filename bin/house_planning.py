@@ -11,6 +11,7 @@ from refine_plan.algorithms.semi_mdp_solver import synthesise_policy
 from refine_plan.models.state_factor import StateFactor
 from refine_plan.models.dbn_option import DBNOption
 from refine_plan.models.semi_mdp import SemiMDP
+from refine_plan.models.policy import Policy
 from refine_plan.models.state import State
 import sys
 
@@ -161,8 +162,91 @@ def run_planner():
     policy.write_policy("../data/house/house_refined_policy.yaml")
 
 
+def policy_test():
+    """Test what the refined policy does in different states."""
+
+    loc_sf = StateFactor("location", ["v{}".format(i) for i in range(1, 12)])
+    wire_sfs = [
+        StateFactor("wire_at_v2", ["unknown", "no", "yes"]),
+        StateFactor("wire_at_v7", ["unknown", "no", "yes"]),
+        StateFactor("wire_at_v10", ["unknown", "no", "yes"]),
+        StateFactor("wire_at_v11", ["unknown", "no", "yes"]),
+    ]
+
+    policy = Policy({}, policy_file="../data/house/house_refined_policy.yaml")
+
+    state_dict = {sf: "unknown" for sf in wire_sfs}
+    state_dict[loc_sf] = "v1"
+    state = State(state_dict)
+
+    # v1 with all unknowns
+    print(policy[state])
+
+    state_dict[loc_sf] = "v4"
+    state = State(state_dict)
+    print(policy[state])
+
+    state_dict[loc_sf] = "v5"
+    state = State(state_dict)
+    print(policy[state])
+
+    state_dict[loc_sf] = "v9"
+    state = State(state_dict)
+    print(policy[state])
+
+    state_dict[loc_sf] = "v10"
+    state = State(state_dict)
+    print(policy[state])
+
+    state_dict[wire_sfs[2]] = "no"
+    state = State(state_dict)
+    print(policy[state])
+
+    state_dict[loc_sf] = "v9"
+    state = State(state_dict)
+    print(policy[state])
+
+    state_dict[loc_sf] = "v11"
+    state = State(state_dict)
+    print(policy[state])
+
+    state_dict[wire_sfs[3]] = "no"
+    state = State(state_dict)
+    print(policy[state])
+
+    state_dict[loc_sf] = "v9"
+    state = State(state_dict)
+    print(policy[state])
+
+    state_dict[loc_sf] = "v5"
+    state = State(state_dict)
+    print(policy[state])
+
+    state_dict[loc_sf] = "v7"
+    state = State(state_dict)
+    print(policy[state])
+
+    state_dict[wire_sfs[1]] = "no"
+    state_dict[wire_sfs[0]] = "yes"
+    state = State(state_dict)
+    print(policy[state])
+
+    state_dict[loc_sf] = "v5"
+    state = State(state_dict)
+    print(policy[state])
+
+    state_dict[loc_sf] = "v4"
+    state = State(state_dict)
+    print(policy[state])
+
+    state_dict[loc_sf] = "v2"
+    state = State(state_dict)
+    print(policy[state])
+
+
 if __name__ == "__main__":
 
     write_mongodb_to_yaml(sys.argv[1])
     # learn_options()
     # run_planner()
+    # policy_test()
