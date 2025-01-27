@@ -44,10 +44,14 @@ def which_to_rerun(collection):
     # Need to rerun if the wire hasn't been found
     for i in range(len(runs_sorted)):
         last_log = runs_sorted[i][-1]
-        wire_found = last_log["wire_at_v2t"] == "yes"
-        wire_found |= last_log["wire_at_v7t"] == "yes"
-        wire_found |= last_log["wire_at_v10t"] == "yes"
-        wire_found |= last_log["wire_at_v11t"] == "yes"
+        wire_found = last_log["wire_at_v2t"] == "yes" and last_log["locationt"] == "v2"
+        wire_found |= last_log["wire_at_v7t"] == "yes" and last_log["locationt"] == "v7"
+        wire_found |= (
+            last_log["wire_at_v10t"] == "yes" and last_log["locationt"] == "v10"
+        )
+        wire_found |= (
+            last_log["wire_at_v11t"] == "yes" and last_log["locationt"] == "v11"
+        )
 
         if not wire_found:
             print("RERUN {}".format(i))
@@ -72,7 +76,6 @@ def read_results_for_method(collection, sf_names):
         docs_per_run[doc["run_id"]].append(doc)
 
     # Sanity check each run
-    # TODO: REDO THIS
     results = []
     for run_id in docs_per_run:
         total_duration = 0.0
@@ -80,10 +83,14 @@ def read_results_for_method(collection, sf_names):
         if in_order[0]["location0"] != "v1":
             continue
         last_log = in_order[-1]
-        wire_found = last_log["wire_at_v2t"] == "yes"
-        wire_found |= last_log["wire_at_v7t"] == "yes"
-        wire_found |= last_log["wire_at_v10t"] == "yes"
-        wire_found |= last_log["wire_at_v11t"] == "yes"
+        wire_found = last_log["wire_at_v2t"] == "yes" and last_log["locationt"] == "v2"
+        wire_found |= last_log["wire_at_v7t"] == "yes" and last_log["locationt"] == "v7"
+        wire_found |= (
+            last_log["wire_at_v10t"] == "yes" and last_log["locationt"] == "v10"
+        )
+        wire_found |= (
+            last_log["wire_at_v11t"] == "yes" and last_log["locationt"] == "v11"
+        )
         if not wire_found:
             continue
 
@@ -179,12 +186,13 @@ def plot_box_plot(init_results, refined_results):
 
 if __name__ == "__main__":
 
-    sf_names = ["wire_at_{}".format(v) for v in [2, 7, 10, 11]]
+    sf_names = ["wire_at_v{}".format(v) for v in [2, 7, 10, 11]]
     sf_names = ["location"] + sf_names
     client = MongoClient(sys.argv[1])
     db = client["refine-plan"]
     init_results = read_results_for_method(db["house-initial"], sf_names)
     print("Initial Results Complete")
+    exit()
     refined_results = read_results_for_method(db["house-refined"], sf_names)
     print("Refined Results Complete")
     print_stats(init_results, refined_results)
