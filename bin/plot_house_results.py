@@ -192,7 +192,6 @@ if __name__ == "__main__":
     db = client["refine-plan"]
     init_results = read_results_for_method(db["house-initial"], sf_names)
     print("Initial Results Complete")
-    exit()
     refined_results = read_results_for_method(db["house-refined"], sf_names)
     print("Refined Results Complete")
     print_stats(init_results, refined_results)
