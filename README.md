@@ -89,7 +89,7 @@ python3 -m unittest discover --pattern=*.py
 
 The planning script for the book store experiment is found at `bin/bookstore_planning.py`.
 This script processes the data collected in a MongoDB instance, learns the Bayesian networks, and synthesises the policy.
-The dataset, Bayesian networks, and refined policy are already generated and can be found in `data/bookstore/'.
+The dataset, Bayesian networks, and refined policy are already generated and can be found in `data/bookstore/`.
 
 If you wish to generate them yourself, run the following in `bin/bookstore_planning.py` by uncommenting the corresponding line in lines 225-227:
 * `write_mongodb_to_yaml(sys.argv[1])` writes the data from a MongoDB instance to a YAML file. `sys.argv[1]` should be a MongoDB instance address.
