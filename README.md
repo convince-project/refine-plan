@@ -102,7 +102,7 @@ To execute the initial BT or refined policy in Gazebo, please install [turtlebot
 
 The planning script for the vacuum cleaner search experiment is found at `bin/house_planning.py`.
 This script behaves similarly to `bin/bookstore_planning.py`, with identical function names and behaviours.
-The dataset, Bayesian networks, and refined policy are already generated and can be found in `data/house/'.
+The dataset, Bayesian networks, and refined policy are already generated and can be found in `data/house/`.
 To generate these yourself, run `write_mongodb_to_yaml(sys.argv[1])`, `learn_options()`, or `run_planner()` in `bin/house_planning.py` by uncommenting the corresponding line in lines 249-251.
 See the book store instructions above for the expected behaviour of these functions.
 
