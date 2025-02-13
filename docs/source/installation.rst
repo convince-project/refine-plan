@@ -4,7 +4,23 @@ Installation Instructions
 .. role:: bash(code)
    :language: bash
 
+.. role:: python(code)
+   :language: python
+
 REFINE-PLAN has been tested on Ubuntu 22.04 with Python 3.10.12.
+
+If you use this repository, please consider citing:
+
+.. code-block:: bash
+    
+    @inproceedings{street2025planning,
+    title={Planning under Uncertainty from Behaviour Trees},
+    author={Street, Charlie and Grubb, Oliver and Mansouri, Masoumeh},
+    booktitle={Under Review},
+    year={2025}
+    }
+
+
 
 Installing Dependencies
 -----------------------
@@ -79,6 +95,38 @@ To run all unit tests, run:
 
 	cd tests
 	python3 -m unittest discover --pattern=*.py
+
+Running the experiments for 'Planning under Uncertainty from Behaviour Trees'
+-----------------------------------------------------------------------------
+
+In case of code updates after paper submission/publication, please consider downloading the :bash:`iros-2025` release of this repository.
+
+Book Store Navigation Domain
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The planning script for the book store experiment is found at :bash:`bin/bookstore_planning.py`.
+This script processes the data collected in a MongoDB instance, learns the Bayesian networks, and synthesises the policy.
+The dataset, Bayesian networks, and refined policy are already generated and can be found in :bash:`data/bookstore/`.
+
+If you wish to generate them yourself, run the following in :bash:`bin/bookstore_planning.py` by uncommenting the corresponding line in lines 225-227:
+
+* :python:`write_mongodb_to_yaml(sys.argv[1])` writes the data from a MongoDB instance to a YAML file. :python:`sys.argv[1]` should be a MongoDB instance address.
+* :python:`learn_options()` learns the Bayesian networks from the YAML dataset.
+* :python:`run_planner()` uses the learned Bayesian networks to build an MDP and synthesise a policy.
+
+To execute the initial BT or refined policy in Gazebo, please install `turtlebot_bookstore_sim <https://github.com/HyPAIR/turtlebot_bookstore_sim>`_ and read the instructions in the README.
+
+Vacuum Cleaner Search Domain
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The planning script for the vacuum cleaner search experiment is found at :bash:`bin/house_planning.py`.
+This script behaves similarly to :bash:`bin/bookstore_planning.py`, with identical function names and behaviours.
+The dataset, Bayesian networks, and refined policy are already generated and can be found in :bash:`data/house/`.
+To generate these yourself, run :python:`write_mongodb_to_yaml(sys.argv[1])`, :python:`learn_options()`, or :python:`run_planner()` in :bash:`bin/house_planning.py` by uncommenting the corresponding line in lines 249-251.
+See the book store instructions above for the expected behaviour of these functions.
+
+
+To execute the initial BT or refined policy in Gazebo, please install `turtlebot_house_sim <https://github.com/HyPAIR/turtlebot_house_sim>`_ and read the instructions in the README.
 
 Build the Documentation
 -----------------------

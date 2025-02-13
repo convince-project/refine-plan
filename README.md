@@ -85,6 +85,8 @@ python3 -m unittest discover --pattern=*.py
 
 ## Running the experiments for 'Planning under Uncertainty from Behaviour Trees'
 
+In case of code updates after paper submission/publication, please consider downloading the `iros-2025` release of this repository.
+
 ### Book Store Navigation Domain
 
 The planning script for the book store experiment is found at `bin/bookstore_planning.py`.
