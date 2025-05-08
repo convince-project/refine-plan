@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-""" Classes for PRISM conditions and state labels.
+"""Classes for PRISM conditions and state labels.
 
 Author: Charlie Street
 Owner: Charlie Street
@@ -7,6 +7,7 @@ Owner: Charlie Street
 
 from refine_plan.models.state_factor import IntStateFactor
 from pyeda.inter import expr, And, Or, Not
+import xml.etree.ElementTree as et
 
 
 class Label(object):
@@ -140,6 +141,17 @@ class Condition(object):
         """
         raise NotImplementedError()
 
+    def to_scxml_cond(self, is_post_cond=False):
+        """Outputs the SCXML condition for this condition.
+
+        If is_post_cond=False, we output a JavaScript style condition string
+        If is_post_cond=True, we output a list of <assign/> SCXML elements
+
+        Args:
+            is_post_cond: Is the condition a postcondition?
+        """
+        raise NotImplementedError()
+
     def range_of_values(self):
         """Returns the range of values that can be satisfied with this condition.
 
@@ -200,6 +212,14 @@ class TrueCondition(Condition):
             - A mapping from var_name to condition.
         """
         return expr(True), {}
+
+    def to_scxml_cond(self, is_post_cond=False):
+        """Return None for both. A TrueCondition doesn't make much sense here
+
+        Args:
+            is_post_cond: Is the condition a postcondition?
+        """
+        return None
 
     def range_of_values(self):
         """Raises exception as it is impossible to return everything.
@@ -332,6 +352,19 @@ class EqCondition(Condition):
         """
         var_name = "{}EQ{}".format(self._sf.get_name(), self._value)
         return expr(var_name), {var_name: self}
+
+    def to_scxml_cond(self, is_post_cond=False):
+        """Return an equality string or a single XML assignment.
+
+        Args:
+            is_post_cond: Is the condition a postcondition?
+        """
+        name = self._sf.name()
+        val = self._sf.get_idx(self._value)
+        if is_post_cond:
+            return [et.Element("assign", location=name, expr=val)]
+        else:
+            return "{}=={}".format(name, val)
 
     def range_of_values(self):
         """Return the one value that satisfies this condition.
@@ -473,6 +506,19 @@ class NeqCondition(Condition):
         eq_expr, var_map = EqCondition(self._sf, self._value).to_pyeda_expr()
         return Not(eq_expr), var_map
 
+    def to_scxml_cond(self, is_post_cond=False):
+        """Return an not equal string or an Exception if post condition.
+
+        Args:
+            is_post_cond: Is the condition a postcondition?
+        """
+        name = self._sf.name()
+        val = self._sf.get_idx(self._value)
+        if is_post_cond:
+            raise Exception("!= cannot be a postcondition")
+        else:
+            return "{}!={}".format(name, val)
+
     def range_of_values(self):
         """Returns the state factor values without self._value.
 
@@ -599,6 +645,17 @@ class NotCondition(Condition):
         """
         cond_expr, var_map = self._cond.to_pyeda_expr()
         return Not(cond_expr), var_map
+
+    def to_scxml_cond(self, is_post_cond=False):
+        """Return a ! string or an exception if post condition.
+
+        Args:
+            is_post_cond: Is the condition a postcondition?
+        """
+        if is_post_cond:
+            raise Exception("! cannot be a postcondition.")
+        else:
+            return "!({})".format(self._cond.to_scxml_cond(is_post_cond=False))
 
     def range_of_values(self):
         """Raises NotImplementedError as not needed currently."""
@@ -739,6 +796,17 @@ class AddCondition(Condition):
     def to_pyeda_expr(self):
         """Throws exception as AddConditions are only postconditions."""
         raise Exception("No pyeda expression for AddCondition as postcondition.")
+
+    def to_scxml_cond(self, is_post_cond=False):
+        """Not implemented as I'm not sure this is supported in SCXML.
+
+        Our representation uses indexes, so there's not a nice way we can use
+        this here.
+
+        Args:
+            is_post_cond: Is the condition a postcondition?
+        """
+        raise Exception("No SCXML syntax for AddCondition as postcondition.")
 
     def range_of_values(self):
         """Raises Exception as not applicable to AddConditions.
@@ -884,6 +952,24 @@ class InequalityCondition(Condition):
         return "({} {} {})".format(
             self._sf.get_name(), self._comp_str, self._sf.get_idx(self._value)
         )
+
+    def to_scxml_cond(self, is_post_cond=False):
+        """Returns a string with the condition if precondition.
+
+        Args:
+            is_post_cond: Is the condition a postcondition?
+        """
+        if is_post_cond:
+            raise Exception("Inequality constraints can't be postconditions.")
+
+        scxml_str = "{}{}{}".format(
+            self._sf.get_name(), self._comp_str, self._sf.get_idx(self._value)
+        )
+
+        lt_escape = scxml_str.replace("<", "&lt;")
+        gt_escape = lt_escape.replace(">", "&gt;")
+
+        return gt_escape
 
     def range_of_values(self):
         """Returns the values which satisfy the inequality.
@@ -1178,6 +1264,23 @@ class AndCondition(Condition):
 
         return And(*expr_list), var_map
 
+    def to_scxml_cond(self, is_post_cond=False):
+        """Return list of elements or string with escaped & characters.
+
+        Args:
+            is_post_cond: Is the condition a post condition?"""
+
+        if is_post_cond:
+            return [c.to_scxml_cond(is_post_cond=True) for c in self._cond_list]
+
+        scxml_str = ""
+        for i in range(len(self._cond_list)):
+            scxml_str += self._cond_list[i].to_scxml_cond(is_post_cond)
+            if i < len(self._cond_list) - 1:
+                scxml_str += " &amp;&amp; "
+
+        return scxml_str
+
     def range_of_values(self):
         """Raises NotImplementedError as not needed currently."""
         raise NotImplementedError("range_of_values not implemented in AndCondition.")
@@ -1340,6 +1443,23 @@ class OrCondition(Condition):
                     assert var_map[var] == sub_var_map[var]
 
         return Or(*expr_list), var_map
+
+    def to_scxml_cond(self, is_post_cond=False):
+        """Return list of elements or string with || characters.
+
+        Args:
+            is_post_cond: Is the condition a post condition?"""
+
+        if is_post_cond:
+            return [c.to_scxml_cond(is_post_cond=True) for c in self._cond_list]
+
+        scxml_str = ""
+        for i in range(len(self._cond_list)):
+            scxml_str += self._cond_list[i].to_scxml_cond(is_post_cond)
+            if i < len(self._cond_list) - 1:
+                scxml_str += " || "
+
+        return scxml_str
 
     def range_of_values(self):
         """Raises NotImplementedError as not needed currently."""
