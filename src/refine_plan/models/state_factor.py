@@ -147,7 +147,7 @@ class StateFactor(object):
             )
 
         init_idx = self.get_idx(initial_value)
-        return et.Element("data", id=self.get_name(), expr=init_idx, type="int32")
+        return et.Element("data", id=self.get_name(), expr=str(init_idx), type="int32")
 
     def __hash__(self):
         """Overwriting so that SFs with equal names, types, and ranges are equal.
