@@ -129,25 +129,20 @@ class Option(object):
                 post_cond = list(prob_post_conds.keys())[0]
                 scxml_trans.append(post_cond.to_scxml_cond(is_post_cond=True))
             else:  # Do if else structure
-                scxml_trans.append(
-                    et.Element("assign", location="rand", expr="Math.random()")
-                )
+                rand = et.Element("assign", location="rand", expr="Math.random()")
+                scxml_trans.append(rand)
                 prob_sum = 0.0
                 if_block = None
                 for post_cond in prob_post_conds:
                     prob_sum += prob_post_conds[post_cond]
+                    cond_str = "rand &lt;= {}".format(prob_sum)
                     if if_block is None:
-                        if_block = et.Element(
-                            "if", cond="rand &lt;= {}".format(prob_sum)
-                        )
+                        if_block = et.Element("if", cond=cond_str)
                     elif np.isclose(prob_sum, 1):
                         if_block.append(et.Element("else"))
                     else:
-                        if_block.append(
-                            et.Element("elseif", cond="rand &lt;= {}".format(prob_sum))
-                        )
+                        if_block.append(et.Element("elseif", cond=cond_str))
                     if_block.append(post_cond.to_scxml_cond(is_post_cond=True))
-
                 scxml_trans.append(if_block)
 
             transitions.append(scxml_trans)
