@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-""" Class for options, which are temporally extended actions.
+"""Class for options, which are temporally extended actions.
 
 Author: Charlie Street
 Owner: Charlie Street
 """
 
+import xml.etree.ElementTree as et
 import numpy as np
 
 
@@ -106,6 +107,52 @@ class Option(object):
                 total_reward += reward
 
         return total_reward
+
+    def get_scxml_transitions(self):
+        """Return a list of SCXML transition elements for this option.
+
+        Returns:
+            A list of SCXML transition elements
+        """
+        transitions = []
+
+        for trans in self._transition_list:
+            pre_cond, prob_post_conds = trans
+            scxml_trans = et.Element(
+                "transition",
+                target="init",
+                event=self.get_name(),
+                cond=pre_cond.to_scxml_cond(False),
+            )
+
+            if len(prob_post_conds) == 1:  # If deterministic
+                post_cond = list(prob_post_conds.keys())[0]
+                scxml_trans.append(post_cond.to_scxml_cond(is_post_cond=True))
+            else:  # Do if else structure
+                scxml_trans.append(
+                    et.Element("assign", location="rand", expr="Math.random()")
+                )
+                prob_sum = 0.0
+                if_block = None
+                for post_cond in prob_post_conds:
+                    prob_sum += prob_post_conds[post_cond]
+                    if if_block is None:
+                        if_block = et.Element(
+                            "if", cond="rand &lt;= {}".format(prob_sum)
+                        )
+                    elif np.isclose(prob_sum, 1):
+                        if_block.append(et.Element("else"))
+                    else:
+                        if_block.append(
+                            et.Element("elseif", cond="rand &lt;= {}".format(prob_sum))
+                        )
+                    if_block.append(post_cond.to_scxml_cond(is_post_cond=True))
+
+                scxml_trans.append(if_block)
+
+            transitions.append(scxml_trans)
+
+        return transitions
 
     def get_transition_prism_string(self):
         """Return a PRISM string which captures all transitions for this option.
