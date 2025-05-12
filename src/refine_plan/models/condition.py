@@ -359,10 +359,10 @@ class EqCondition(Condition):
         Args:
             is_post_cond: Is the condition a postcondition?
         """
-        name = self._sf.name()
+        name = self._sf.get_name()
         val = self._sf.get_idx(self._value)
         if is_post_cond:
-            return [et.Element("assign", location=name, expr=val)]
+            return [et.Element("assign", location=name, expr=str(val))]
         else:
             return "{}=={}".format(name, val)
 
@@ -512,7 +512,7 @@ class NeqCondition(Condition):
         Args:
             is_post_cond: Is the condition a postcondition?
         """
-        name = self._sf.name()
+        name = self._sf.get_name()
         val = self._sf.get_idx(self._value)
         if is_post_cond:
             raise Exception("!= cannot be a postcondition")
@@ -1271,7 +1271,10 @@ class AndCondition(Condition):
             is_post_cond: Is the condition a post condition?"""
 
         if is_post_cond:
-            return [c.to_scxml_cond(is_post_cond=True) for c in self._cond_list]
+            post_cond_list = []
+            for c in self._cond_list:
+                post_cond_list += c.to_scxml_cond(is_post_cond=True)
+            return post_cond_list
 
         scxml_str = ""
         for i in range(len(self._cond_list)):
@@ -1451,7 +1454,7 @@ class OrCondition(Condition):
             is_post_cond: Is the condition a post condition?"""
 
         if is_post_cond:
-            return [c.to_scxml_cond(is_post_cond=True) for c in self._cond_list]
+            raise Exception("OrCondition cannot be a postcondition.")
 
         scxml_str = ""
         for i in range(len(self._cond_list)):
