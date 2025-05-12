@@ -127,7 +127,7 @@ class StateFactor(object):
 
         return prism_str
 
-    def to_scxml_element(self, initial_value=None):
+    def to_scxml_element(self, initial_value):
         """Write the state factor out as an SCXML element in the data model.
 
         Args:
