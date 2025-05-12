@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-""" Unit tests for option.py.
+"""Unit tests for option.py.
 
 Author: Charlie Street
 Owner: Charlie Street
@@ -9,6 +9,7 @@ from refine_plan.models.state_factor import StateFactor
 from refine_plan.models.condition import EqCondition
 from refine_plan.models.option import Option
 from refine_plan.models.state import State
+import xml.etree.ElementTree as et
 import unittest
 
 
@@ -81,6 +82,60 @@ class TestTransAndRewards(unittest.TestCase):
 
         reward_str = "[opt] (sf = 0): 6;\n[opt] (sf = 0): 4;\n[opt] (sf = 1): 5;\n"
         self.assertEqual(opt.get_reward_prism_string(), reward_str)
+
+        scxml_transitions = opt.get_scxml_transitions()
+        xml_string_1 = "<?xml version='1.0' encoding='utf8'?>\n"
+        xml_string_1 += '<transition target="init" event="opt" cond="sf==0">'
+        xml_string_1 += '<assign location="rand" expr="Math.random()" />'
+        xml_string_1 += '<if cond="rand &lt;= 0.6">'
+        xml_string_1 += '<assign location="sf" expr="1" />'
+        xml_string_1 += "<else />"
+        xml_string_1 += '<assign location="sf" expr="2" />'
+        xml_string_1 += "</if>"
+        xml_string_1 += "</transition>"
+
+        trans_str = et.tostring(scxml_transitions[0], encoding="utf8").decode("utf8")
+        self.assertEqual(trans_str, xml_string_1)
+
+        xml_string_2 = "<?xml version='1.0' encoding='utf8'?>\n"
+        xml_string_2 += '<transition target="init" event="opt" cond="sf==1">'
+        xml_string_2 += '<assign location="rand" expr="Math.random()" />'
+        xml_string_2 += '<if cond="rand &lt;= 0.3">'
+        xml_string_2 += '<assign location="sf" expr="0" />'
+        xml_string_2 += "<else />"
+        xml_string_2 += '<assign location="sf" expr="2" />'
+        xml_string_2 += "</if>"
+        xml_string_2 += "</transition>"
+
+        trans_str = et.tostring(scxml_transitions[1], encoding="utf8").decode("utf8")
+        self.assertEqual(trans_str, xml_string_2)
+
+        trans = [(a_cond, {b_cond: 1.0})]
+        opt = Option("opt", trans, rewards)
+        xml_string_3 = "<?xml version='1.0' encoding='utf8'?>\n"
+        xml_string_3 += '<transition target="init" event="opt" cond="sf==0">'
+        xml_string_3 += '<assign location="sf" expr="1" />'
+        xml_string_3 += "</transition>"
+        scxml_transitions = opt.get_scxml_transitions()
+        trans_str = et.tostring(scxml_transitions[0], encoding="utf8").decode("utf8")
+        self.assertEqual(trans_str, xml_string_3)
+
+        trans = [(a_cond, {a_cond: 0.2, b_cond: 0.3, c_cond: 0.5})]
+        opt = Option("opt", trans, rewards)
+        xml_string_4 = "<?xml version='1.0' encoding='utf8'?>\n"
+        xml_string_4 += '<transition target="init" event="opt" cond="sf==0">'
+        xml_string_4 += '<assign location="rand" expr="Math.random()" />'
+        xml_string_4 += '<if cond="rand &lt;= 0.2">'
+        xml_string_4 += '<assign location="sf" expr="0" />'
+        xml_string_4 += '<elseif cond="rand &lt;= 0.5" />'
+        xml_string_4 += '<assign location="sf" expr="1" />'
+        xml_string_4 += "<else />"
+        xml_string_4 += '<assign location="sf" expr="2" />'
+        xml_string_4 += "</if>"
+        xml_string_4 += "</transition>"
+        scxml_transitions = opt.get_scxml_transitions()
+        trans_str = et.tostring(scxml_transitions[0], encoding="utf8").decode("utf8")
+        self.assertEqual(trans_str, xml_string_4)
 
 
 if __name__ == "__main__":
