@@ -118,7 +118,9 @@ class SemiMDP(object):
         # For the SCXML file our semi-MDP needs an initial state
         assert self._initial_state is not None
         for sf in self._state_factors:
-            data_model.append(sf.to_scxml_element(self._initial_state[sf]))
+            data_model.append(
+                self._state_factors[sf].to_scxml_element(self._initial_state[sf])
+            )
 
         # Add rand state factor
         data_model.append(et.Element("data", id="rand", expr="0", type="float64"))
@@ -126,7 +128,7 @@ class SemiMDP(object):
         # Add transitions
         state = et.SubElement(scxml, "state", id="init")
         for option in self._options:
-            for trans in option.get_scxml_transitions():
+            for trans in self._options[option].get_scxml_transitions():
                 state.append(trans)
 
         # Now deal with the writing out
