@@ -232,7 +232,7 @@ class NotConditionTest(unittest.TestCase):
         self.assertEqual(repr(not_cond), "!(sf < 7)")
         self.assertEqual(str(not_cond), "!(sf < 7)")
 
-        self.assertEqual(not_cond.to_scxml_cond(False), "!(sf&lt;7)")
+        self.assertEqual(not_cond.to_scxml_cond(False), "!(sf<7)")
         with self.assertRaises(Exception):
             cond.to_scxml_cond(True)
 
@@ -368,7 +368,7 @@ class LtConditionTest(unittest.TestCase):
         self.assertTrue(pyeda_expr.equivalent(Not(expr("sfGEQ7"))))
         self.assertEqual(var_map, {"sfGEQ7": GeqCondition(sf, 7)})
 
-        self.assertEqual(cond.to_scxml_cond(False), "sf&lt;7")
+        self.assertEqual(cond.to_scxml_cond(False), "sf<7")
         with self.assertRaises(Exception):
             cond.to_scxml_cond(True)
 
@@ -419,7 +419,7 @@ class GtConditionTest(unittest.TestCase):
         self.assertTrue(pyeda_expr.equivalent(expr("sfGT7")))
         self.assertEqual(var_map, {"sfGT7": cond})
 
-        self.assertEqual(cond.to_scxml_cond(False), "sf&gt;7")
+        self.assertEqual(cond.to_scxml_cond(False), "sf>7")
         with self.assertRaises(Exception):
             cond.to_scxml_cond(True)
 
@@ -470,7 +470,7 @@ class LeqConditionTest(unittest.TestCase):
         self.assertTrue(pyeda_expr.equivalent(Not(expr("sfGT7"))))
         self.assertEqual(var_map, {"sfGT7": GtCondition(sf, 7)})
 
-        self.assertEqual(cond.to_scxml_cond(False), "sf&lt;=7")
+        self.assertEqual(cond.to_scxml_cond(False), "sf<=7")
         with self.assertRaises(Exception):
             cond.to_scxml_cond(True)
 
@@ -521,7 +521,7 @@ class GeqConditionTest(unittest.TestCase):
         self.assertTrue(pyeda_expr.equivalent(expr("sfGEQ7")))
         self.assertEqual(var_map, {"sfGEQ7": cond})
 
-        self.assertEqual(cond.to_scxml_cond(False), "sf&gt;=7")
+        self.assertEqual(cond.to_scxml_cond(False), "sf>=7")
         with self.assertRaises(Exception):
             cond.to_scxml_cond(True)
 
@@ -617,7 +617,7 @@ class AndConditionTest(unittest.TestCase):
         and_cond._cond_list[1] = EqCondition(sf2, 7)
         self.assertEqual(
             and_cond.to_scxml_cond(False),
-            "sf1==1 &amp;&amp; sf2==7 &amp;&amp; sf3==1",
+            "sf1==1 && sf2==7 && sf3==1",
         )
         post_cond_xml = and_cond.to_scxml_cond(True)
         self.assertEqual(len(post_cond_xml), 3)
@@ -663,7 +663,7 @@ class OrConditionTest(unittest.TestCase):
 
         self.assertEqual(
             or_cond.to_scxml_cond(False),
-            "sf1==1 || sf2&lt;7 || sf3==1",
+            "sf1==1 || sf2<7 || sf3==1",
         )
         with self.assertRaises(Exception):
             or_cond.to_scxml_cond(True)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-""" Unit tests for DBNOption.
+"""Unit tests for DBNOption.
 
 Author: Charlie Street
 Owner: Charlie Street
@@ -17,6 +17,7 @@ from refine_plan.models.condition import (
 from refine_plan.models.dbn_option import DBNOption
 from refine_plan.models.state import State
 from pyeda.inter import expr, Not, And, Or
+import xml.etree.ElementTree as et
 import pyAgrum as gum
 import unittest
 import os
@@ -1345,6 +1346,96 @@ class GetRewardPrismStringTest(unittest.TestCase):
         expected += "[test] ((x = 1) & (loc = 1)): {};\n".format(t_r)
 
         self.assertEqual(prism_str, expected)
+
+        os.remove("transition.bifxml")
+        os.remove("reward.bifxml")
+
+
+class GetSCXMLTransitionsTest(unittest.TestCase):
+    def test_function(self):
+        # Testing is fairly small here as this uses many functions tested
+        # extensively in option.py and get_transition_prism_string in this file.
+        # Just a sanity check test that everything links together properly.
+        create_two_bns()
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, TrueCondition()
+        )
+
+        loc_sf = StateFactor("loc", ["v1", "v2", "v3", "v4"])
+        option._sf_list.append(loc_sf)
+        option._enabled_cond = AndCondition(
+            OrCondition(EqCondition(sf_list[0], False), EqCondition(sf_list[0], True)),
+            EqCondition(loc_sf, "v2"),
+        )
+
+        option._transition_dbn.erase("yt")
+
+        state_ff = State({sf_list[0]: False, sf_list[1]: False, loc_sf: "v2"})
+        state_ft = State({sf_list[0]: False, sf_list[1]: True, loc_sf: "v2"})
+        state_tf = State({sf_list[0]: True, sf_list[1]: False, loc_sf: "v2"})
+        state_tt = State({sf_list[0]: True, sf_list[1]: True, loc_sf: "v2"})
+
+        ff_f = option.get_transition_prob(state_ff, state_ff)
+        ft_f = option.get_transition_prob(state_ft, state_ft)
+        tf_f = option.get_transition_prob(state_tf, state_ff)
+        tt_f = option.get_transition_prob(state_tt, state_ft)
+
+        scxml_transitions = option.get_scxml_transitions()
+        self.assertEqual(len(scxml_transitions), 4)
+
+        xml_string_1 = "<?xml version='1.0' encoding='utf8'?>\n"
+        xml_string_1 += '<transition target="init" event="test" cond="x==0 &amp;&amp; y==0 &amp;&amp; loc==1">'
+        xml_string_1 += '<assign location="rand" expr="Math.random()" />'
+        xml_string_1 += '<if cond="rand &lt;= {}">'.format(ff_f)
+        xml_string_1 += '<assign location="x" expr="0" />'
+        xml_string_1 += "<else />"
+        xml_string_1 += '<assign location="x" expr="1" />'
+        xml_string_1 += "</if>"
+        xml_string_1 += "</transition>"
+
+        trans_str = et.tostring(scxml_transitions[0], encoding="utf8").decode("utf8")
+        self.assertEqual(trans_str, xml_string_1)
+
+        xml_string_2 = "<?xml version='1.0' encoding='utf8'?>\n"
+        xml_string_2 += '<transition target="init" event="test" cond="x==0 &amp;&amp; y==1 &amp;&amp; loc==1">'
+        xml_string_2 += '<assign location="rand" expr="Math.random()" />'
+        xml_string_2 += '<if cond="rand &lt;= {}">'.format(ft_f)
+        xml_string_2 += '<assign location="x" expr="0" />'
+        xml_string_2 += "<else />"
+        xml_string_2 += '<assign location="x" expr="1" />'
+        xml_string_2 += "</if>"
+        xml_string_2 += "</transition>"
+
+        trans_str = et.tostring(scxml_transitions[1], encoding="utf8").decode("utf8")
+        self.assertEqual(trans_str, xml_string_2)
+
+        xml_string_3 = "<?xml version='1.0' encoding='utf8'?>\n"
+        xml_string_3 += '<transition target="init" event="test" cond="x==1 &amp;&amp; y==0 &amp;&amp; loc==1">'
+        xml_string_3 += '<assign location="rand" expr="Math.random()" />'
+        xml_string_3 += '<if cond="rand &lt;= {}">'.format(tf_f)
+        xml_string_3 += '<assign location="x" expr="0" />'
+        xml_string_3 += "<else />"
+        xml_string_3 += '<assign location="x" expr="1" />'
+        xml_string_3 += "</if>"
+        xml_string_3 += "</transition>"
+
+        trans_str = et.tostring(scxml_transitions[2], encoding="utf8").decode("utf8")
+        self.assertEqual(trans_str, xml_string_3)
+
+        xml_string_4 = "<?xml version='1.0' encoding='utf8'?>\n"
+        xml_string_4 += '<transition target="init" event="test" cond="x==1 &amp;&amp; y==1 &amp;&amp; loc==1">'
+        xml_string_4 += '<assign location="rand" expr="Math.random()" />'
+        xml_string_4 += '<if cond="rand &lt;= {}">'.format(tt_f)
+        xml_string_4 += '<assign location="x" expr="0" />'
+        xml_string_4 += "<else />"
+        xml_string_4 += '<assign location="x" expr="1" />'
+        xml_string_4 += "</if>"
+        xml_string_4 += "</transition>"
+
+        trans_str = et.tostring(scxml_transitions[3], encoding="utf8").decode("utf8")
+        self.assertEqual(trans_str, xml_string_4)
 
         os.remove("transition.bifxml")
         os.remove("reward.bifxml")

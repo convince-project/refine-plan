@@ -966,10 +966,7 @@ class InequalityCondition(Condition):
             self._sf.get_name(), self._comp_str, self._sf.get_idx(self._value)
         )
 
-        lt_escape = scxml_str.replace("<", "&lt;")
-        gt_escape = lt_escape.replace(">", "&gt;")
-
-        return gt_escape
+        return scxml_str
 
     def range_of_values(self):
         """Returns the values which satisfy the inequality.
@@ -1280,7 +1277,7 @@ class AndCondition(Condition):
         for i in range(len(self._cond_list)):
             scxml_str += self._cond_list[i].to_scxml_cond(is_post_cond)
             if i < len(self._cond_list) - 1:
-                scxml_str += " &amp;&amp; "
+                scxml_str += " && "
 
         return scxml_str
 
