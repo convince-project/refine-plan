@@ -167,8 +167,13 @@ def generate_mdp_scxml():
     semi_mdp = SemiMDP(sf_list, option_list, labels, initial_state=init_state)
     print("Writing SCXML file")
     semi_mdp.to_scxml_file("../data/bookstore/bookstore_mdp.scxml", name="Bookstore")
-    # print("Synthesising Policy...")
-    # policy = synthesise_policy(semi_mdp, prism_prop='Rmin=?[F "goal"]')
+    print("Synthesising Policy...")
+    policy = synthesise_policy(semi_mdp, prism_prop='Rmin=?[F "goal"]')
+    policy.to_scxml(
+        "../data/bookstore/bookstore_policy.scxml",
+        model_name="Bookstore",
+        name="Bookstore_Policy",
+    )
     # policy.write_policy("../data/bookstore/bookstore_refined_policy.yaml")
 
 

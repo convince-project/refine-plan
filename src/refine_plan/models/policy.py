@@ -239,7 +239,7 @@ class Policy(object):
 
             return scxml_elem
 
-    def _to_scxml(self, output_file, model_name, name="policy"):
+    def to_scxml(self, output_file, model_name, name="policy"):
         """Write the policy out to SCXML for verification.
 
         Args:
