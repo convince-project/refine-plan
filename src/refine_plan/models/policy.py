@@ -210,11 +210,41 @@ class Policy(object):
 
         return hier_policy
 
-    def _to_scxml(self, output_file, name="policy"):
+    def _build_up_nested_scxml(self, hier_policy, model_name):
+        """Recursively build up SCXML elements for the policy.
+
+        hier_policy is the nested policy starting from the current depth.
+
+        Args:
+            hier_policy: The nested policy from the current depth
+            model_name: The name of the model actions are executed on
+
+        Returns:
+            scxml_elem: An SCXML element for the hierarchical policy
+        """
+
+        if isinstance(hier_policy, str):  # If an action (base case)
+            return et.Element("send", event=hier_policy, target=model_name)
+        else:  # We need to recurse down the policy
+            scxml_elem = None
+            conds = list(hier_policy.keys())
+            for i in range(len(conds)):
+                if scxml_elem is None:
+                    scxml_elem = et.Element("if", cond=conds[i])
+                else:
+                    # Avoid else catch all as it will give action to invalid states
+                    scxml_elem.append(et.Element("elif", cond=conds[i]))
+                next_level = hier_policy[conds[i]]
+                scxml_elem.append(self._build_up_nested_scxml(next_level, model_name))
+
+            return scxml_elem
+
+    def _to_scxml(self, output_file, model_name, name="policy"):
         """Write the policy out to SCXML for verification.
 
         Args:
-            output_file: The file to write out to.
+            output_file: The file to write out to
+            model_name: The name of the model actions are executed on
             name: The name for the policy in SCXML
         """
         # Root of SCXML file
@@ -232,8 +262,8 @@ class Policy(object):
 
         hier_policy = self._hierarchical_rep()
 
-        # Recursively build up the nested
-        onentry.append(self.build_up_nested_scxml(hier_policy))
+        # Recursively build up the nested SCXML if conditions
+        onentry.append(self._build_up_nested_scxml(hier_policy, model_name))
 
         # Now handle the writing out
         # Now deal with the writing out
