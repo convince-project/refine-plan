@@ -191,7 +191,7 @@ class Policy(object):
             hier_policy: A hierarchical version of the policy
         """
 
-        sf_list = list(self._state_action_dict.keys()[0]._sf_dict.values())
+        sf_list = list(list(self._state_action_dict.keys())[0]._sf_dict.values())
         hier_policy = {}
 
         for state in self._state_action_dict:
@@ -233,7 +233,7 @@ class Policy(object):
                     scxml_elem = et.Element("if", cond=conds[i])
                 else:
                     # Avoid else catch all as it will give action to invalid states
-                    scxml_elem.append(et.Element("elif", cond=conds[i]))
+                    scxml_elem.append(et.Element("elseif", cond=conds[i]))
                 next_level = hier_policy[conds[i]]
                 scxml_elem.append(self._build_up_nested_scxml(next_level, model_name))
 
