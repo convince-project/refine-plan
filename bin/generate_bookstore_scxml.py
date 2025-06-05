@@ -172,6 +172,7 @@ def generate_mdp_scxml():
     policy.to_scxml(
         "../data/bookstore/bookstore_policy.scxml",
         model_name="Bookstore",
+        initial_state=init_state,
         name="Bookstore_Policy",
     )
     # policy.write_policy("../data/bookstore/bookstore_refined_policy.yaml")

@@ -17,6 +17,11 @@ def generate_scxml_test_string():
 
     expected = "<?xml version='1.0' encoding='UTF-8'?>\n"
     expected += '<scxml initial="init" version="1.0" name="my_policy" model_src="" xmlns="http://www.w3.org/2005/07/scxml">\n'
+    expected += "\t<datamodel>\n"
+    expected += '\t\t<data id="sf1" expr="0" type="int32" />\n'
+    expected += '\t\t<data id="sf2" expr="1" type="int32" />\n'
+    expected += '\t\t<data id="sf3" expr="2" type="int32" />\n'
+    expected += "\t</datamodel>\n"
     expected += '\t<state id="init">\n'
     expected += "\t\t<onentry>\n"
     expected += '\t\t\t<if cond="sf1==0">\n'
@@ -197,8 +202,8 @@ class ToSCXMLTest(unittest.TestCase):
         }
 
         policy = Policy(state_act_dict)
-
-        policy.to_scxml("test_policy.scxml", "mdp", "my_policy")
+        initial_state = State({sf1: "x1", sf2: "y2", sf3: "z3"})
+        policy.to_scxml("test_policy.scxml", "mdp", initial_state, "my_policy")
 
         with open("test_policy.scxml", "r") as in_file:
             read_scxml = in_file.read()

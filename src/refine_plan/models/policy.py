@@ -239,12 +239,13 @@ class Policy(object):
 
             return scxml_elem
 
-    def to_scxml(self, output_file, model_name, name="policy"):
+    def to_scxml(self, output_file, model_name, initial_state, name="policy"):
         """Write the policy out to SCXML for verification.
 
         Args:
             output_file: The file to write out to
             model_name: The name of the model actions are executed on
+            initial_state: The initial state
             name: The name for the policy in SCXML
         """
         # Root of SCXML file
@@ -256,6 +257,12 @@ class Policy(object):
             model_src="",
             xmlns="http://www.w3.org/2005/07/scxml",
         )
+
+        # Add in the state factors
+        sf_list = list(list(self._state_action_dict.keys())[0]._sf_dict.values())
+        data_model = et.SubElement(scxml, "datamodel")
+        for sf in sf_list:
+            data_model.append(sf.to_scxml_element(initial_state[sf.get_name()]))
 
         state_elem = et.SubElement(scxml, "state", id="init")
         onentry = et.SubElement(state_elem, "onentry")

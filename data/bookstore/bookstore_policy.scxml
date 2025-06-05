@@ -1,5 +1,14 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <scxml initial="init" version="1.0" name="Bookstore_Policy" model_src="" xmlns="http://www.w3.org/2005/07/scxml">
+	<datamodel>
+		<data id="location" expr="0" type="int32" />
+		<data id="v2_door" expr="0" type="int32" />
+		<data id="v3_door" expr="0" type="int32" />
+		<data id="v4_door" expr="0" type="int32" />
+		<data id="v5_door" expr="0" type="int32" />
+		<data id="v6_door" expr="0" type="int32" />
+		<data id="v7_door" expr="0" type="int32" />
+	</datamodel>
 	<state id="init">
 		<onentry>
 			<if cond="location==0">
