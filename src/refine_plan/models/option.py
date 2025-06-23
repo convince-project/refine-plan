@@ -108,6 +108,19 @@ class Option(object):
 
         return total_reward
 
+    def _add_datamodel_update_scxml(self):
+        """Add a generic SCXML block for sending datamodel updates.
+
+        Return:
+            Datamodel update SCXML block
+        """
+        # TODO: Do proper data passing here
+        event = et.Element("send", event="update_datamodel", target="Bookstore_Policy")
+        for sf in ["location"] + ["v{}_door".format(i) for i in range(2, 8)]:
+            event.append(et.Element("param", name=sf, expr=sf))
+
+        return event
+
     def _build_single_scxml_transition(self, pre_cond, prob_post_conds):
         """Build a single SCXML transition given pre and post conds.
 
@@ -149,6 +162,8 @@ class Option(object):
                 for cond in post_cond.to_scxml_cond(is_post_cond=True):
                     if_block.append(cond)
             scxml_trans.append(if_block)
+
+        scxml_trans.append(self._add_datamodel_update_scxml())
 
         return scxml_trans
 

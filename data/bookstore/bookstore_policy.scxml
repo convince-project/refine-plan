@@ -11259,5 +11259,14 @@
 				</if>
 			</if>
 		</onentry>
+		<transition target="init" event="update_datamodel">
+			<assign location="location" expr="_event.data.location" />
+			<assign location="v2_door" expr="_event.data.v2_door" />
+			<assign location="v3_door" expr="_event.data.v3_door" />
+			<assign location="v4_door" expr="_event.data.v4_door" />
+			<assign location="v5_door" expr="_event.data.v5_door" />
+			<assign location="v6_door" expr="_event.data.v6_door" />
+			<assign location="v7_door" expr="_event.data.v7_door" />
+		</transition>
 	</state>
 </scxml>

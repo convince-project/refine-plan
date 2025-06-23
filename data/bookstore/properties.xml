@@ -1,0 +1,11 @@
+<properties>
+  <ports>
+    <scxml_event_send event="update_datamodel" origin="Bookstore" target="Bookstore_Policy">
+      <event_var id="test"/>	
+    </scxml_event_send> 
+  </ports>
+  
+  <guarantees>
+    <property id="test_property" expr="{test}"/>
+  </guarantees>
+</properties>

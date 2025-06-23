@@ -272,6 +272,15 @@ class Policy(object):
         # Recursively build up the nested SCXML if conditions
         onentry.append(self._build_up_nested_scxml(hier_policy, model_name))
 
+        data_transition = et.SubElement(
+            state_elem, "transition", target="init", event="update_datamodel"
+        )
+        for sf in sf_list:
+            name = sf.get_name()
+            data_transition.append(
+                et.Element("assign", location=name, expr="_event.data.{}".format(name))
+            )
+
         # Now handle the writing out
         # Now deal with the writing out
         xml = et.ElementTree(scxml)

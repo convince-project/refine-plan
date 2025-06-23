@@ -44,6 +44,11 @@ def generate_scxml_test_string():
     expected += "\t\t\t\t</if>\n"
     expected += "\t\t\t</if>\n"
     expected += "\t\t</onentry>\n"
+    expected += '\t\t<transition target="init" event="update_datamodel">\n'
+    expected += '\t\t\t<assign location="sf1" expr="_event.data.sf1" />\n'
+    expected += '\t\t\t<assign location="sf2" expr="_event.data.sf2" />\n'
+    expected += '\t\t\t<assign location="sf3" expr="_event.data.sf3" />\n'
+    expected += "\t\t</transition>\n"
     expected += "\t</state>\n"
     expected += "</scxml>"
 
