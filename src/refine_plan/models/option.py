@@ -108,25 +108,32 @@ class Option(object):
 
         return total_reward
 
-    def _add_datamodel_update_scxml(self):
+    def _add_datamodel_update_scxml(self, sf_names, policy_name):
         """Add a generic SCXML block for sending datamodel updates.
+
+        Args:
+            sf_names: The list of state factor names
+            policy_name: The name of the policy in SCXML
 
         Return:
             Datamodel update SCXML block
         """
-        # TODO: Do proper data passing here
-        event = et.Element("send", event="update_datamodel", target="Bookstore_Policy")
-        for sf in ["location"] + ["v{}_door".format(i) for i in range(2, 8)]:
+        event = et.Element("send", event="update_datamodel", target=policy_name)
+        for sf in sf_names:
             event.append(et.Element("param", name=sf, expr=sf))
 
         return event
 
-    def _build_single_scxml_transition(self, pre_cond, prob_post_conds):
+    def _build_single_scxml_transition(
+        self, pre_cond, prob_post_conds, sf_names, policy_name
+    ):
         """Build a single SCXML transition given pre and post conds.
 
         Args:
             pre_cond: A precondition
             prob_post_conds: A dictionary from post condition to probability
+            sf_names: The list of state factor names
+            policy_name: The name of the policy in SCXML
 
         Assumes len(prob_post_conds) >= 1
 
@@ -163,12 +170,16 @@ class Option(object):
                     if_block.append(cond)
             scxml_trans.append(if_block)
 
-        scxml_trans.append(self._add_datamodel_update_scxml())
+        scxml_trans.append(self._add_datamodel_update_scxml(sf_names, policy_name))
 
         return scxml_trans
 
-    def get_scxml_transitions(self):
+    def get_scxml_transitions(self, sf_names, policy_name):
         """Return a list of SCXML transition elements for this option.
+
+        Args:
+            sf_names: The list of state factor names
+            policy_name: The name of the policy in SCXML
 
         Returns:
             A list of SCXML transition elements
@@ -177,7 +188,9 @@ class Option(object):
 
         for trans in self._transition_list:
             pre_cond, prob_post_conds = trans
-            scxml_trans = self._build_single_scxml_transition(pre_cond, prob_post_conds)
+            scxml_trans = self._build_single_scxml_transition(
+                pre_cond, prob_post_conds, sf_names, policy_name
+            )
             transitions.append(scxml_trans)
 
         return transitions

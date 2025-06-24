@@ -95,11 +95,12 @@ class SemiMDP(object):
 
         return self._options[option].get_reward(state)
 
-    def to_scxml_file(self, output_file, name="mdp"):
+    def to_scxml_file(self, output_file, policy_name, name="mdp"):
         """Convert the semi-MDP into an SCXML file for use with SCAN.
 
         Args:
             output_file: The file path for the SCXML file
+            policy_name: The SCXML name for the policy (needed for comms)
             name: Optional. The name of the MDP
         """
         # Root of SCXML file
@@ -127,8 +128,11 @@ class SemiMDP(object):
 
         # Add transitions
         state = et.SubElement(scxml, "state", id="init")
+        sf_names = list(self._state_factors.keys())
         for option in self._options:
-            for trans in self._options[option].get_scxml_transitions():
+            for trans in self._options[option].get_scxml_transitions(
+                sf_names, policy_name
+            ):
                 state.append(trans)
 
         # Now deal with the writing out

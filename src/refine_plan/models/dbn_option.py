@@ -545,8 +545,12 @@ class DBNOption(Option):
 
         return cond_pairs
 
-    def get_scxml_transitions(self):
+    def get_scxml_transitions(self, sf_names, policy_name):
         """Return a list of SCXML transition elements for this option.
+
+        Args:
+            sf_names: The list of state factor names
+            policy_name: The name of the policy in SCXML
 
         Returns:
             A list of SCXML transition elements
@@ -556,7 +560,9 @@ class DBNOption(Option):
         for pair in cond_pairs:
             pre_cond, prob_post_conds = pair
             transitions.append(
-                self._build_single_scxml_transition(pre_cond, prob_post_conds)
+                self._build_single_scxml_transition(
+                    pre_cond, prob_post_conds, sf_names, policy_name
+                )
             )
 
         return transitions
