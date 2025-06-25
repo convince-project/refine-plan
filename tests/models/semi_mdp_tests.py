@@ -84,6 +84,10 @@ def generate_scxml_test_string():
     expected += '\t\t\t\t<assign location="sf" expr="2" />\n'
     expected += '\t\t\t\t<assign location="bool_sf" expr="0" />\n'
     expected += "\t\t\t</if>\n"
+    expected += '\t\t\t<send event="update_datamodel" target="policy">\n'
+    expected += '\t\t\t\t<param name="sf" expr="sf" />\n'
+    expected += '\t\t\t\t<param name="bool_sf" expr="bool_sf" />\n'
+    expected += "\t\t\t</send>\n"
     expected += "\t\t</transition>\n"
     expected += '\t\t<transition target="init" event="opt_1" cond="sf==1 &amp;&amp; bool_sf==0">\n'
     expected += '\t\t\t<assign location="rand" expr="Math.random()" />\n'
@@ -94,6 +98,10 @@ def generate_scxml_test_string():
     expected += '\t\t\t\t<assign location="sf" expr="2" />\n'
     expected += '\t\t\t\t<assign location="bool_sf" expr="0" />\n'
     expected += "\t\t\t</if>\n"
+    expected += '\t\t\t<send event="update_datamodel" target="policy">\n'
+    expected += '\t\t\t\t<param name="sf" expr="sf" />\n'
+    expected += '\t\t\t\t<param name="bool_sf" expr="bool_sf" />\n'
+    expected += "\t\t\t</send>\n"
     expected += "\t\t</transition>\n"
     expected += '\t\t<transition target="init" event="opt_1" cond="sf==2 &amp;&amp; bool_sf==0">\n'
     expected += '\t\t\t<assign location="rand" expr="Math.random()" />\n'
@@ -104,18 +112,34 @@ def generate_scxml_test_string():
     expected += '\t\t\t\t<assign location="sf" expr="1" />\n'
     expected += '\t\t\t\t<assign location="bool_sf" expr="0" />\n'
     expected += "\t\t\t</if>\n"
+    expected += '\t\t\t<send event="update_datamodel" target="policy">\n'
+    expected += '\t\t\t\t<param name="sf" expr="sf" />\n'
+    expected += '\t\t\t\t<param name="bool_sf" expr="bool_sf" />\n'
+    expected += "\t\t\t</send>\n"
     expected += "\t\t</transition>\n"
     expected += '\t\t<transition target="init" event="opt_2" cond="sf==0 &amp;&amp; bool_sf==0">\n'
     expected += '\t\t\t<assign location="sf" expr="0" />\n'
     expected += '\t\t\t<assign location="bool_sf" expr="1" />\n'
+    expected += '\t\t\t<send event="update_datamodel" target="policy">\n'
+    expected += '\t\t\t\t<param name="sf" expr="sf" />\n'
+    expected += '\t\t\t\t<param name="bool_sf" expr="bool_sf" />\n'
+    expected += "\t\t\t</send>\n"
     expected += "\t\t</transition>\n"
     expected += '\t\t<transition target="init" event="opt_2" cond="sf==1 &amp;&amp; bool_sf==0">\n'
     expected += '\t\t\t<assign location="sf" expr="1" />\n'
     expected += '\t\t\t<assign location="bool_sf" expr="1" />\n'
+    expected += '\t\t\t<send event="update_datamodel" target="policy">\n'
+    expected += '\t\t\t\t<param name="sf" expr="sf" />\n'
+    expected += '\t\t\t\t<param name="bool_sf" expr="bool_sf" />\n'
+    expected += "\t\t\t</send>\n"
     expected += "\t\t</transition>\n"
     expected += '\t\t<transition target="init" event="opt_2" cond="sf==2 &amp;&amp; bool_sf==0">\n'
     expected += '\t\t\t<assign location="sf" expr="2" />\n'
     expected += '\t\t\t<assign location="bool_sf" expr="1" />\n'
+    expected += '\t\t\t<send event="update_datamodel" target="policy">\n'
+    expected += '\t\t\t\t<param name="sf" expr="sf" />\n'
+    expected += '\t\t\t\t<param name="bool_sf" expr="bool_sf" />\n'
+    expected += "\t\t\t</send>\n"
     expected += "\t\t</transition>\n"
     expected += "\t</state>\n"
     expected += "</scxml>"
@@ -423,7 +447,7 @@ class ToSCXMLFileTest(unittest.TestCase):
             initial_state=initial_state,
         )
 
-        semi_mdp.to_scxml_file("test_scxml.scxml", name="test_mdp")
+        semi_mdp.to_scxml_file("test_scxml.scxml", "policy", name="test_mdp")
 
         with open("test_scxml.scxml", "r") as in_file:
             read_scxml = in_file.read()

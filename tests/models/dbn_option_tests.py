@@ -1382,7 +1382,7 @@ class GetSCXMLTransitionsTest(unittest.TestCase):
         tf_f = option.get_transition_prob(state_tf, state_ff)
         tt_f = option.get_transition_prob(state_tt, state_ft)
 
-        scxml_transitions = option.get_scxml_transitions()
+        scxml_transitions = option.get_scxml_transitions(["x", "y", "loc"], "policy")
         self.assertEqual(len(scxml_transitions), 4)
 
         xml_string_1 = "<?xml version='1.0' encoding='utf8'?>\n"
@@ -1393,6 +1393,11 @@ class GetSCXMLTransitionsTest(unittest.TestCase):
         xml_string_1 += "<else />"
         xml_string_1 += '<assign location="x" expr="1" />'
         xml_string_1 += "</if>"
+        xml_string_1 += '<send event="update_datamodel" target="policy">'
+        xml_string_1 += '<param name="x" expr="x" />'
+        xml_string_1 += '<param name="y" expr="y" />'
+        xml_string_1 += '<param name="loc" expr="loc" />'
+        xml_string_1 += "</send>"
         xml_string_1 += "</transition>"
 
         trans_str = et.tostring(scxml_transitions[0], encoding="utf8").decode("utf8")
@@ -1406,6 +1411,11 @@ class GetSCXMLTransitionsTest(unittest.TestCase):
         xml_string_2 += "<else />"
         xml_string_2 += '<assign location="x" expr="1" />'
         xml_string_2 += "</if>"
+        xml_string_2 += '<send event="update_datamodel" target="policy">'
+        xml_string_2 += '<param name="x" expr="x" />'
+        xml_string_2 += '<param name="y" expr="y" />'
+        xml_string_2 += '<param name="loc" expr="loc" />'
+        xml_string_2 += "</send>"
         xml_string_2 += "</transition>"
 
         trans_str = et.tostring(scxml_transitions[1], encoding="utf8").decode("utf8")
@@ -1419,6 +1429,11 @@ class GetSCXMLTransitionsTest(unittest.TestCase):
         xml_string_3 += "<else />"
         xml_string_3 += '<assign location="x" expr="1" />'
         xml_string_3 += "</if>"
+        xml_string_3 += '<send event="update_datamodel" target="policy">'
+        xml_string_3 += '<param name="x" expr="x" />'
+        xml_string_3 += '<param name="y" expr="y" />'
+        xml_string_3 += '<param name="loc" expr="loc" />'
+        xml_string_3 += "</send>"
         xml_string_3 += "</transition>"
 
         trans_str = et.tostring(scxml_transitions[2], encoding="utf8").decode("utf8")
@@ -1432,6 +1447,11 @@ class GetSCXMLTransitionsTest(unittest.TestCase):
         xml_string_4 += "<else />"
         xml_string_4 += '<assign location="x" expr="1" />'
         xml_string_4 += "</if>"
+        xml_string_4 += '<send event="update_datamodel" target="policy">'
+        xml_string_4 += '<param name="x" expr="x" />'
+        xml_string_4 += '<param name="y" expr="y" />'
+        xml_string_4 += '<param name="loc" expr="loc" />'
+        xml_string_4 += "</send>"
         xml_string_4 += "</transition>"
 
         trans_str = et.tostring(scxml_transitions[3], encoding="utf8").decode("utf8")
