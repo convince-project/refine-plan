@@ -8,7 +8,7 @@ If you use this repository, please consider citing:
 @inproceedings{street2025planning,
   title={Planning under Uncertainty from Behaviour Trees},
   author={Street, Charlie and Grubb, Oliver and Mansouri, Masoumeh},
-  booktitle={Under Review},
+  booktitle={Proceedings of the IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
   year={2025}
 }
 ```
