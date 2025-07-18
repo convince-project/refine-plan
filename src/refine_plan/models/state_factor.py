@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-""" Classes for representing state factors in Markov models.
+"""Classes for representing state factors in Markov models.
 
 Author: Charlie Street
 Owner: Charlie Street
 """
+
+import xml.etree.ElementTree as et
 
 
 class StateFactor(object):
@@ -116,7 +118,7 @@ class StateFactor(object):
         if initial_value is not None:
             if not self.is_valid_value(initial_value):
                 raise Exception(
-                    "{} is invalid value for {}".format(initial_value, self.get_name)
+                    "{} is invalid value for {}".format(initial_value, self.get_name())
                 )
 
             prism_str += " init {}".format(self.get_idx(initial_value))
@@ -124,6 +126,28 @@ class StateFactor(object):
         prism_str += ";\n"
 
         return prism_str
+
+    def to_scxml_element(self, initial_value):
+        """Write the state factor out as an SCXML element in the data model.
+
+        Args:
+            initial_value: The initial value of that state factor, if applicable.
+
+        Returns:
+            The SCXML element for this state factor in the data model
+            The PRISM string for this state factor
+
+        Raises:
+            bad_init_exception: Raised if initial_value is not valid value
+        """
+
+        if not self.is_valid_value(initial_value):
+            raise Exception(
+                "{} is invalid value for {}".format(initial_value, self.get_name())
+            )
+
+        init_idx = self.get_idx(initial_value)
+        return et.Element("data", id=self.get_name(), expr=str(init_idx), type="int32")
 
     def __hash__(self):
         """Overwriting so that SFs with equal names, types, and ranges are equal.

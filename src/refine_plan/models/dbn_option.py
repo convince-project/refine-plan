@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-""" Subclass of Option for options represented using dynamic Bayesian networks.
+"""Subclass of Option for options represented using dynamic Bayesian networks.
 
 Author: Charlie Street
 Owner: Charlie Street
@@ -481,13 +481,13 @@ class DBNOption(Option):
 
         posterior.normalize()
 
-    def get_transition_prism_string(self):
-        """Return a PRISM string which captures all transitions for this option.
+    def get_pre_post_cond_pairs(self):
+        """Return a list of (pre, prob_post_cond) pairs from the DBN.
 
         Returns:
-            The transition PRISM string
+            A list of (pre, prob_post_cond) pairs
         """
-        prism_str = ""
+        cond_pairs = []
         inf_eng = gum.LazyPropagation(self._transition_dbn)
 
         ev_vars, pre_iterator, ev_sfs_used = self._get_vals_and_sfs(
@@ -512,14 +512,14 @@ class DBNOption(Option):
             # Check action is enabled and get the enabled condition for this state
             # We need this as during learning, all options were executed only in enabled states
             # We need to capture this here by adding on the 'rest' of the enabled condition
-            pre_state_cond = self._get_prism_guard_for_state(pre_state)
-            if pre_state_cond is None:
+            pre_cond = self._get_prism_guard_for_state(pre_state)
+            if pre_cond is None:
                 continue
 
             inf_eng.setEvidence(evidence)  # Setting evidence for posterior
             posterior = inf_eng.jointPosterior(set(target))
             self._prune_posterior(posterior)
-            post_cond_str = ""
+            prob_post_conds = {}
 
             for next_state_vals in itertools.product(*post_iterator):
                 # Build the successor state object
@@ -536,18 +536,58 @@ class DBNOption(Option):
                 if pre_state == next_state and np.isclose(prob, 1.0):
                     zero_cost_self_loop = np.isclose(self.get_reward(pre_state), 0.0)
                 if not np.isclose(prob, 0.0) and not zero_cost_self_loop:
-                    post_cond_str += "{}:{} + ".format(
-                        posterior.get(instantiation),
-                        next_state.to_and_cond().to_prism_string(is_post_cond=True),
-                    )
+                    post_cond = next_state.to_and_cond()
+                    prob_post_conds[post_cond] = posterior.get(instantiation)
 
-            if post_cond_str != "":  # Only write out if there are valid transitions
-                prism_str += "[{}] {} -> ".format(  # Write precondition to PRISM
-                    self.get_name(), pre_state_cond.to_prism_string()
-                )
-                prism_str += post_cond_str
-                prism_str = prism_str[:-3] + "; \n"  # Remove final " + "
+            if len(prob_post_conds) > 0:  # Only write if valid transitions present
+                cond_pairs.append((pre_cond, prob_post_conds))
             inf_eng.eraseAllEvidence()
+
+        return cond_pairs
+
+    def get_scxml_transitions(self, sf_names, policy_name):
+        """Return a list of SCXML transition elements for this option.
+
+        Args:
+            sf_names: The list of state factor names
+            policy_name: The name of the policy in SCXML
+
+        Returns:
+            A list of SCXML transition elements
+        """
+        transitions = []
+        cond_pairs = self.get_pre_post_cond_pairs()
+        for pair in cond_pairs:
+            pre_cond, prob_post_conds = pair
+            transitions.append(
+                self._build_single_scxml_transition(
+                    pre_cond, prob_post_conds, sf_names, policy_name
+                )
+            )
+
+        return transitions
+
+    def get_transition_prism_string(self):
+        """Return a PRISM string which captures all transitions for this option.
+
+        Returns:
+            The transition PRISM string
+        """
+        prism_str = ""
+        cond_pairs = self.get_pre_post_cond_pairs()
+        for pair in cond_pairs:
+            pre_cond, prob_post_conds = pair
+            prism_str += "[{}] {} -> ".format(  # Write precondition to PRISM
+                self.get_name(), pre_cond.to_prism_string()
+            )
+
+            for post_cond in prob_post_conds:
+                prism_str += "{}:{} + ".format(
+                    prob_post_conds[post_cond],
+                    post_cond.to_prism_string(is_post_cond=True),
+                )
+
+            prism_str = prism_str[:-3] + "; \n"  # Remove final " + "
 
         return prism_str
 

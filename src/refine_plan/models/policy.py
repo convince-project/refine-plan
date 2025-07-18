@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-""" Class for deterministic memoryless policies.
+"""Class for deterministic memoryless policies.
 
 Author: Charlie Street
 Owner: Charlie Street
 """
 
 from refine_plan.models.state_factor import IntStateFactor, BoolStateFactor, StateFactor
+from refine_plan.models.condition import EqCondition
 from refine_plan.models.state import State
+import xml.etree.ElementTree as et
 import yaml
 
 
@@ -176,3 +178,111 @@ class Policy(object):
                     elif key != "action":
                         state_dict[sf_dict[key]] = state_action_pair[key]
                 self._value_dict[State(state_dict)] = value
+
+    def _hierarchical_rep(self):
+        """Convert the policy into a hierarchical representation.
+
+        This produces a nested dictionary where each new level captures
+        a different state factor.
+
+        They keys in the dictionary levels are SCXML conditions.
+
+        Returns:
+            hier_policy: A hierarchical version of the policy
+        """
+
+        sf_list = list(list(self._state_action_dict.keys())[0]._sf_dict.values())
+        hier_policy = {}
+
+        for state in self._state_action_dict:
+            current_hier = hier_policy
+            action = self._state_action_dict[state]
+            if action is not None:
+                for i in range(len(sf_list)):
+                    sf = sf_list[i]
+                    scxml = EqCondition(sf, state[sf.get_name()]).to_scxml_cond()
+                    if scxml not in current_hier:
+                        if i == len(sf_list) - 1:  # At the bottom, add the action
+                            current_hier[scxml] = action
+                        else:
+                            current_hier[scxml] = {}
+                    current_hier = current_hier[scxml]
+
+        return hier_policy
+
+    def _build_up_nested_scxml(self, hier_policy, model_name):
+        """Recursively build up SCXML elements for the policy.
+
+        hier_policy is the nested policy starting from the current depth.
+
+        Args:
+            hier_policy: The nested policy from the current depth
+            model_name: The name of the model actions are executed on
+
+        Returns:
+            scxml_elem: An SCXML element for the hierarchical policy
+        """
+
+        if isinstance(hier_policy, str):  # If an action (base case)
+            return et.Element("send", event=hier_policy, target=model_name)
+        else:  # We need to recurse down the policy
+            scxml_elem = None
+            conds = list(hier_policy.keys())
+            for i in range(len(conds)):
+                if scxml_elem is None:
+                    scxml_elem = et.Element("if", cond=conds[i])
+                else:
+                    # Avoid else catch all as it will give action to invalid states
+                    scxml_elem.append(et.Element("elseif", cond=conds[i]))
+                next_level = hier_policy[conds[i]]
+                scxml_elem.append(self._build_up_nested_scxml(next_level, model_name))
+
+            return scxml_elem
+
+    def to_scxml(self, output_file, model_name, initial_state, name="policy"):
+        """Write the policy out to SCXML for verification.
+
+        Args:
+            output_file: The file to write out to
+            model_name: The name of the model actions are executed on
+            initial_state: The initial state
+            name: The name for the policy in SCXML
+        """
+        # Root of SCXML file
+        scxml = et.Element(
+            "scxml",
+            initial="init",
+            version="1.0",
+            name=name,
+            model_src="",
+            xmlns="http://www.w3.org/2005/07/scxml",
+        )
+
+        # Add in the state factors
+        sf_list = list(list(self._state_action_dict.keys())[0]._sf_dict.values())
+        data_model = et.SubElement(scxml, "datamodel")
+        for sf in sf_list:
+            data_model.append(sf.to_scxml_element(initial_state[sf.get_name()]))
+
+        state_elem = et.SubElement(scxml, "state", id="init")
+        onentry = et.SubElement(state_elem, "onentry")
+
+        hier_policy = self._hierarchical_rep()
+
+        # Recursively build up the nested SCXML if conditions
+        onentry.append(self._build_up_nested_scxml(hier_policy, model_name))
+
+        data_transition = et.SubElement(
+            state_elem, "transition", target="init", event="update_datamodel"
+        )
+        for sf in sf_list:
+            name = sf.get_name()
+            data_transition.append(
+                et.Element("assign", location=name, expr="_event.data.{}".format(name))
+            )
+
+        # Now handle the writing out
+        # Now deal with the writing out
+        xml = et.ElementTree(scxml)
+        et.indent(xml, space="\t", level=0)  # Indent to improve readability
+        xml.write(output_file, encoding="UTF-8", xml_declaration=True)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-""" Unit tests for state_factor.py
+"""Unit tests for state_factor.py
 
 Author: Charlie Street
 Owner: Charlie Street
@@ -40,6 +40,12 @@ class StateFactorTest(unittest.TestCase):
         self.assertEqual(sf.to_prism_string("b"), "sf: [0..2] init 1;\n")
         with self.assertRaises(Exception):
             sf.to_prism_string("d")
+
+        with self.assertRaises(Exception):
+            sf.to_scxml_element(None)
+        scxml_elem = sf.to_scxml_element("b")
+        self.assertEqual(scxml_elem.tag, "data")
+        self.assertEqual(scxml_elem.attrib, {"id": "sf", "expr": "1", "type": "int32"})
 
         self.assertEqual(hash(sf), hash((type(sf), "sf", ("a", "b", "c"))))
         self.assertEqual(sf._hash_val, hash((type(sf), "sf", ("a", "b", "c"))))
@@ -93,6 +99,14 @@ class BoolStateFactorTest(unittest.TestCase):
         self.assertNotEqual(sf, BoolStateFactor("sf_2"))
         self.assertNotEqual(sf, StateFactor("bool_sf", [False, True]))
 
+        with self.assertRaises(Exception):
+            sf.to_scxml_element(None)
+        scxml_elem = sf.to_scxml_element(False)
+        self.assertEqual(scxml_elem.tag, "data")
+        self.assertEqual(
+            scxml_elem.attrib, {"id": "bool_sf", "expr": "0", "type": "int32"}
+        )
+
 
 class IntStateFactorTest(unittest.TestCase):
 
@@ -136,6 +150,14 @@ class IntStateFactorTest(unittest.TestCase):
 
         self.assertEqual(hash(sf), hash((type(sf), "int_sf", (5, 6, 7, 8, 9, 10))))
         self.assertEqual(sf._hash_val, hash((type(sf), "int_sf", (5, 6, 7, 8, 9, 10))))
+
+        with self.assertRaises(Exception):
+            sf.to_scxml_element(None)
+        scxml_elem = sf.to_scxml_element(7)
+        self.assertEqual(scxml_elem.tag, "data")
+        self.assertEqual(
+            scxml_elem.attrib, {"id": "int_sf", "expr": "7", "type": "int32"}
+        )
 
 
 if __name__ == "__main__":

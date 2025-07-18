@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-""" Class for options, which are temporally extended actions.
+"""Class for options, which are temporally extended actions.
 
 Author: Charlie Street
 Owner: Charlie Street
 """
 
+import xml.etree.ElementTree as et
 import numpy as np
 
 
@@ -106,6 +107,93 @@ class Option(object):
                 total_reward += reward
 
         return total_reward
+
+    def _add_datamodel_update_scxml(self, sf_names, policy_name):
+        """Add a generic SCXML block for sending datamodel updates.
+
+        Args:
+            sf_names: The list of state factor names
+            policy_name: The name of the policy in SCXML
+
+        Return:
+            Datamodel update SCXML block
+        """
+        event = et.Element("send", event="update_datamodel", target=policy_name)
+        for sf in sf_names:
+            event.append(et.Element("param", name=sf, expr=sf))
+
+        return event
+
+    def _build_single_scxml_transition(
+        self, pre_cond, prob_post_conds, sf_names, policy_name
+    ):
+        """Build a single SCXML transition given pre and post conds.
+
+        Args:
+            pre_cond: A precondition
+            prob_post_conds: A dictionary from post condition to probability
+            sf_names: The list of state factor names
+            policy_name: The name of the policy in SCXML
+
+        Assumes len(prob_post_conds) >= 1
+
+        Return:
+            An SCXML transition element
+        """
+        scxml_trans = et.Element(
+            "transition",
+            target="init",
+            event=self.get_name(),
+            cond=pre_cond.to_scxml_cond(False),
+        )
+
+        if len(prob_post_conds) == 1:  # If deterministic
+            post_cond = list(prob_post_conds.keys())[0]
+            for cond in post_cond.to_scxml_cond(is_post_cond=True):
+                scxml_trans.append(cond)
+        else:  # Do if else structure
+            rand = et.Element("assign", location="rand", expr="Math.random()")
+            scxml_trans.append(rand)
+            prob_sum = 0.0
+            if_block = None
+            for post_cond in prob_post_conds:
+                prob_sum += prob_post_conds[post_cond]
+                cond_str = "rand <= {}".format(prob_sum)
+                if if_block is None:
+                    if_block = et.Element("if", cond=cond_str)
+                elif np.isclose(prob_sum, 1):
+                    if_block.append(et.Element("else"))
+                else:
+                    if_block.append(et.Element("elseif", cond=cond_str))
+
+                for cond in post_cond.to_scxml_cond(is_post_cond=True):
+                    if_block.append(cond)
+            scxml_trans.append(if_block)
+
+        scxml_trans.append(self._add_datamodel_update_scxml(sf_names, policy_name))
+
+        return scxml_trans
+
+    def get_scxml_transitions(self, sf_names, policy_name):
+        """Return a list of SCXML transition elements for this option.
+
+        Args:
+            sf_names: The list of state factor names
+            policy_name: The name of the policy in SCXML
+
+        Returns:
+            A list of SCXML transition elements
+        """
+        transitions = []
+
+        for trans in self._transition_list:
+            pre_cond, prob_post_conds = trans
+            scxml_trans = self._build_single_scxml_transition(
+                pre_cond, prob_post_conds, sf_names, policy_name
+            )
+            transitions.append(scxml_trans)
+
+        return transitions
 
     def get_transition_prism_string(self):
         """Return a PRISM string which captures all transitions for this option.

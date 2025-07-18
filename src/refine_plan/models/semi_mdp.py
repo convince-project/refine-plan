@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-""" Class for semi-MDP based on options.
+"""Class for semi-MDP based on options.
 
 Author: Charlie Street
 Owner: Charlie Street
 """
 
+import xml.etree.ElementTree as et
 from datetime import datetime
 
 
@@ -93,6 +94,51 @@ class SemiMDP(object):
             raise Exception("{} is an invalid option".format(option.get_name()))
 
         return self._options[option].get_reward(state)
+
+    def to_scxml_file(self, output_file, policy_name, name="mdp"):
+        """Convert the semi-MDP into an SCXML file for use with SCAN.
+
+        Args:
+            output_file: The file path for the SCXML file
+            policy_name: The SCXML name for the policy (needed for comms)
+            name: Optional. The name of the MDP
+        """
+        # Root of SCXML file
+        scxml = et.Element(
+            "scxml",
+            initial="init",
+            version="1.0",
+            name=name,
+            model_src="",
+            xmlns="http://www.w3.org/2005/07/scxml",
+        )
+
+        # Add in the state factors
+        data_model = et.SubElement(scxml, "datamodel")
+
+        # For the SCXML file our semi-MDP needs an initial state
+        assert self._initial_state is not None
+        for sf in self._state_factors:
+            data_model.append(
+                self._state_factors[sf].to_scxml_element(self._initial_state[sf])
+            )
+
+        # Add rand state factor
+        data_model.append(et.Element("data", id="rand", expr="0", type="float64"))
+
+        # Add transitions
+        state = et.SubElement(scxml, "state", id="init")
+        sf_names = list(self._state_factors.keys())
+        for option in self._options:
+            for trans in self._options[option].get_scxml_transitions(
+                sf_names, policy_name
+            ):
+                state.append(trans)
+
+        # Now deal with the writing out
+        xml = et.ElementTree(scxml)
+        et.indent(xml, space="\t", level=0)  # Indent to improve readability
+        xml.write(output_file, encoding="UTF-8", xml_declaration=True)
 
     def to_prism_string(self, output_file=None):
         """Convert the semi-MDP into a PRISM model.

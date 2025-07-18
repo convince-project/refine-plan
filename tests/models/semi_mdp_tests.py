@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-""" Unit tests for semi_mdp.py.
+"""Unit tests for semi_mdp.py.
 
 Author: Charlie Street
 Owner: Charlie Street
@@ -13,6 +13,7 @@ from refine_plan.models.state import State
 from datetime import datetime
 import numpy as np
 import unittest
+import os
 
 
 def generate_prism_test_string(add_initial_state=False):
@@ -60,6 +61,88 @@ def generate_prism_test_string(add_initial_state=False):
 
     if not add_initial_state:
         expected += "\ninit true endinit\n"
+
+    return expected
+
+
+def generate_scxml_test_string():
+
+    expected = "<?xml version='1.0' encoding='UTF-8'?>\n"
+    expected += '<scxml initial="init" version="1.0" name="test_mdp" model_src="" xmlns="http://www.w3.org/2005/07/scxml">\n'
+    expected += "\t<datamodel>\n"
+    expected += '\t\t<data id="sf" expr="1" type="int32" />\n'
+    expected += '\t\t<data id="bool_sf" expr="1" type="int32" />\n'
+    expected += '\t\t<data id="rand" expr="0" type="float64" />\n'
+    expected += "\t</datamodel>\n"
+    expected += '\t<state id="init">\n'
+    expected += '\t\t<transition target="init" event="opt_1" cond="sf==0 &amp;&amp; bool_sf==0">\n'
+    expected += '\t\t\t<assign location="rand" expr="Math.random()" />\n'
+    expected += '\t\t\t<if cond="rand &lt;= 0.6">\n'
+    expected += '\t\t\t\t<assign location="sf" expr="1" />\n'
+    expected += '\t\t\t\t<assign location="bool_sf" expr="0" />\n'
+    expected += "\t\t\t\t<else />\n"
+    expected += '\t\t\t\t<assign location="sf" expr="2" />\n'
+    expected += '\t\t\t\t<assign location="bool_sf" expr="0" />\n'
+    expected += "\t\t\t</if>\n"
+    expected += '\t\t\t<send event="update_datamodel" target="policy">\n'
+    expected += '\t\t\t\t<param name="sf" expr="sf" />\n'
+    expected += '\t\t\t\t<param name="bool_sf" expr="bool_sf" />\n'
+    expected += "\t\t\t</send>\n"
+    expected += "\t\t</transition>\n"
+    expected += '\t\t<transition target="init" event="opt_1" cond="sf==1 &amp;&amp; bool_sf==0">\n'
+    expected += '\t\t\t<assign location="rand" expr="Math.random()" />\n'
+    expected += '\t\t\t<if cond="rand &lt;= 0.3">\n'
+    expected += '\t\t\t\t<assign location="sf" expr="0" />\n'
+    expected += '\t\t\t\t<assign location="bool_sf" expr="0" />\n'
+    expected += "\t\t\t\t<else />\n"
+    expected += '\t\t\t\t<assign location="sf" expr="2" />\n'
+    expected += '\t\t\t\t<assign location="bool_sf" expr="0" />\n'
+    expected += "\t\t\t</if>\n"
+    expected += '\t\t\t<send event="update_datamodel" target="policy">\n'
+    expected += '\t\t\t\t<param name="sf" expr="sf" />\n'
+    expected += '\t\t\t\t<param name="bool_sf" expr="bool_sf" />\n'
+    expected += "\t\t\t</send>\n"
+    expected += "\t\t</transition>\n"
+    expected += '\t\t<transition target="init" event="opt_1" cond="sf==2 &amp;&amp; bool_sf==0">\n'
+    expected += '\t\t\t<assign location="rand" expr="Math.random()" />\n'
+    expected += '\t\t\t<if cond="rand &lt;= 0.5">\n'
+    expected += '\t\t\t\t<assign location="sf" expr="0" />\n'
+    expected += '\t\t\t\t<assign location="bool_sf" expr="0" />\n'
+    expected += "\t\t\t\t<else />\n"
+    expected += '\t\t\t\t<assign location="sf" expr="1" />\n'
+    expected += '\t\t\t\t<assign location="bool_sf" expr="0" />\n'
+    expected += "\t\t\t</if>\n"
+    expected += '\t\t\t<send event="update_datamodel" target="policy">\n'
+    expected += '\t\t\t\t<param name="sf" expr="sf" />\n'
+    expected += '\t\t\t\t<param name="bool_sf" expr="bool_sf" />\n'
+    expected += "\t\t\t</send>\n"
+    expected += "\t\t</transition>\n"
+    expected += '\t\t<transition target="init" event="opt_2" cond="sf==0 &amp;&amp; bool_sf==0">\n'
+    expected += '\t\t\t<assign location="sf" expr="0" />\n'
+    expected += '\t\t\t<assign location="bool_sf" expr="1" />\n'
+    expected += '\t\t\t<send event="update_datamodel" target="policy">\n'
+    expected += '\t\t\t\t<param name="sf" expr="sf" />\n'
+    expected += '\t\t\t\t<param name="bool_sf" expr="bool_sf" />\n'
+    expected += "\t\t\t</send>\n"
+    expected += "\t\t</transition>\n"
+    expected += '\t\t<transition target="init" event="opt_2" cond="sf==1 &amp;&amp; bool_sf==0">\n'
+    expected += '\t\t\t<assign location="sf" expr="1" />\n'
+    expected += '\t\t\t<assign location="bool_sf" expr="1" />\n'
+    expected += '\t\t\t<send event="update_datamodel" target="policy">\n'
+    expected += '\t\t\t\t<param name="sf" expr="sf" />\n'
+    expected += '\t\t\t\t<param name="bool_sf" expr="bool_sf" />\n'
+    expected += "\t\t\t</send>\n"
+    expected += "\t\t</transition>\n"
+    expected += '\t\t<transition target="init" event="opt_2" cond="sf==2 &amp;&amp; bool_sf==0">\n'
+    expected += '\t\t\t<assign location="sf" expr="2" />\n'
+    expected += '\t\t\t<assign location="bool_sf" expr="1" />\n'
+    expected += '\t\t\t<send event="update_datamodel" target="policy">\n'
+    expected += '\t\t\t\t<param name="sf" expr="sf" />\n'
+    expected += '\t\t\t\t<param name="bool_sf" expr="bool_sf" />\n'
+    expected += "\t\t\t</send>\n"
+    expected += "\t\t</transition>\n"
+    expected += "\t</state>\n"
+    expected += "</scxml>"
 
     return expected
 
@@ -290,6 +373,87 @@ class PRISMStringTest(unittest.TestCase):
         prism_str = semi_mdp.to_prism_string()
         expected = generate_prism_test_string(add_initial_state=True)
         self.assertEqual(prism_str, expected)
+
+
+class ToSCXMLFileTest(unittest.TestCase):
+
+    def test_function(self):
+
+        sf_1 = StateFactor("sf", ["a", "b", "c"])
+        sf_2 = BoolStateFactor("bool_sf")
+
+        state_1 = State({sf_1: "a", sf_2: False})
+        state_2 = State({sf_1: "a", sf_2: True})
+        state_3 = State({sf_1: "b", sf_2: False})
+        state_4 = State({sf_1: "b", sf_2: True})
+        state_5 = State({sf_1: "c", sf_2: False})
+        state_6 = State({sf_1: "c", sf_2: True})
+
+        opt_1 = Option(
+            "opt_1",
+            [
+                (
+                    state_1.to_and_cond(),
+                    {state_3.to_and_cond(): 0.6, state_5.to_and_cond(): 0.4},
+                ),
+                (
+                    state_3.to_and_cond(),
+                    {state_1.to_and_cond(): 0.3, state_5.to_and_cond(): 0.7},
+                ),
+                (
+                    state_5.to_and_cond(),
+                    {state_1.to_and_cond(): 0.5, state_3.to_and_cond(): 0.5},
+                ),
+            ],
+            [
+                (state_1.to_and_cond(), 1),
+                (state_3.to_and_cond(), 3),
+                (state_5.to_and_cond(), 5),
+            ],
+        )
+
+        opt_2 = Option(
+            "opt_2",
+            [
+                (
+                    state_1.to_and_cond(),
+                    {state_2.to_and_cond(): 1.0},
+                ),
+                (
+                    state_3.to_and_cond(),
+                    {state_4.to_and_cond(): 1.0},
+                ),
+                (
+                    state_5.to_and_cond(),
+                    {state_6.to_and_cond(): 1.0},
+                ),
+            ],
+            [
+                (state_1.to_and_cond(), 10),
+                (state_3.to_and_cond(), 15),
+                (state_5.to_and_cond(), 20),
+            ],
+        )
+
+        label_1 = Label("label_1", EqCondition(sf_2, True))
+        label_2 = Label("label_2", EqCondition(sf_1, "c"))
+
+        initial_state = State({sf_1: "b", sf_2: True})
+
+        semi_mdp = SemiMDP(
+            [sf_1, sf_2],
+            [opt_1, opt_2],
+            [label_1, label_2],
+            initial_state=initial_state,
+        )
+
+        semi_mdp.to_scxml_file("test_scxml.scxml", "policy", name="test_mdp")
+
+        with open("test_scxml.scxml", "r") as in_file:
+            read_scxml = in_file.read()
+            self.assertEqual(read_scxml, generate_scxml_test_string())
+
+        os.remove("test_scxml.scxml")
 
 
 if __name__ == "__main__":
