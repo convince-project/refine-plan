@@ -493,9 +493,7 @@ class DBNOption(Option):
         ev_vars, pre_iterator, ev_sfs_used = self._get_vals_and_sfs(
             self._transition_dbn, "0"
         )
-        target, post_iterator, target_sfs_used = self._get_vals_and_sfs(
-            self._transition_dbn, "t"
-        )
+        target, _, trg_sfs_used = self._get_vals_and_sfs(self._transition_dbn, "t")
 
         inf_eng.addJointTarget(set(target))
         instantiation = gum.Instantiation()
@@ -519,23 +517,28 @@ class DBNOption(Option):
             inf_eng.setEvidence(evidence)  # Setting evidence for posterior
             posterior = inf_eng.jointPosterior(set(target))
             self._prune_posterior(posterior)
+            # Get all states with non-zero probabilities
+            non_zeros = posterior.isNonZeroMap().findAll(1.0)
             prob_post_conds = {}
 
-            for next_state_vals in itertools.product(*post_iterator):
+            for next_state_vals in non_zeros:
                 # Build the successor state object
-                next_state_dict, inst_dict = {}, {}
-                for i in range(len(next_state_vals)):
-                    next_state_dict[target_sfs_used[i]] = next_state_vals[i]
-                    inst_dict[target[i]] = str(next_state_vals[i])
+                next_state_dict = {}
+                for sf in trg_sfs_used:
+                    var = "{}t".format(sf.get_name())
+                    label_as_str = self._transition_dbn[var].label(next_state_vals[var])
+                    sf_val = self._str_to_sf_vals([[label_as_str]], [sf])[0][0]
+                    next_state_dict[sf] = sf_val
+
                 next_state = State(next_state_dict)
 
-                instantiation.fromdict(inst_dict)
+                instantiation.fromdict(next_state_vals)
                 prob = posterior.get(instantiation)
                 zero_cost_self_loop = False
                 # Remove zero cost self loops for Storm (correspond to non-enabled actions)
                 if pre_state == next_state and np.isclose(prob, 1.0):
                     zero_cost_self_loop = np.isclose(self.get_reward(pre_state), 0.0)
-                if not np.isclose(prob, 0.0) and not zero_cost_self_loop:
+                if not zero_cost_self_loop:
                     post_cond = next_state.to_and_cond()
                     prob_post_conds[post_cond] = posterior.get(instantiation)
 
