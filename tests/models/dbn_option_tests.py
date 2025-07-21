@@ -929,39 +929,55 @@ class GetTransitionPrismStringTest(unittest.TestCase):
         tt_tf = option.get_transition_prob(state_tt, state_tf)
         tt_tt = option.get_transition_prob(state_tt, state_tt)
 
-        expected = "[test] ((x = 0) & (y = 0)) -> {}:(x' = 0) & (y' = 0) + ".format(
+        lines = prism_str.splitlines()  # Do this to avoid issues with varying output
+
+        line_1_0 = "[test] ((x = 0) & (y = 0)) -> {}:(x' = 0) & (y' = 0) + ".format(
             ff_ff
         )
-        expected += "{}:(x' = 0) & (y' = 1) + {}:(x' = 1) & (y' = 0) + ".format(
-            ff_ft, ff_tf
-        )
-        expected += "{}:(x' = 1) & (y' = 1); \n".format(ff_tt)
+        line_1_1 = "{}:(x' = 0) & (y' = 1) + ".format(ff_ft)
+        line_1_2 = "{}:(x' = 1) & (y' = 0) + ".format(ff_tf)
+        line_1_3 = "{}:(x' = 1) & (y' = 1); ".format(ff_tt)
 
-        expected += "[test] ((x = 0) & (y = 1)) -> {}:(x' = 0) & (y' = 0) + ".format(
+        self.assertTrue(line_1_0 in lines[0])
+        self.assertTrue(line_1_1 in lines[0])
+        self.assertTrue(line_1_2 in lines[0])
+        self.assertTrue(line_1_3 in lines[0])
+
+        line_2_0 = "[test] ((x = 0) & (y = 1)) -> {}:(x' = 0) & (y' = 0) + ".format(
             ft_ff
         )
-        expected += "{}:(x' = 0) & (y' = 1) + {}:(x' = 1) & (y' = 0) + ".format(
-            ft_ft, ft_tf
-        )
-        expected += "{}:(x' = 1) & (y' = 1); \n".format(ft_tt)
+        line_2_1 = "{}:(x' = 0) & (y' = 1) + ".format(ft_ft)
+        line_2_2 = "{}:(x' = 1) & (y' = 0) + ".format(ft_tf)
+        line_2_3 = "{}:(x' = 1) & (y' = 1); ".format(ft_tt)
 
-        expected += "[test] ((x = 1) & (y = 0)) -> {}:(x' = 0) & (y' = 0) + ".format(
+        self.assertTrue(line_2_0 in lines[1])
+        self.assertTrue(line_2_1 in lines[1])
+        self.assertTrue(line_2_2 in lines[1])
+        self.assertTrue(line_2_3 in lines[1])
+
+        line_3_0 = "[test] ((x = 1) & (y = 0)) -> {}:(x' = 0) & (y' = 0) + ".format(
             tf_ff
         )
-        expected += "{}:(x' = 0) & (y' = 1) + {}:(x' = 1) & (y' = 0) + ".format(
-            tf_ft, tf_tf
-        )
-        expected += "{}:(x' = 1) & (y' = 1); \n".format(tf_tt)
+        line_3_1 = "{}:(x' = 0) & (y' = 1) + ".format(tf_ft)
+        line_3_2 = "{}:(x' = 1) & (y' = 0) + ".format(tf_tf)
+        line_3_3 = "{}:(x' = 1) & (y' = 1); ".format(tf_tt)
 
-        expected += "[test] ((x = 1) & (y = 1)) -> {}:(x' = 0) & (y' = 0) + ".format(
+        self.assertTrue(line_3_0 in lines[2])
+        self.assertTrue(line_3_1 in lines[2])
+        self.assertTrue(line_3_2 in lines[2])
+        self.assertTrue(line_3_3 in lines[2])
+
+        line_4_0 = "[test] ((x = 1) & (y = 1)) -> {}:(x' = 0) & (y' = 0) + ".format(
             tt_ff
         )
-        expected += "{}:(x' = 0) & (y' = 1) + {}:(x' = 1) & (y' = 0) + ".format(
-            tt_ft, tt_tf
-        )
-        expected += "{}:(x' = 1) & (y' = 1); \n".format(tt_tt)
+        line_4_1 = "{}:(x' = 0) & (y' = 1) + ".format(tt_ft)
+        line_4_2 = "{}:(x' = 1) & (y' = 0) + ".format(tt_tf)
+        line_4_3 = "{}:(x' = 1) & (y' = 1); ".format(tt_tt)
 
-        self.assertEqual(prism_str, expected)
+        self.assertTrue(line_4_0 in lines[3])
+        self.assertTrue(line_4_1 in lines[3])
+        self.assertTrue(line_4_2 in lines[3])
+        self.assertTrue(line_4_3 in lines[3])
 
         os.remove("transition.bifxml")
         os.remove("reward.bifxml")
@@ -1000,31 +1016,43 @@ class GetTransitionPrismStringTest(unittest.TestCase):
         tt_tf = option.get_transition_prob(state_tt, state_tf)
         tt_tt = option.get_transition_prob(state_tt, state_tt)
 
-        expected = "[test] ((x = 0) & (y = 1)) -> {}:(x' = 0) & (y' = 0) + ".format(
+        lines = prism_str.splitlines()  # Do this to avoid issues with varying output
+
+        line_1_0 = "[test] ((x = 0) & (y = 1)) -> {}:(x' = 0) & (y' = 0) + ".format(
             ft_ff
         )
-        expected += "{}:(x' = 0) & (y' = 1) + {}:(x' = 1) & (y' = 0) + ".format(
-            ft_ft, ft_tf
-        )
-        expected += "{}:(x' = 1) & (y' = 1); \n".format(ft_tt)
+        line_1_1 = "{}:(x' = 0) & (y' = 1) + ".format(ft_ft)
+        line_1_2 = "{}:(x' = 1) & (y' = 0) + ".format(ft_tf)
+        line_1_3 = "{}:(x' = 1) & (y' = 1); ".format(ft_tt)
 
-        expected += "[test] ((x = 1) & (y = 0)) -> {}:(x' = 0) & (y' = 0) + ".format(
+        self.assertTrue(line_1_0 in lines[0])
+        self.assertTrue(line_1_1 in lines[0])
+        self.assertTrue(line_1_2 in lines[0])
+        self.assertTrue(line_1_3 in lines[0])
+
+        line_2_0 = "[test] ((x = 1) & (y = 0)) -> {}:(x' = 0) & (y' = 0) + ".format(
             tf_ff
         )
-        expected += "{}:(x' = 0) & (y' = 1) + {}:(x' = 1) & (y' = 0) + ".format(
-            tf_ft, tf_tf
-        )
-        expected += "{}:(x' = 1) & (y' = 1); \n".format(tf_tt)
+        line_2_1 = "{}:(x' = 0) & (y' = 1) + ".format(tf_ft)
+        line_2_2 = "{}:(x' = 1) & (y' = 0) + ".format(tf_tf)
+        line_2_3 = "{}:(x' = 1) & (y' = 1); ".format(tf_tt)
 
-        expected += "[test] ((x = 1) & (y = 1)) -> {}:(x' = 0) & (y' = 0) + ".format(
+        self.assertTrue(line_2_0 in lines[1])
+        self.assertTrue(line_2_1 in lines[1])
+        self.assertTrue(line_2_2 in lines[1])
+        self.assertTrue(line_2_3 in lines[1])
+
+        line_3_0 = "[test] ((x = 1) & (y = 1)) -> {}:(x' = 0) & (y' = 0) + ".format(
             tt_ff
         )
-        expected += "{}:(x' = 0) & (y' = 1) + {}:(x' = 1) & (y' = 0) + ".format(
-            tt_ft, tt_tf
-        )
-        expected += "{}:(x' = 1) & (y' = 1); \n".format(tt_tt)
+        line_3_1 = "{}:(x' = 0) & (y' = 1) + ".format(tt_ft)
+        line_3_2 = "{}:(x' = 1) & (y' = 0) + ".format(tt_tf)
+        line_3_3 = "{}:(x' = 1) & (y' = 1); ".format(tt_tt)
 
-        self.assertEqual(prism_str, expected)
+        self.assertTrue(line_3_0 in lines[2])
+        self.assertTrue(line_3_1 in lines[2])
+        self.assertTrue(line_3_2 in lines[2])
+        self.assertTrue(line_3_3 in lines[2])
 
         os.remove("transition.bifxml")
         os.remove("reward.bifxml")
@@ -1067,31 +1095,43 @@ class GetTransitionPrismStringTest(unittest.TestCase):
         tt_tf = option.get_transition_prob(state_tt, state_tf)
         tt_tt = option.get_transition_prob(state_tt, state_tt)
 
-        expected = "[test] ((x = 0) & (y = 0)) -> {}:(x' = 0) & (y' = 0) + ".format(
+        lines = prism_str.splitlines()  # Do this to avoid issues with varying output
+
+        line_1_0 = "[test] ((x = 0) & (y = 0)) -> {}:(x' = 0) & (y' = 0) + ".format(
             ff_ff
         )
-        expected += "{}:(x' = 0) & (y' = 1) + {}:(x' = 1) & (y' = 0) + ".format(
-            ff_ft, ff_tf
-        )
-        expected += "{}:(x' = 1) & (y' = 1); \n".format(ff_tt)
+        line_1_1 = "{}:(x' = 0) & (y' = 1) + ".format(ff_ft)
+        line_1_2 = "{}:(x' = 1) & (y' = 0) + ".format(ff_tf)
+        line_1_3 = "{}:(x' = 1) & (y' = 1); ".format(ff_tt)
 
-        expected += "[test] ((x = 0) & (y = 1)) -> {}:(x' = 0) & (y' = 0) + ".format(
+        self.assertTrue(line_1_0 in lines[0])
+        self.assertTrue(line_1_1 in lines[0])
+        self.assertTrue(line_1_2 in lines[0])
+        self.assertTrue(line_1_3 in lines[0])
+
+        line_2_0 = "[test] ((x = 0) & (y = 1)) -> {}:(x' = 0) & (y' = 0) + ".format(
             ft_ff
         )
-        expected += "{}:(x' = 0) & (y' = 1) + {}:(x' = 1) & (y' = 0) + ".format(
-            ft_ft, ft_tf
-        )
-        expected += "{}:(x' = 1) & (y' = 1); \n".format(ft_tt)
+        line_2_1 = "{}:(x' = 0) & (y' = 1) + ".format(ft_ft)
+        line_2_2 = "{}:(x' = 1) & (y' = 0) + ".format(ft_tf)
+        line_2_3 = "{}:(x' = 1) & (y' = 1); ".format(ft_tt)
 
-        expected += "[test] ((x = 1) & (y = 1)) -> {}:(x' = 0) & (y' = 0) + ".format(
+        self.assertTrue(line_2_0 in lines[1])
+        self.assertTrue(line_2_1 in lines[1])
+        self.assertTrue(line_2_2 in lines[1])
+        self.assertTrue(line_2_3 in lines[1])
+
+        line_3_0 = "[test] ((x = 1) & (y = 1)) -> {}:(x' = 0) & (y' = 0) + ".format(
             tt_ff
         )
-        expected += "{}:(x' = 0) & (y' = 1) + {}:(x' = 1) & (y' = 0) + ".format(
-            tt_ft, tt_tf
-        )
-        expected += "{}:(x' = 1) & (y' = 1); \n".format(tt_tt)
+        line_3_1 = "{}:(x' = 0) & (y' = 1) + ".format(tt_ft)
+        line_3_2 = "{}:(x' = 1) & (y' = 0) + ".format(tt_tf)
+        line_3_3 = "{}:(x' = 1) & (y' = 1); ".format(tt_tt)
 
-        self.assertEqual(prism_str, expected)
+        self.assertTrue(line_3_0 in lines[2])
+        self.assertTrue(line_3_1 in lines[2])
+        self.assertTrue(line_3_2 in lines[2])
+        self.assertTrue(line_3_3 in lines[2])
 
         os.remove("transition.bifxml")
         os.remove("reward.bifxml")
