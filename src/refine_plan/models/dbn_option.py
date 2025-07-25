@@ -50,6 +50,8 @@ class DBNOption(Option):
         sf_list,
         enabled_cond,
         prune_dists=True,
+        transition_dbn=None,
+        reward_dbn=None,
     ):
         """Initialise attributes.
 
@@ -60,10 +62,20 @@ class DBNOption(Option):
             sf_list: The list of state factors that make up the state space
             enabled_cond: A Condition which captures the states where this option is enabled
             prune_dists: If True, remove small probs in transition DBN and renormalise
+            transition_dbn: If set, use an existing DBN rather than that at transition_dbn_path
+            reward_dbn: If set, use an existing BN rather than that at reward_dbn_path
         """
         super(DBNOption, self).__init__(name, [], [])
-        self._transition_dbn = gum.loadBN(transition_dbn_path)
-        self._reward_dbn = gum.loadBN(reward_dbn_path)
+        if transition_dbn is None:
+            self._transition_dbn = gum.loadBN(transition_dbn_path)
+        else:
+            self._transition_dbn = transition_dbn
+            assert isinstance(self._transition_dbn, gum.pyAgrum.BayesNet)
+        if reward_dbn is None:
+            self._reward_dbn = gum.loadBN(reward_dbn_path)
+        else:
+            self._reward_dbn = reward_dbn
+            assert isinstance(self._reward_dbn, gum.pyAgrum.BayesNet)
         self._sf_list = sf_list
         assert enabled_cond.is_pre_cond()
         self._enabled_cond = enabled_cond

@@ -96,6 +96,43 @@ class ConstructorTest(unittest.TestCase):
         os.remove("transition.bifxml")
         os.remove("reward.bifxml")
 
+    def test_with_existing_bns(self):
+        create_two_bns()
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+
+        option = DBNOption(
+            "test",
+            None,
+            None,
+            sf_list,
+            TrueCondition(),
+            True,
+            gum.loadBN("transition.bifxml"),
+            gum.loadBN("reward.bifxml"),
+        )
+
+        self.assertEqual(option.get_name(), "test")
+        self.assertEqual(option._sf_list, sf_list)
+        self.assertEqual(option._transition_dbn, gum.loadBN("transition.bifxml"))
+        self.assertEqual(option._reward_dbn, gum.loadBN("reward.bifxml"))
+        self.assertTrue(option._enabled_cond.is_satisfied("state"))
+
+        os.remove("transition.bifxml")
+        os.remove("reward.bifxml")
+
+        with self.assertRaises(Exception):
+            DBNOption(
+                "test",
+                None,
+                None,
+                sf_list,
+                TrueCondition(),
+                True,
+                "bad",
+                3,
+            )
+
 
 class CheckValidDBNsTest(unittest.TestCase):
 
