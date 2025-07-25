@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-""" Functions for processing datsets and learning DBNs.
+"""Functions for processing datsets and learning DBNs.
 
 Author: Charlie Street
 Owner: Charlie Street
@@ -13,24 +13,24 @@ import yaml
 import os
 
 
-def _initialise_dict_for_option(yaml_dict, option, sf_list):
+def _initialise_dict_for_option(dataset_dict, option, sf_list):
     """Initialise a yaml dataset dict for a new option.
 
     Args:
-        yaml_dict: The dictionary with the dataset to be written to yaml
+        dataset_dict: The dictionary with the dataset
         option: The option we're initialising for
         sf_list: The list state factors we expect to see in the Mongo DB
     """
-    yaml_dict[option] = {"transition": {}, "reward": {}}
+    dataset_dict[option] = {"transition": {}, "reward": {}}
     for sf in sf_list:
         sf_name = sf.get_name()
         sf_0_name = "{}0".format(sf_name)
         sf_t_name = "{}t".format(sf_name)
-        yaml_dict[option]["transition"][sf_0_name] = []
-        yaml_dict[option]["transition"][sf_t_name] = []
-        yaml_dict[option]["reward"][sf_name] = []
+        dataset_dict[option]["transition"][sf_0_name] = []
+        dataset_dict[option]["transition"][sf_t_name] = []
+        dataset_dict[option]["reward"][sf_name] = []
 
-    yaml_dict[option]["reward"]["r"] = []
+    dataset_dict[option]["reward"]["r"] = []
 
 
 def _is_zero_cost_loop(doc, sf_list):
@@ -59,7 +59,50 @@ def _is_zero_cost_loop(doc, sf_list):
     return True
 
 
-def mongodb_to_yaml(connection_str, db_name, collection_name, sf_list, out_file):
+def mongodb_to_dict(connection_str, db_name, collection_name, sf_list, query={}):
+    """Process a mongodb collection into a dictionary for learning.
+
+    Args:
+        connection_str: The mongodb connection string
+        db_name: The Mongo database name
+        collection_name: The collection within the database
+        sf_list: The list of state factors to expect in the MongoDB
+        out_file: The path for the yaml file
+        query: A query to filter the documents that get collected
+
+    Returns:
+        dataset_dict: The dataset from mongodb into a pyAgrum format dictionary
+    """
+    client = MongoClient(connection_str)
+    collection = client[db_name][collection_name]
+
+    dataset_dict = {}
+
+    # Search through all documents
+    for doc in collection.find(query):
+        if _is_zero_cost_loop(doc, sf_list):
+            continue
+        option = doc["option"]
+        if option not in dataset_dict:
+            _initialise_dict_for_option(dataset_dict, option, sf_list)
+
+        for sf in sf_list:
+            sf_name = sf.get_name()
+            sf_0_name = "{}0".format(sf_name)
+            sf_t_name = "{}t".format(sf_name)
+            dataset_dict[option]["transition"][sf_0_name].append(doc[sf_0_name])
+            dataset_dict[option]["transition"][sf_t_name].append(doc[sf_t_name])
+            dataset_dict[option]["reward"][sf_name].append(doc[sf_0_name])
+
+        # Round durations to integers for the sake of feeding into the DBN
+        dataset_dict[option]["reward"]["r"].append(round(doc["duration"]))
+
+    return dataset_dict
+
+
+def mongodb_to_yaml(
+    connection_str, db_name, collection_name, sf_list, out_file, query={}
+):
     """Processes a mongodb collection into a yaml dataset for DBN learning.
 
     Args:
@@ -68,32 +111,12 @@ def mongodb_to_yaml(connection_str, db_name, collection_name, sf_list, out_file)
         collection_name: The collection within the database
         sf_list: The list of state factors to expect in the MongoDB
         out_file: The path for the yaml file
+        query: A query to filter the documents that get collected
     """
 
-    client = MongoClient(connection_str)
-
-    yaml_dict = {}
-
-    collection = client[db_name][collection_name]
-
-    # Search through all documents
-    for doc in collection.find({}):
-        if _is_zero_cost_loop(doc, sf_list):
-            continue
-        option = doc["option"]
-        if option not in yaml_dict:
-            _initialise_dict_for_option(yaml_dict, option, sf_list)
-
-        for sf in sf_list:
-            sf_name = sf.get_name()
-            sf_0_name = "{}0".format(sf_name)
-            sf_t_name = "{}t".format(sf_name)
-            yaml_dict[option]["transition"][sf_0_name].append(doc[sf_0_name])
-            yaml_dict[option]["transition"][sf_t_name].append(doc[sf_t_name])
-            yaml_dict[option]["reward"][sf_name].append(doc[sf_0_name])
-
-        # Round durations to integers for the sake of feeding into the DBN
-        yaml_dict[option]["reward"]["r"].append(round(doc["duration"]))
+    yaml_dict = mongodb_to_dict(
+        connection_str, db_name, collection_name, sf_list, query=query
+    )
 
     # Write dataset to yaml
     with open(out_file, "w") as yaml_out:
@@ -277,6 +300,42 @@ def _remove_edgeless_vars(bn, sf_list, is_transition_dbn):
             bn.erase(var_name)
 
 
+def learn_bns_for_one_option(option_dataset, sf_list):
+    """Learn a transition DBN and a reward BN for a single option.
+
+    This function is slightly different to learn_dbns.
+    learn_dbns is the general recommended function, but this function allows
+    for one option model to be learned without reading or writing anything.
+    It's intended use is for updating models online for exploration.
+
+    The dataset should be a dictionary with two keys: 'transition' and 'reward'.
+    In 'transition' there should be a dictionary with keys sf0 and sft for each
+    state factor sf. At each of these keys is a list of data. In 'reward' there
+    should be a dictionary with keys sf for each state factor sf, and
+    'r' to represent the reward. At each of these keys is a list of data.
+
+    Args:
+        option_dataset: A dictionary containing the dataset for this option
+        sf_list: The list of state factors we expect to see in the dataset
+
+    Returns:
+        The DBN for the transition function and the BN for the reward function
+    """
+
+    wrapper = {"option": option_dataset}
+    _check_dataset(wrapper, sf_list)
+    wrapper = _remove_unchanging_vars(wrapper, sf_list)
+    wrapper = _dataset_vals_to_str(wrapper)
+
+    trans_learner, reward_learner = _setup_learners(wrapper["option"], sf_list)
+    trans_bn = trans_learner.learnBN()
+    _remove_edgeless_vars(trans_bn, sf_list, True)
+    reward_bn = reward_learner.learnBN()
+    _remove_edgeless_vars(reward_bn, sf_list, False)
+
+    return trans_bn, reward_bn
+
+
 def learn_dbns(dataset_path, output_dir, sf_list):
     """Learn a set of DBNs representing options.
 
@@ -284,7 +343,7 @@ def learn_dbns(dataset_path, output_dir, sf_list):
     'transition' and 'reward'. In 'transition' there should be a dictionary with keys
     sf0 and sft for each state factor sf. At each of these keys is a list of data.
     In 'reward' there should be a dictionary with keys sf for each state factor sf, and
-    'r' to represent the reward. At each of these keys is a list of data
+    'r' to represent the reward. At each of these keys is a list of data.
 
     Args:
         dataset_path: A yaml file containing the dataset.

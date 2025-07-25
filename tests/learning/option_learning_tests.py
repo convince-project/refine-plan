@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-""" Unit tests for option learning functions.
+"""Unit tests for option learning functions.
 
 Author: Charlie Street
 Owner: Charlie Street
@@ -8,10 +8,12 @@ Owner: Charlie Street
 from refine_plan.models.state_factor import StateFactor, BoolStateFactor
 from refine_plan.learning.option_learning import (
     _initialise_dict_for_option,
+    mongodb_to_dict,
     mongodb_to_yaml,
     _check_dataset,
     _dataset_vals_to_str,
     _setup_learners,
+    learn_bns_for_one_option,
     learn_dbns,
     _is_zero_cost_loop,
     _remove_unchanging_vars,
@@ -92,6 +94,132 @@ class IsZeroCostLoopTest(unittest.TestCase):
         self.assertFalse(_is_zero_cost_loop(doc_2, sf_list))
         self.assertFalse(_is_zero_cost_loop(doc_3, sf_list))
         self.assertFalse(_is_zero_cost_loop(doc_4, sf_list))
+
+
+@unittest.skipIf(not MONGO_RUNNING, "MongoDB server not running.")
+class MongodbToDictTest(unittest.TestCase):
+
+    def test_function(self):
+        # This test requires a local mongo server to be setup on port 27017
+        connection_str = "mongodb://localhost:27017"
+        db_name = "test_db"
+        collection_name = "test_collection"
+
+        client = MongoClient(connection_str)
+        collection = client[db_name][collection_name]
+        doc_1 = {
+            "option": "test",
+            "x0": 1,
+            "xt": 2,
+            "y0": False,
+            "yt": False,
+            "duration": 5,
+        }
+        doc_2 = {
+            "option": "test",
+            "x0": 2,
+            "xt": 3,
+            "y0": True,
+            "yt": False,
+            "duration": 5,
+        }
+        doc_3 = {
+            "option": "test",
+            "x0": 3,
+            "xt": 1,
+            "y0": False,
+            "yt": True,
+            "duration": 7,
+        }
+        doc_4 = {  # Zero cost self loop, should be removed
+            "option": "test",
+            "x0": 1,
+            "xt": 1,
+            "y0": False,
+            "yt": False,
+            "duration": 0,
+        }
+        collection.insert_many([doc_1, doc_2, doc_3, doc_4])
+
+        sf_list = [StateFactor("x", [1, 2, 3]), BoolStateFactor("y")]
+        dataset = mongodb_to_dict(connection_str, db_name, collection_name, sf_list)
+        client.drop_database("test_db")
+
+        expected = {
+            "test": {
+                "transition": {
+                    "x0": [1, 2, 3],
+                    "xt": [2, 3, 1],
+                    "y0": [False, True, False],
+                    "yt": [False, False, True],
+                },
+                "reward": {"x": [1, 2, 3], "y": [False, True, False], "r": [5, 5, 7]},
+            }
+        }
+
+        self.assertEqual(dataset, expected)
+
+    def test_with_query(self):
+        # This test requires a local mongo server to be setup on port 27017
+        connection_str = "mongodb://localhost:27017"
+        db_name = "test_db"
+        collection_name = "test_collection"
+
+        client = MongoClient(connection_str)
+        collection = client[db_name][collection_name]
+        doc_1 = {
+            "option": "test",
+            "x0": 1,
+            "xt": 2,
+            "y0": False,
+            "yt": False,
+            "duration": 5,
+        }
+        doc_2 = {
+            "option": "test",
+            "x0": 2,
+            "xt": 3,
+            "y0": True,
+            "yt": False,
+            "duration": 5,
+        }
+        doc_3 = {
+            "option": "test",
+            "x0": 3,
+            "xt": 1,
+            "y0": False,
+            "yt": True,
+            "duration": 7,
+        }
+        doc_4 = {  # Zero cost self loop, should be removed
+            "option": "test",
+            "x0": 1,
+            "xt": 1,
+            "y0": False,
+            "yt": False,
+            "duration": 0,
+        }
+        collection.insert_many([doc_1, doc_2, doc_3, doc_4])
+
+        sf_list = [StateFactor("x", [1, 2, 3]), BoolStateFactor("y")]
+        dataset = mongodb_to_dict(
+            connection_str, db_name, collection_name, sf_list, query={"duration": 7}
+        )
+        client.drop_database("test_db")
+
+        expected = {
+            "test": {
+                "transition": {
+                    "x0": [3],
+                    "xt": [1],
+                    "y0": [False],
+                    "yt": [True],
+                },
+                "reward": {"x": [3], "y": [False], "r": [7]},
+            }
+        }
+
+        self.assertEqual(dataset, expected)
 
 
 @unittest.skipIf(not MONGO_RUNNING, "MongoDB server not running.")
@@ -589,6 +717,49 @@ class RemoveEdgelessVarsTest(unittest.TestCase):
         r_bn.eraseArc("x", "r")
         _remove_edgeless_vars(r_bn, sf_list, False)
         self.assertEqual(sorted(list(r_bn.names())), sorted(["y", "r"]))
+
+
+class LearnBNsForOneOptionTest(unittest.TestCase):
+
+    def test_function(self):
+        dataset = {
+            "transition": {
+                "x0": [1, 2, 3],
+                "xt": [2, 3, 1],
+                "y0": [False, True, False],
+                "yt": [False, False, True],
+            },
+            "reward": {"x": [1, 2, 3], "y": [False, False, True], "r": [5, 5, 7]},
+        }
+
+        sf_list = [StateFactor("x", [1, 2, 3]), BoolStateFactor("y")]
+
+        transition_bn, reward_bn = learn_bns_for_one_option(dataset, sf_list)
+
+        self.assertEqual(sorted(list(reward_bn.names())), sorted(["y", "r"]))
+        self.assertEqual(
+            sorted(list(transition_bn.names())), sorted(["x0", "y0", "xt", "yt"])
+        )
+
+    def test_with_useless_vars(self):
+        dataset = {
+            "transition": {
+                "x0": [1, 2, 3],
+                "xt": [2, 3, 1],
+                "y0": [False, True, False],
+                "yt": [False, True, False],
+            },
+            "reward": {"x": [1, 2, 3], "y": [False, False, True], "r": [5, 5, 7]},
+        }
+
+        sf_list = [StateFactor("x", [1, 2, 3]), BoolStateFactor("y")]
+
+        transition_bn, reward_bn = learn_bns_for_one_option(dataset, sf_list)
+
+        self.assertEqual(sorted(list(reward_bn.names())), sorted(["y", "r"]))
+        self.assertEqual(
+            sorted(list(transition_bn.names())), sorted(["x0", "y0", "xt"])
+        )
 
 
 class LearnDBNsTest(unittest.TestCase):

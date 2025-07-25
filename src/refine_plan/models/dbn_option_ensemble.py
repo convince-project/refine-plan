@@ -7,8 +7,11 @@ Author: Charlie Street
 Owner: Charlie Street
 """
 
-from refine_plan.learning.option_learning import _initialise_dict_for_option
 from refine_plan.models.dbn_option import DBNOption
+from refine_plan.learning.option_learning import (
+    _initialise_dict_for_option,
+    learn_bns_for_one_option,
+)
 from refine_plan.models.option import Option
 import random
 
@@ -137,6 +140,23 @@ class DBNOptionEnsemble(Option):
 
             self._datasets[dbn_idx]["reward"]["r"].append(new_data["reward"]["r"][i])
 
+    def _learn_new_dbn_options(self):
+        """Function for learning new DBN options upon new data arriving."""
+        for i in range(len(self._datasets)):
+            trans_dbn, reward_bn = learn_bns_for_one_option(
+                self._datasets[i], self._sf_list
+            )
+            self._dbns[i] = DBNOption(
+                self._name,
+                None,
+                None,
+                self._sf_list,
+                self._enabled_cond,
+                prune_dists=True,
+                transition_dbn=trans_dbn,
+                reward_dbn=reward_bn,
+            )
+
     def update_ensemble(self, new_data):
         """Update the ensemble using new data.
 
@@ -146,6 +166,6 @@ class DBNOptionEnsemble(Option):
         # Step 1: Split data evenly amongst ensemble
         self._update_datasets(new_data)
         # Step 2: Learn new DBNs
-        # TODO: Fill in
+        self._learn_new_dbn_options()
         # Step 3: Do processing for transition/reward computation
         # TODO: Fill in
