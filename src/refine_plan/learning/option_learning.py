@@ -59,7 +59,9 @@ def _is_zero_cost_loop(doc, sf_list):
     return True
 
 
-def mongodb_to_dict(connection_str, db_name, collection_name, sf_list, query={}):
+def mongodb_to_dict(
+    connection_str, db_name, collection_name, sf_list, query={}, sort_by=None
+):
     """Process a mongodb collection into a dictionary for learning.
 
     Args:
@@ -69,6 +71,7 @@ def mongodb_to_dict(connection_str, db_name, collection_name, sf_list, query={})
         sf_list: The list of state factors to expect in the MongoDB
         out_file: The path for the yaml file
         query: A query to filter the documents that get collected
+        sort_by: A field to sort the documents by
 
     Returns:
         dataset_dict: The dataset from mongodb into a pyAgrum format dictionary
@@ -79,7 +82,11 @@ def mongodb_to_dict(connection_str, db_name, collection_name, sf_list, query={})
     dataset_dict = {}
 
     # Search through all documents
-    for doc in collection.find(query):
+    docs = collection.find(query)
+    if sort_by is not None:
+        docs = docs.sort(sort_by)
+
+    for doc in docs:
         if _is_zero_cost_loop(doc, sf_list):
             continue
         option = doc["option"]
@@ -101,7 +108,7 @@ def mongodb_to_dict(connection_str, db_name, collection_name, sf_list, query={})
 
 
 def mongodb_to_yaml(
-    connection_str, db_name, collection_name, sf_list, out_file, query={}
+    connection_str, db_name, collection_name, sf_list, out_file, query={}, sort_by=None
 ):
     """Processes a mongodb collection into a yaml dataset for DBN learning.
 
@@ -112,10 +119,11 @@ def mongodb_to_yaml(
         sf_list: The list of state factors to expect in the MongoDB
         out_file: The path for the yaml file
         query: A query to filter the documents that get collected
+        sort_by: A field to sort the documents by
     """
 
     yaml_dict = mongodb_to_dict(
-        connection_str, db_name, collection_name, sf_list, query=query
+        connection_str, db_name, collection_name, sf_list, query=query, sort_by=sort_by
     )
 
     # Write dataset to yaml

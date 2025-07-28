@@ -221,6 +221,61 @@ class MongodbToDictTest(unittest.TestCase):
 
         self.assertEqual(dataset, expected)
 
+    def test_with_sort(self):
+        # This test requires a local mongo server to be setup on port 27017
+        connection_str = "mongodb://localhost:27017"
+        db_name = "test_db"
+        collection_name = "test_collection"
+
+        client = MongoClient(connection_str)
+        collection = client[db_name][collection_name]
+        doc_1 = {
+            "option": "test",
+            "x0": 1,
+            "xt": 2,
+            "y0": False,
+            "yt": False,
+            "duration": 5,
+        }
+        doc_2 = {
+            "option": "test",
+            "x0": 2,
+            "xt": 3,
+            "y0": True,
+            "yt": False,
+            "duration": 5,
+        }
+        doc_3 = {
+            "option": "test",
+            "x0": 3,
+            "xt": 1,
+            "y0": False,
+            "yt": True,
+            "duration": 7,
+        }
+
+        collection.insert_many([doc_1, doc_2, doc_3])
+
+        sf_list = [StateFactor("x", [1, 2, 3]), BoolStateFactor("y")]
+        dataset = mongodb_to_dict(
+            connection_str, db_name, collection_name, sf_list, sort_by="xt"
+        )
+        client.drop_database("test_db")
+
+        expected = {
+            "test": {
+                "transition": {
+                    "x0": [3, 1, 2],
+                    "xt": [1, 2, 3],
+                    "y0": [False, False, True],
+                    "yt": [True, False, False],
+                },
+                "reward": {"x": [3, 1, 2], "y": [False, False, True], "r": [7, 5, 5]},
+            }
+        }
+
+        self.assertEqual(dataset, expected)
+
 
 @unittest.skipIf(not MONGO_RUNNING, "MongoDB server not running.")
 class MongodbToYamlTest(unittest.TestCase):
