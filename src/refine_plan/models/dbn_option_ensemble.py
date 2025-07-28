@@ -29,14 +29,14 @@ class DBNOptionEnsemble(Option):
         _enabled_cond: A Condition which is satisfied in states where the option is enabled
         _dbns: The ensemble (list) of DBNOptions
         _transition_mats: The corresponding flat transition matrices for each DBNOption.
-        _datasets: The current datasets being used for each DBNOption.
     """
 
-    def __init__(self, name, ensemble_size, horizon, sf_list, enabled_cond):
+    def __init__(self, name, data, ensemble_size, horizon, sf_list, enabled_cond):
         """Initialise attributes.
 
         Args:
             name: The option's name
+            data: A dictionary of data items to build the ensemble from
             ensemble_size: The number of DBNs in the ensemble
             horizon: The planning horizon length
             sf_list: The list of state factors that make up the state space
@@ -49,10 +49,7 @@ class DBNOptionEnsemble(Option):
         self._enabled_cond = enabled_cond
         self._dbns = [None] * self._ensemble_size
         self._transition_mats = [None] * self._ensemble_size
-        self._datasets = [{}] * self._ensemble_size
-        for i in range(self._ensemble_size):  # Initialise datasets
-            _initialise_dict_for_option(self._datasets[i], self._name, sf_list)
-            self._datasets[i] = self._datasets[i][self._name]
+        self._setup_ensemble(data)
 
     def get_transition_prob(self, state, next_state):
         """Return the exploration probability for a (s,s') pair.
@@ -115,37 +112,47 @@ class DBNOptionEnsemble(Option):
         # TODO: Fill in
         pass
 
-    def _update_datasets(self, new_data):
-        """Update the datasets for DBN learning.
+    def _create_datasets(self, data):
+        """Create the datasets for each model in the ensemble for DBN learning.
 
         Args:
-            new_data: A dictionary of new data items to learn from
+            data: A dictionary of data items to learn from
+
+        Returns:
+            datasets: A list of length self._ensemble_size with each dataset
         """
-        for i in range(len(new_data["reward"]["r"])):
+        datasets = [{}] * self._ensemble_size
+        for i in range(self._ensemble_size):  # Initialise datasets
+            _initialise_dict_for_option(datasets[i], self._name, self._sf_list)
+            datasets[i] = datasets[i][self._name]
+
+        for i in range(len(data["reward"]["r"])):
             dbn_idx = i % self._ensemble_size
 
             for sf in self._sf_list:
                 sf_name = sf.get_name()
                 sf_0_name = "{}0".format(sf_name)
                 sf_t_name = "{}t".format(sf_name)
-                self._datasets[dbn_idx]["transition"][sf_0_name].append(
-                    new_data["transition"][sf_0_name][i]
+                datasets[dbn_idx]["transition"][sf_0_name].append(
+                    data["transition"][sf_0_name][i]
                 )
-                self._datasets[dbn_idx]["transition"][sf_t_name].append(
-                    new_data["transition"][sf_t_name][i]
+                datasets[dbn_idx]["transition"][sf_t_name].append(
+                    data["transition"][sf_t_name][i]
                 )
-                self._datasets[dbn_idx]["reward"][sf_name].append(
-                    new_data["reward"][sf_name][i]
-                )
+                datasets[dbn_idx]["reward"][sf_name].append(data["reward"][sf_name][i])
 
-            self._datasets[dbn_idx]["reward"]["r"].append(new_data["reward"]["r"][i])
+            datasets[dbn_idx]["reward"]["r"].append(data["reward"]["r"][i])
 
-    def _learn_new_dbn_options(self):
-        """Function for learning new DBN options upon new data arriving."""
-        for i in range(len(self._datasets)):
-            trans_dbn, reward_bn = learn_bns_for_one_option(
-                self._datasets[i], self._sf_list
-            )
+        return datasets
+
+    def _learn_dbn_options(self, datasets):
+        """Function for learning DBN options given individual datasets.
+
+        Args:
+            datasets: A list of length self._ensemble_size with each dataset.
+        """
+        for i in range(len(datasets)):
+            trans_dbn, reward_bn = learn_bns_for_one_option(datasets[i], self._sf_list)
             self._dbns[i] = DBNOption(
                 self._name,
                 None,
@@ -157,15 +164,15 @@ class DBNOptionEnsemble(Option):
                 reward_dbn=reward_bn,
             )
 
-    def update_ensemble(self, new_data):
-        """Update the ensemble using new data.
+    def _setup_ensemble(self, data):
+        """Set up the ensemble using the available data.
 
         Args:
-            new_data: A dictionary of new data items to learn from
+            data: A dictionary of new data items to learn from
         """
         # Step 1: Split data evenly amongst ensemble
-        self._update_datasets(new_data)
+        datasets = self._create_datasets(data)
         # Step 2: Learn new DBNs
-        self._learn_new_dbn_options()
+        self._learn_dbn_options()
         # Step 3: Do processing for transition/reward computation
         # TODO: Fill in
