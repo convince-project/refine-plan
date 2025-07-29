@@ -93,6 +93,9 @@ class DBNOptionEnsemble(Option):
     def get_scxml_transitions(self, sf_names, policy_name):
         """Return a list of SCXML transition elements for this option.
 
+        The time state factor is not included here, that is only for PRISM to
+        facilitate the finite horizon planning objective.
+
         Args:
             sf_names: The list of state factor names
             policy_name: The name of the policy in SCXML
@@ -100,8 +103,16 @@ class DBNOptionEnsemble(Option):
         Returns:
             A list of SCXML transition elements
         """
-        # TODO: Fill in
-        pass
+        transitions = []
+
+        for state in self._sampled_transition_dict:
+            pre_cond = state.to_and_cond()
+            scxml_trans = self._build_single_scxml_transition(
+                pre_cond, self._sampled_transition_dict[state], sf_names, policy_name
+            )
+            transitions.append(scxml_trans)
+
+        return transitions
 
     def get_transition_prism_string(self):
         """Write out the PRISM string with all (sampled) transitions.
