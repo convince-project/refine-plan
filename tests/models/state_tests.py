@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-""" Unit tests for state.py.
+"""Unit tests for state.py.
 
 Author: Charlie Street
 Owner: Charlie Street
 """
 
-from refine_plan.models.condition import AndCondition, EqCondition
+from refine_plan.models.condition import AndCondition, EqCondition, AddCondition
 from refine_plan.models.state_factor import StateFactor, IntStateFactor
 from refine_plan.models.state import State
 import unittest
@@ -67,6 +67,15 @@ class StateTest(unittest.TestCase):
             self.assertEqual(and_cond._cond_list[1]._value, "v2")
         else:
             self.fail()
+
+        state = State({loc: "v2", time: 5})
+        new_state = state.apply_post_cond(EqCondition(loc, "v3"))
+        self.assertEqual(new_state, State({loc: "v3", time: 5}))
+        new_state = state.apply_post_cond(AddCondition(time, 2))
+        self.assertEqual(new_state, State({loc: "v2", time: 7}))
+        and_cond = AndCondition(EqCondition(loc, "v3"), AddCondition(time, 2))
+        new_state = state.apply_post_cond(and_cond)
+        self.assertEqual(new_state, State({loc: "v3", time: 7}))
 
 
 if __name__ == "__main__":

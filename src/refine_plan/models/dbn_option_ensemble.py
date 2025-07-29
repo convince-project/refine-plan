@@ -74,8 +74,12 @@ class DBNOptionEnsemble(Option):
         Returns:
             The transition probability
         """
-        # TODO: Make consistent with rest of code
-        return random.choice(self._dbns).get_transition_prob(state, next_state)
+        transition_dict = random.choice(self._transition_dicts)
+        for post_cond in transition_dict[state]:
+            if state.apply_post_cond(post_cond) == next_state:
+                return transition_dict[state][post_cond]
+
+        return 0
 
     def get_reward(self, state):
         """Return the reward for executing this option in a state.
