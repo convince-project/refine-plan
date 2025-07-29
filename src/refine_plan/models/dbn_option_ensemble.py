@@ -13,6 +13,7 @@ from refine_plan.learning.option_learning import (
     learn_bns_for_one_option,
 )
 from refine_plan.models.option import Option
+from math import log
 import random
 
 
@@ -28,7 +29,8 @@ class DBNOptionEnsemble(Option):
         _sf_list: The list of state factors that make up the state space
         _enabled_cond: A Condition which is satisfied in states where the option is enabled
         _dbns: The ensemble (list) of DBNOptions
-        _transition_mats: The corresponding flat transition matrices for each DBNOption.
+        _transition_dicts: The corresponding transition dicts for each DBNOption.
+        _reward_dict: The reward dictionary containing information gain values
     """
 
     def __init__(self, name, data, ensemble_size, horizon, sf_list, enabled_cond):
@@ -48,7 +50,8 @@ class DBNOptionEnsemble(Option):
         self._sf_list = sf_list
         self._enabled_cond = enabled_cond
         self._dbns = [None] * self._ensemble_size
-        self._transition_mats = [None] * self._ensemble_size
+        self._transition_dicts = [None] * self._ensemble_size
+        self._reward_dict = {}
         self._setup_ensemble(data)
 
     def get_transition_prob(self, state, next_state):
@@ -76,8 +79,7 @@ class DBNOptionEnsemble(Option):
         Returns:
             The reward for the state
         """
-        # TODO: Fill in
-        pass
+        return self._reward_dict[state]
 
     def get_scxml_transitions(self, sf_names, policy_name):
         """Return a list of SCXML transition elements for this option.
@@ -111,6 +113,58 @@ class DBNOptionEnsemble(Option):
         """
         # TODO: Fill in
         pass
+
+    def _compute_entropy(self, dist):
+        """Compute the Shannon entropy for a distribution.
+
+        Args:
+            dist: A dictionary from event to probability
+
+        Returns:
+            The Shannon entropy
+        """
+        entropy = 0
+        for event in dist:
+            entropy += dist[event] * log(dist[event], 2)
+        return -1 * entropy
+
+    def _compute_avg_dist(self, state):
+        """Compute the average transition distribution for a state.
+
+        Args:
+            state: The state to compute the average for
+
+        Returns:
+            The average distribution (from post cond to prob)
+        """
+        avg_dist = {}
+        for i in range(self._ensemble_size):
+            for post_cond in self._transition_dicts[i][state]:
+                if post_cond not in avg_dist:
+                    avg_dist[post_cond] = 0
+                avg_dist[post_cond] += (  # Do division incrementally to save time
+                    self._transition_dicts[i][state][post_cond] / self._ensemble_size
+                )
+
+        return avg_dist
+
+    def _compute_info_gain(self, state):
+        """Compute the information gain for a state.
+
+        Args:
+            state: The state to compute the info gain for
+
+        Returns:
+            The information gain (approximation of the Jensen-Shannon Divergence)
+        """
+        entropy_of_avg = self._compute_entropy(self._compute_avg_dist(state))
+
+        avg_entropy = 0
+        for i in range(self._ensemble_size):
+            avg_entropy += self._compute_entropy(self._transition_dicts[i][state])
+        avg_entropy /= self._ensemble_size
+
+        return entropy_of_avg - avg_entropy
 
     def _create_datasets(self, data):
         """Create the datasets for each model in the ensemble for DBN learning.
