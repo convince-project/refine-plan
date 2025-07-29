@@ -7,6 +7,8 @@ Author: Charlie Street
 Owner: Charlie Street
 """
 
+from refine_plan.models.condition import LtCondition, AddCondition, AndCondition
+from refine_plan.models.state_factor import IntStateFactor
 from refine_plan.models.dbn_option import DBNOption
 from refine_plan.learning.option_learning import (
     _initialise_dict_for_option,
@@ -30,7 +32,10 @@ class DBNOptionEnsemble(Option):
         _enabled_cond: A Condition which is satisfied in states where the option is enabled
         _dbns: The ensemble (list) of DBNOptions
         _transition_dicts: The corresponding transition dicts for each DBNOption.
+        _sampled_transition_dict: The sampled transitions
         _reward_dict: The reward dictionary containing information gain values
+        _transition_prism_str: The transition PRISM string, cached
+        _reward_prism_str: The reward PRISM string, cached
     """
 
     def __init__(self, name, data, ensemble_size, horizon, sf_list, enabled_cond):
@@ -51,7 +56,10 @@ class DBNOptionEnsemble(Option):
         self._enabled_cond = enabled_cond
         self._dbns = [None] * self._ensemble_size
         self._transition_dicts = [None] * self._ensemble_size
+        self._sampled_transition_dict = {}
         self._reward_dict = {}
+        self._transition_prism_str = None
+        self._reward_prism_str = None
         self._setup_ensemble(data)
 
     def get_transition_prob(self, state, next_state):
@@ -66,6 +74,7 @@ class DBNOptionEnsemble(Option):
         Returns:
             The transition probability
         """
+        # TODO: Make consistent with rest of code
         return random.choice(self._dbns).get_transition_prob(state, next_state)
 
     def get_reward(self, state):
@@ -100,8 +109,8 @@ class DBNOptionEnsemble(Option):
         Returns:
             The transition PRISM string
         """
-        # TODO: Fill in
-        pass
+        assert self._transition_prism_str is not None
+        return self._transition_prism_str
 
     def get_reward_prism_string(self):
         """Write out the PRISM string with all exploration rewards.
@@ -111,8 +120,8 @@ class DBNOptionEnsemble(Option):
         Returns:
             The reward PRISM string
         """
-        # TODO: Fill in
-        pass
+        assert self._reward_prism_str is not None
+        return self._reward_prism_str
 
     def _compute_entropy(self, dist):
         """Compute the Shannon entropy for a distribution.
@@ -218,6 +227,44 @@ class DBNOptionEnsemble(Option):
                 reward_dbn=reward_bn,
             )
 
+    def _precompute_prism_strings(self):
+        """Precompute the transition and reward PRISM strings.
+
+        For the PRISM model, we introduce a new state factor time to facilitate
+        a finite horizon model.
+        """
+        time_sf = IntStateFactor("time", 0, self._horizon)
+        time_guard = LtCondition(time_sf, self._horizon)
+        time_inc = AddCondition(time_sf, 1)
+        self._transition_prism_str, self._reward_prism_str = "", ""
+        assert len(self._sampled_transition_dict) == len(self._reward_dict)
+
+        for state in self._sampled_transition_dict:
+            pre_cond = state.to_and_cond()
+            pre_cond.add_cond(time_guard)
+
+            # Add to transition PRISM string
+            self._transition_prism_str += "[{}] {} -> ".format(
+                self.get_name(), pre_cond.to_prism_string()
+            )
+
+            for post_cond in self._sampled_transition_dict[state]:
+                if not isinstance(post_cond, AndCondition):
+                    post_cond = AndCondition(post_cond)
+                post_cond.add_cond(time_inc)
+
+                self._transition_prism_str += "{}:{} + ".format(
+                    self._sampled_transition_dict[state][post_cond],
+                    post_cond.to_prism_string(is_post_cond=True),
+                )
+
+            self._transition_prism_str = self._transition_prism_str[:-3] + ";\n"
+
+            # Add to reward PRISM string
+            self._reward_prism_str += "[{}] {}: {};\n".format(
+                self.get_name(), pre_cond.to_prism_string(), self._reward_dict[state]
+            )
+
     def _setup_ensemble(self, data):
         """Set up the ensemble using the available data.
 
@@ -230,3 +277,5 @@ class DBNOptionEnsemble(Option):
         self._learn_dbn_options()
         # Step 3: Do processing for transition/reward computation
         # TODO: Fill in
+        # Step 4: Precompute PRISM strings
+        self._precompute_prism_strings()
