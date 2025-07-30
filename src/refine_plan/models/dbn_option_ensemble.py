@@ -15,7 +15,10 @@ from refine_plan.learning.option_learning import (
     learn_bns_for_one_option,
 )
 from refine_plan.models.option import Option
+from refine_plan.models.state import State
+from multiprocessing import Process
 from math import log
+import itertools
 import random
 
 
@@ -242,6 +245,59 @@ class DBNOptionEnsemble(Option):
                 reward_dbn=reward_bn,
             )
 
+    def _build_transition_dict_for_dbn(self, dbn_idx):
+        """Build the transition dictionary for the DBN at dbn_idx.
+
+        Args:
+            dbn_idx: The DBN index
+        """
+        self._transition_dicts[dbn_idx] = {}
+        # Return partial predecessor states, not preconditions
+        pre_post_pairs = self._dbns[dbn_idx].get_pre_post_cond_pairs(True)
+
+        unused_sfs, unused_vals = [], []
+        for sf in self._sf_list:
+            if sf.get_name() + "0" not in self._dbns[dbn_idx]._transition_dbn.names():
+                unused_sfs.append(sf)
+                unused_vals.append(sf.get_valid_values())
+
+        for pre_state, prob_post_conds in pre_post_pairs:
+            for rest_of_state in itertools.product(*unused_vals):
+                full_state_dict = {}
+                for i in range(len(rest_of_state)):
+                    full_state_dict[unused_sfs[i]] = rest_of_state[i]
+                for sf_name in pre_state._state_dict:
+                    full_state_dict[pre_state._state_dict[sf_name]] = pre_state[sf_name]
+                full_state = State(full_state_dict)
+
+                if self._enabled_cond.is_satisfied(full_state):
+                    self._transition_dicts[dbn_idx][full_state] = prob_post_conds
+
+    def _build_transition_dicts(self):
+        """Build all transition dictionaries for each model in parallel."""
+
+        procs = []
+        # Create and start processes for each model in the ensemble
+        for i in range(self._ensemble_size):
+            procs.append(Process(target=self._build_transition_dict_for_dbn, args=(i,)))
+            procs[-1].start()
+
+        # Wait for all parallel processes to finish
+        for i in range(self._ensemble_size):
+            procs[i].join()
+
+    def _compute_sampled_transitions_and_info_gain(self):
+        """Compute the transition and reward functions for the exploration MDP."""
+        # TODO: This might break if each transition_dict has a different length
+        # With enough data this would be fine as all variable values would be covered
+        # in the DBN. However, in the early stages this may not be the case, causing
+        # failures in this function (and those it calls)
+        for state in self._transition_dicts[0]:
+            self._sampled_transition_dict[state] = random.choice(
+                self._transition_dicts
+            )[state]
+            self._reward_dict[state] = self._compute_info_gain(state)
+
     def _precompute_prism_strings(self):
         """Precompute the transition and reward PRISM strings.
 
@@ -289,8 +345,10 @@ class DBNOptionEnsemble(Option):
         # Step 1: Split data evenly amongst ensemble
         datasets = self._create_datasets(data)
         # Step 2: Learn new DBNs
-        self._learn_dbn_options()
-        # Step 3: Do processing for transition/reward computation
-        # TODO: Fill in
-        # Step 4: Precompute PRISM strings
+        self._learn_dbn_options(datasets)
+        # Step 3: Do preprocessing for transition/reward computation
+        self._build_transition_dicts()
+        # Step 4: Compute sampled transition function and info gain reward function
+        self._compute_sampled_transitions_and_info_gain()
+        # Step 5: Precompute PRISM strings
         self._precompute_prism_strings()
