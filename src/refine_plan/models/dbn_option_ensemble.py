@@ -77,12 +77,11 @@ class DBNOptionEnsemble(Option):
         Returns:
             The transition probability
         """
-        transition_dict = random.choice(self._transition_dicts)
-        for post_cond in transition_dict[state]:
+        for post_cond in self._sampled_transition_dict[state]:
             if state.apply_post_cond(post_cond) == next_state:
-                return transition_dict[state][post_cond]
+                return self._sampled_transition_dict[state][post_cond]
 
-        return 0
+        return 0.0
 
     def get_reward(self, state):
         """Return the reward for executing this option in a state.
@@ -95,7 +94,7 @@ class DBNOptionEnsemble(Option):
         Returns:
             The reward for the state
         """
-        return self._reward_dict[state]
+        return self._reward_dict[state] if state in self._reward_dict else 0.0
 
     def get_scxml_transitions(self, sf_names, policy_name):
         """Return a list of SCXML transition elements for this option.
