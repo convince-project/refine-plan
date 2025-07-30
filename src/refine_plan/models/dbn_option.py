@@ -493,8 +493,12 @@ class DBNOption(Option):
 
         posterior.normalize()
 
-    def get_pre_post_cond_pairs(self):
+    def get_pre_post_cond_pairs(self, pre_state_keys=False):
         """Return a list of (pre, prob_post_cond) pairs from the DBN.
+
+        Args:
+            pre_state_keys: If True, return the predecessor state (only using vars
+                            in the DBN) as keys, not the complete pre-condition
 
         Returns:
             A list of (pre, prob_post_cond) pairs
@@ -555,7 +559,10 @@ class DBNOption(Option):
                     prob_post_conds[post_cond] = posterior.get(instantiation)
 
             if len(prob_post_conds) > 0:  # Only write if valid transitions present
-                cond_pairs.append((pre_cond, prob_post_conds))
+                if pre_state_keys:
+                    cond_pairs.append((pre_state, prob_post_conds))
+                else:
+                    cond_pairs.append((pre_cond, prob_post_conds))
             inf_eng.eraseAllEvidence()
 
         return cond_pairs

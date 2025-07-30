@@ -929,6 +929,98 @@ class PrunePosteriorTest(unittest.TestCase):
         os.remove("reward.bifxml")
 
 
+class GetPrePostCondPairsTest(unittest.TestCase):
+
+    def test_pre_state_keys(self):
+        create_two_bns()
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        enabled_cond = NotCondition(
+            AndCondition(EqCondition(sf_list[0], True), EqCondition(sf_list[1], False))
+        )
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, enabled_cond
+        )
+
+        pre_post_cond_pairs = option.get_pre_post_cond_pairs(pre_state_keys=True)
+
+        state_ff = State({sf_list[0]: False, sf_list[1]: False})
+        state_ft = State({sf_list[0]: False, sf_list[1]: True})
+        state_tf = State({sf_list[0]: True, sf_list[1]: False})
+        state_tt = State({sf_list[0]: True, sf_list[1]: True})
+
+        ff_ff = option.get_transition_prob(state_ff, state_ff)
+        ff_ft = option.get_transition_prob(state_ff, state_ft)
+        ff_tf = option.get_transition_prob(state_ff, state_tf)
+        ff_tt = option.get_transition_prob(state_ff, state_tt)
+
+        ft_ff = option.get_transition_prob(state_ft, state_ff)
+        ft_ft = option.get_transition_prob(state_ft, state_ft)
+        ft_tf = option.get_transition_prob(state_ft, state_tf)
+        ft_tt = option.get_transition_prob(state_ft, state_tt)
+
+        tt_ff = option.get_transition_prob(state_tt, state_ff)
+        tt_ft = option.get_transition_prob(state_tt, state_ft)
+        tt_tf = option.get_transition_prob(state_tt, state_tf)
+        tt_tt = option.get_transition_prob(state_tt, state_tt)
+
+        post_cond_ff = AndCondition(
+            EqCondition(sf_list[0], False), EqCondition(sf_list[1], False)
+        )
+        post_cond_ft = AndCondition(
+            EqCondition(sf_list[0], False), EqCondition(sf_list[1], True)
+        )
+        post_cond_tf = AndCondition(
+            EqCondition(sf_list[0], True), EqCondition(sf_list[1], False)
+        )
+        post_cond_tt = AndCondition(
+            EqCondition(sf_list[0], True), EqCondition(sf_list[1], True)
+        )
+
+        self.assertEqual(len(pre_post_cond_pairs), 3)
+        self.assertEqual(
+            pre_post_cond_pairs[0],
+            (
+                state_ff,
+                {
+                    post_cond_ff: ff_ff,
+                    post_cond_ft: ff_ft,
+                    post_cond_tf: ff_tf,
+                    post_cond_tt: ff_tt,
+                },
+            ),
+        )
+
+        self.assertEqual(
+            pre_post_cond_pairs[1],
+            (
+                state_ft,
+                {
+                    post_cond_ff: ft_ff,
+                    post_cond_ft: ft_ft,
+                    post_cond_tf: ft_tf,
+                    post_cond_tt: ft_tt,
+                },
+            ),
+        )
+
+        self.assertEqual(
+            pre_post_cond_pairs[2],
+            (
+                state_tt,
+                {
+                    post_cond_ff: tt_ff,
+                    post_cond_ft: tt_ft,
+                    post_cond_tf: tt_tf,
+                    post_cond_tt: tt_tt,
+                },
+            ),
+        )
+
+        os.remove("transition.bifxml")
+        os.remove("reward.bifxml")
+
+
 class GetTransitionPrismStringTest(unittest.TestCase):
 
     def test_function(self):
