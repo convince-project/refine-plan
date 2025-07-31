@@ -14,16 +14,20 @@ from refine_plan.models.condition import (
     AddCondition,
     GeqCondition,
     TrueCondition,
+    OrCondition,
+    AndCondition,
 )
 from multiprocessing import SimpleQueue
 import xml.etree.ElementTree as et
 import pyAgrum as gum
 import unittest
+import yaml
 
 
 class ConstructorTest(unittest.TestCase):
 
     def test_function(self):
+        setup = DBNOptionEnsemble._setup_ensemble
         DBNOptionEnsemble._setup_ensemble = lambda s, d: None
 
         ensemble = DBNOptionEnsemble("option", [], 32, 100, "sf_list", "enabled_cond")
@@ -39,10 +43,13 @@ class ConstructorTest(unittest.TestCase):
         self.assertEqual(ensemble._transition_prism_str, None)
         self.assertEqual(ensemble._reward_prism_str, None)
 
+        DBNOptionEnsemble._setup_ensemble = setup
+
 
 class GetTransitionProbTest(unittest.TestCase):
 
     def test_function(self):
+        setup = DBNOptionEnsemble._setup_ensemble
         DBNOptionEnsemble._setup_ensemble = lambda s, d: None
 
         ensemble = DBNOptionEnsemble("option", [], 32, 100, "sf_list", "enabled_cond")
@@ -61,10 +68,13 @@ class GetTransitionProbTest(unittest.TestCase):
         next_state = State({sf: 1})
         self.assertEqual(ensemble.get_transition_prob(state, next_state), 0.0)
 
+        DBNOptionEnsemble._setup_ensemble = setup
+
 
 class GetRewardTest(unittest.TestCase):
 
     def test_function(self):
+        setup = DBNOptionEnsemble._setup_ensemble
         DBNOptionEnsemble._setup_ensemble = lambda s, d: None
 
         ensemble = DBNOptionEnsemble("option", [], 32, 100, "sf_list", "enabled_cond")
@@ -78,6 +88,8 @@ class GetRewardTest(unittest.TestCase):
         state = State({sf: 4})
         self.assertEqual(ensemble.get_reward(state), 0.0)
 
+        DBNOptionEnsemble._setup_ensemble = setup
+
 
 class GetSCXMLTransitionsTest(unittest.TestCase):
 
@@ -85,6 +97,7 @@ class GetSCXMLTransitionsTest(unittest.TestCase):
         # This also tests check valid probs and get_name
         sf = StateFactor("sf", ["a", "b", "c"])
 
+        setup = DBNOptionEnsemble._setup_ensemble
         DBNOptionEnsemble._setup_ensemble = lambda s, d: None
 
         ensemble = DBNOptionEnsemble("opt", [], 32, 100, [sf], "enabled_cond")
@@ -164,10 +177,13 @@ class GetSCXMLTransitionsTest(unittest.TestCase):
         trans_str = et.tostring(scxml_transitions[0], encoding="utf8").decode("utf8")
         self.assertEqual(trans_str, xml_string_4)
 
+        DBNOptionEnsemble._setup_ensemble = setup
+
 
 class GetTransitionPRISMStringTest(unittest.TestCase):
 
     def test_function(self):
+        setup = DBNOptionEnsemble._setup_ensemble
         DBNOptionEnsemble._setup_ensemble = lambda s, d: None
 
         ensemble = DBNOptionEnsemble("option", [], 32, 100, "sf_list", "enabled_cond")
@@ -179,10 +195,13 @@ class GetTransitionPRISMStringTest(unittest.TestCase):
 
         self.assertEqual(ensemble.get_transition_prism_string(), "test")
 
+        DBNOptionEnsemble._setup_ensemble = setup
+
 
 class GetRewardPRISMStringTest(unittest.TestCase):
 
     def test_function(self):
+        setup = DBNOptionEnsemble._setup_ensemble
         DBNOptionEnsemble._setup_ensemble = lambda s, d: None
 
         ensemble = DBNOptionEnsemble("option", [], 32, 100, "sf_list", "enabled_cond")
@@ -194,10 +213,13 @@ class GetRewardPRISMStringTest(unittest.TestCase):
 
         self.assertEqual(ensemble.get_reward_prism_string(), "test")
 
+        DBNOptionEnsemble._setup_ensemble = setup
+
 
 class ComputeEntropyTest(unittest.TestCase):
 
     def test_function(self):
+        setup = DBNOptionEnsemble._setup_ensemble
         DBNOptionEnsemble._setup_ensemble = lambda s, d: None
 
         ensemble = DBNOptionEnsemble("option", [], 32, 100, "sf_list", "enabled_cond")
@@ -208,10 +230,13 @@ class ComputeEntropyTest(unittest.TestCase):
 
         self.assertAlmostEqual(entropy, 1.15677964945)
 
+        DBNOptionEnsemble._setup_ensemble = setup
+
 
 class ComputeAvgDist(unittest.TestCase):
 
     def test_function(self):
+        setup = DBNOptionEnsemble._setup_ensemble
         DBNOptionEnsemble._setup_ensemble = lambda s, d: None
 
         ensemble = DBNOptionEnsemble("option", [], 2, 100, "sf_list", "enabled_cond")
@@ -223,10 +248,13 @@ class ComputeAvgDist(unittest.TestCase):
         expected = {"n1": 0.35, "n2": 0.35, "n3": 0.3}
         self.assertEqual(avg_dist, expected)
 
+        DBNOptionEnsemble._setup_ensemble = setup
+
 
 class ComputeInfoGain(unittest.TestCase):
 
     def test_function(self):
+        setup = DBNOptionEnsemble._setup_ensemble
         DBNOptionEnsemble._setup_ensemble = lambda s, d: None
 
         ensemble = DBNOptionEnsemble("option", [], 2, 100, "sf_list", "enabled_cond")
@@ -237,10 +265,13 @@ class ComputeInfoGain(unittest.TestCase):
         info_gain = ensemble._compute_info_gain("s")
         self.assertAlmostEqual(info_gain, 0.65517015239)
 
+        DBNOptionEnsemble._setup_ensemble = setup
+
 
 class CreateDatasetsTest(unittest.TestCase):
 
     def test_function(self):
+        setup = DBNOptionEnsemble._setup_ensemble
         DBNOptionEnsemble._setup_ensemble = lambda s, d: None
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
@@ -283,10 +314,13 @@ class CreateDatasetsTest(unittest.TestCase):
         self.assertEqual(datasets[0], ds1)
         self.assertEqual(datasets[1], ds2)
 
+        DBNOptionEnsemble._setup_ensemble = setup
+
 
 class LearnDBNOptionsTest(unittest.TestCase):
 
     def test_function(self):
+        setup = DBNOptionEnsemble._setup_ensemble
         DBNOptionEnsemble._setup_ensemble = lambda s, d: None
 
         sf_list = [IntStateFactor("x", 1, 3), BoolStateFactor("y")]
@@ -330,11 +364,14 @@ class LearnDBNOptionsTest(unittest.TestCase):
             sorted(["x0", "xt", "y0", "yt"]),
         )
 
+        DBNOptionEnsemble._setup_ensemble = setup
+
 
 class BuildTransitionDictForDBNTest(unittest.TestCase):
 
     def test_function(self):
 
+        setup = DBNOptionEnsemble._setup_ensemble
         DBNOptionEnsemble._setup_ensemble = lambda s, d: None
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y"), BoolStateFactor("z")]
@@ -468,15 +505,19 @@ class BuildTransitionDictForDBNTest(unittest.TestCase):
         self.assertEqual(transition_dict[state_ttf], tt_post_conds)
         self.assertEqual(transition_dict[state_ttt], tt_post_conds)
 
+        DBNOptionEnsemble._setup_ensemble = setup
+
 
 class BuildTransitionDictsTest(unittest.TestCase):
 
     def test_function(self):
+        setup = DBNOptionEnsemble._setup_ensemble
         DBNOptionEnsemble._setup_ensemble = lambda s, d: None
 
         def set_dbn_idx(s, i, q):
             q.put((i, {i: i + 1}))
 
+        build_trans_dict = DBNOptionEnsemble._build_transition_dict_for_dbn
         DBNOptionEnsemble._build_transition_dict_for_dbn = set_dbn_idx
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
@@ -486,10 +527,14 @@ class BuildTransitionDictsTest(unittest.TestCase):
 
         self.assertEqual(ensemble._transition_dicts, [{0: 1}, {1: 2}])
 
+        DBNOptionEnsemble._setup_ensemble = setup
+        DBNOptionEnsemble._build_transition_dict_for_dbn = build_trans_dict
+
 
 class ComputeSampledTransitionsAndInfoGainTest(unittest.TestCase):
 
     def test_function(self):
+        setup = DBNOptionEnsemble._setup_ensemble
         DBNOptionEnsemble._setup_ensemble = lambda s, d: None
 
         ensemble = DBNOptionEnsemble("option", [], 2, 100, "sf_list", "enabled_cond")
@@ -507,10 +552,13 @@ class ComputeSampledTransitionsAndInfoGainTest(unittest.TestCase):
         self.assertEqual(len(ensemble._reward_dict), 1)
         self.assertAlmostEqual(ensemble._reward_dict["s"], 0.65517015239)
 
+        DBNOptionEnsemble._setup_ensemble = setup
+
 
 class PrecomputePRISMStringsTest(unittest.TestCase):
 
     def test_function(self):
+        setup = DBNOptionEnsemble._setup_ensemble
         DBNOptionEnsemble._setup_ensemble = lambda s, d: None
         sf = StateFactor("sf", ["a", "b", "c"])
 
@@ -547,12 +595,60 @@ class PrecomputePRISMStringsTest(unittest.TestCase):
 
         self.assertEqual(ensemble._reward_prism_str, reward_str)
 
+        DBNOptionEnsemble._setup_ensemble = setup
+
 
 class SetupEnsembleTests(unittest.TestCase):
 
     def test_function(self):
-        # TODO: Fill in
-        pass
+        bookstore_data = "../../data/bookstore/dataset.yaml"
+
+        with open(bookstore_data, "r") as yaml_in:
+            data = yaml.load(yaml_in, Loader=yaml.FullLoader)["check_door"]
+
+        loc_sf = StateFactor("location", ["v{}".format(i) for i in range(1, 9)])
+        door_sfs = [
+            StateFactor("v2_door", ["unknown", "closed", "open"]),
+            StateFactor("v3_door", ["unknown", "closed", "open"]),
+            StateFactor("v4_door", ["unknown", "closed", "open"]),
+            StateFactor("v5_door", ["unknown", "closed", "open"]),
+            StateFactor("v6_door", ["unknown", "closed", "open"]),
+            StateFactor("v7_door", ["unknown", "closed", "open"]),
+        ]
+        sf_list = [loc_sf] + door_sfs
+        door_locs = ["v{}".format(i) for i in range(2, 8)]
+        enabled_cond = OrCondition()
+        for i in range(len(door_locs)):
+            enabled_cond.add_cond(
+                AndCondition(
+                    EqCondition(loc_sf, door_locs[i]),
+                    EqCondition(door_sfs[i], "unknown"),
+                )
+            )
+
+        ensemble = DBNOptionEnsemble("check_door", data, 3, 100, sf_list, enabled_cond)
+
+        self.assertEqual(ensemble._ensemble_size, 3)
+        self.assertEqual(ensemble._horizon, 100)
+        self.assertEqual(ensemble._sf_list, sf_list)
+        self.assertEqual(ensemble._enabled_cond, enabled_cond)
+
+        self.assertEqual(len(ensemble._dbns), 3)
+        for i in range(3):
+            self.assertTrue(isinstance(ensemble._dbns[i], DBNOption))
+
+        self.assertEqual(len(ensemble._transition_dicts), 3)
+        for i in range(3):
+            self.assertEqual(
+                len(ensemble._sampled_transition_dict),
+                len(ensemble._transition_dicts[i]),
+            )
+
+        self.assertEqual(
+            len(ensemble._reward_dict), len(ensemble._sampled_transition_dict)
+        )
+        self.assertTrue(ensemble._transition_prism_str is not None)
+        self.assertTrue(ensemble._reward_prism_str is not None)
 
 
 if __name__ == "__main__":
