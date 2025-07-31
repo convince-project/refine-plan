@@ -7,8 +7,17 @@ Owner: Charlie Street
 
 from refine_plan.models.state_factor import IntStateFactor, BoolStateFactor, StateFactor
 from refine_plan.models.dbn_option_ensemble import DBNOptionEnsemble
-from refine_plan.models.condition import EqCondition, AddCondition
+from refine_plan.models.dbn_option import DBNOption
 from refine_plan.models.state import State
+from refine_plan.models.condition import (
+    EqCondition,
+    AddCondition,
+    GeqCondition,
+    TrueCondition,
+)
+from multiprocessing import SimpleQueue
+import xml.etree.ElementTree as et
+import pyAgrum as gum
 import unittest
 
 
@@ -73,8 +82,87 @@ class GetRewardTest(unittest.TestCase):
 class GetSCXMLTransitionsTest(unittest.TestCase):
 
     def test_function(self):
-        # TODO: Fill in
-        pass
+        # This also tests check valid probs and get_name
+        sf = StateFactor("sf", ["a", "b", "c"])
+
+        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+
+        ensemble = DBNOptionEnsemble("opt", [], 32, 100, [sf], "enabled_cond")
+
+        a_cond = EqCondition(sf, "a")
+        b_cond = EqCondition(sf, "b")
+        c_cond = EqCondition(sf, "c")
+
+        ensemble._sampled_transition_dict = {
+            State({sf: "a"}): {b_cond: 0.6, c_cond: 0.4},
+            State({sf: "b"}): {a_cond: 0.3, c_cond: 0.7},
+        }
+
+        scxml_transitions = ensemble.get_scxml_transitions(["sf"], "policy")
+        xml_string_1 = "<?xml version='1.0' encoding='utf8'?>\n"
+        xml_string_1 += '<transition target="init" event="opt" cond="sf==0">'
+        xml_string_1 += '<assign location="rand" expr="Math.random()" />'
+        xml_string_1 += '<if cond="rand &lt;= 0.6">'
+        xml_string_1 += '<assign location="sf" expr="1" />'
+        xml_string_1 += "<else />"
+        xml_string_1 += '<assign location="sf" expr="2" />'
+        xml_string_1 += "</if>"
+        xml_string_1 += '<send event="update_datamodel" target="policy">'
+        xml_string_1 += '<param name="sf" expr="sf" />'
+        xml_string_1 += "</send>"
+        xml_string_1 += "</transition>"
+
+        trans_str = et.tostring(scxml_transitions[0], encoding="utf8").decode("utf8")
+        self.assertEqual(trans_str, xml_string_1)
+
+        xml_string_2 = "<?xml version='1.0' encoding='utf8'?>\n"
+        xml_string_2 += '<transition target="init" event="opt" cond="sf==1">'
+        xml_string_2 += '<assign location="rand" expr="Math.random()" />'
+        xml_string_2 += '<if cond="rand &lt;= 0.3">'
+        xml_string_2 += '<assign location="sf" expr="0" />'
+        xml_string_2 += "<else />"
+        xml_string_2 += '<assign location="sf" expr="2" />'
+        xml_string_2 += "</if>"
+        xml_string_2 += '<send event="update_datamodel" target="policy">'
+        xml_string_2 += '<param name="sf" expr="sf" />'
+        xml_string_2 += "</send>"
+        xml_string_2 += "</transition>"
+
+        trans_str = et.tostring(scxml_transitions[1], encoding="utf8").decode("utf8")
+        self.assertEqual(trans_str, xml_string_2)
+
+        ensemble._sampled_transition_dict = {State({sf: "a"}): {b_cond: 1.0}}
+        xml_string_3 = "<?xml version='1.0' encoding='utf8'?>\n"
+        xml_string_3 += '<transition target="init" event="opt" cond="sf==0">'
+        xml_string_3 += '<assign location="sf" expr="1" />'
+        xml_string_3 += '<send event="update_datamodel" target="policy">'
+        xml_string_3 += '<param name="sf" expr="sf" />'
+        xml_string_3 += "</send>"
+        xml_string_3 += "</transition>"
+        scxml_transitions = ensemble.get_scxml_transitions(["sf"], "policy")
+        trans_str = et.tostring(scxml_transitions[0], encoding="utf8").decode("utf8")
+        self.assertEqual(trans_str, xml_string_3)
+
+        ensemble._sampled_transition_dict = {
+            State({sf: "a"}): {a_cond: 0.2, b_cond: 0.3, c_cond: 0.5}
+        }
+        xml_string_4 = "<?xml version='1.0' encoding='utf8'?>\n"
+        xml_string_4 += '<transition target="init" event="opt" cond="sf==0">'
+        xml_string_4 += '<assign location="rand" expr="Math.random()" />'
+        xml_string_4 += '<if cond="rand &lt;= 0.2">'
+        xml_string_4 += '<assign location="sf" expr="0" />'
+        xml_string_4 += '<elseif cond="rand &lt;= 0.5" />'
+        xml_string_4 += '<assign location="sf" expr="1" />'
+        xml_string_4 += "<else />"
+        xml_string_4 += '<assign location="sf" expr="2" />'
+        xml_string_4 += "</if>"
+        xml_string_4 += '<send event="update_datamodel" target="policy">'
+        xml_string_4 += '<param name="sf" expr="sf" />'
+        xml_string_4 += "</send>"
+        xml_string_4 += "</transition>"
+        scxml_transitions = ensemble.get_scxml_transitions(["sf"], "policy")
+        trans_str = et.tostring(scxml_transitions[0], encoding="utf8").decode("utf8")
+        self.assertEqual(trans_str, xml_string_4)
 
 
 class GetTransitionPRISMStringTest(unittest.TestCase):
@@ -199,15 +287,186 @@ class CreateDatasetsTest(unittest.TestCase):
 class LearnDBNOptionsTest(unittest.TestCase):
 
     def test_function(self):
-        # TODO: Fill in
-        pass
+        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+
+        sf_list = [IntStateFactor("x", 1, 3), BoolStateFactor("y")]
+        enabled_cond = GeqCondition(sf_list[0], 1)
+        ensemble = DBNOptionEnsemble("option", [], 2, 100, sf_list, enabled_cond)
+        dataset = {
+            "transition": {
+                "x0": [1, 2, 3],
+                "xt": [2, 3, 1],
+                "y0": [False, True, False],
+                "yt": [False, False, True],
+            },
+            "reward": {"x": [1, 2, 3], "y": [False, False, True], "r": [5, 5, 7]},
+        }
+
+        datasets = [dataset, dataset]
+        ensemble._learn_dbn_options(datasets)
+
+        self.assertTrue(isinstance(ensemble._dbns[0], DBNOption))
+        self.assertTrue(isinstance(ensemble._dbns[1], DBNOption))
+
+        self.assertEqual(ensemble._dbns[0]._sf_list, sf_list)
+        self.assertEqual(ensemble._dbns[1]._sf_list, sf_list)
+
+        self.assertEqual(ensemble._dbns[0]._enabled_cond, ensemble._enabled_cond)
+        self.assertEqual(ensemble._dbns[1]._enabled_cond, ensemble._enabled_cond)
+
+        self.assertEqual(
+            sorted(list(ensemble._dbns[0]._reward_dbn.names())), sorted(["y", "r"])
+        )
+        self.assertEqual(
+            sorted(list(ensemble._dbns[1]._reward_dbn.names())), sorted(["y", "r"])
+        )
+
+        self.assertEqual(
+            sorted(list(ensemble._dbns[0]._transition_dbn.names())),
+            sorted(["x0", "xt", "y0", "yt"]),
+        )
+        self.assertEqual(
+            sorted(list(ensemble._dbns[1]._transition_dbn.names())),
+            sorted(["x0", "xt", "y0", "yt"]),
+        )
 
 
 class BuildTransitionDictForDBNTest(unittest.TestCase):
 
     def test_function(self):
-        # TODO: Fill in
-        pass
+
+        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y"), BoolStateFactor("z")]
+        ensemble = DBNOptionEnsemble("test", [], 2, 100, sf_list, TrueCondition())
+
+        t_bn = gum.BayesNet()
+        _ = t_bn.add(gum.LabelizedVariable("x0", "x0?", ["False", "True"]))
+        _ = t_bn.add(gum.LabelizedVariable("xt", "xt?", ["False", "True"]))
+        _ = t_bn.add(gum.LabelizedVariable("y0", "y0?", ["False", "True"]))
+        _ = t_bn.add(gum.LabelizedVariable("yt", "yt?", ["False", "True"]))
+        t_bn.addArc("x0", "xt")
+        t_bn.addArc("x0", "yt")
+        t_bn.addArc("y0", "xt")
+        t_bn.addArc("y0", "yt")
+
+        t_bn.cpt("xt")[{"x0": "False", "y0": "False"}] = [0.4, 0.6]
+        t_bn.cpt("xt")[{"x0": "False", "y0": "True"}] = [0.5, 0.5]
+        t_bn.cpt("xt")[{"x0": "True", "y0": "False"}] = [0.6, 0.4]
+        t_bn.cpt("xt")[{"x0": "True", "y0": "True"}] = [0.3, 0.7]
+
+        t_bn.cpt("yt")[{"x0": "False", "y0": "False"}] = [0.8, 0.2]
+        t_bn.cpt("yt")[{"x0": "False", "y0": "True"}] = [0.1, 0.9]
+        t_bn.cpt("yt")[{"x0": "True", "y0": "False"}] = [0.7, 0.3]
+        t_bn.cpt("yt")[{"x0": "True", "y0": "True"}] = [0.2, 0.8]
+
+        # Create the reward DBN
+        r_bn = gum.BayesNet()
+        _ = r_bn.add(gum.LabelizedVariable("x", "x?", ["False", "True"]))
+        _ = r_bn.add(gum.LabelizedVariable("y", "y?", ["False", "True"]))
+        _ = r_bn.add(gum.LabelizedVariable("r", "r?", ["0", "1", "2", "3"]))
+        r_bn.addArc("x", "r")
+        r_bn.addArc("y", "r")
+
+        r_bn.cpt("x").fillWith([0.5, 0.5])
+        r_bn.cpt("y").fillWith([0.5, 0.5])
+        r_bn.cpt("r")[{"x": "False", "y": "False"}] = [0.0, 0.2, 0.3, 0.5]
+        r_bn.cpt("r")[{"x": "False", "y": "True"}] = [0.0, 0.6, 0.1, 0.3]
+        r_bn.cpt("r")[{"x": "True", "y": "False"}] = [0.0, 0.4, 0.4, 0.2]
+        r_bn.cpt("r")[{"x": "True", "y": "True"}] = [0.0, 0.3, 0.3, 0.4]
+
+        ensemble._dbns[0] = DBNOption(
+            "test",
+            None,
+            None,
+            sf_list,
+            TrueCondition(),
+            transition_dbn=t_bn,
+            reward_dbn=r_bn,
+        )
+
+        queue = SimpleQueue()
+
+        ensemble._build_transition_dict_for_dbn(0, queue)
+
+        dbn_idx, transition_dict = queue.get()
+
+        self.assertEqual(dbn_idx, 0)
+        self.assertEqual(len(transition_dict), 8)
+
+        state_ff = State({sf_list[0]: False, sf_list[1]: False})
+        state_ft = State({sf_list[0]: False, sf_list[1]: True})
+        state_tf = State({sf_list[0]: True, sf_list[1]: False})
+        state_tt = State({sf_list[0]: True, sf_list[1]: True})
+
+        state_fff = State({sf_list[0]: False, sf_list[1]: False, sf_list[2]: False})
+        state_fft = State({sf_list[0]: False, sf_list[1]: False, sf_list[2]: True})
+        state_ftf = State({sf_list[0]: False, sf_list[1]: True, sf_list[2]: False})
+        state_ftt = State({sf_list[0]: False, sf_list[1]: True, sf_list[2]: True})
+        state_tff = State({sf_list[0]: True, sf_list[1]: False, sf_list[2]: False})
+        state_tft = State({sf_list[0]: True, sf_list[1]: False, sf_list[2]: True})
+        state_ttf = State({sf_list[0]: True, sf_list[1]: True, sf_list[2]: False})
+        state_ttt = State({sf_list[0]: True, sf_list[1]: True, sf_list[2]: True})
+
+        ff_ff = ensemble._dbns[0].get_transition_prob(state_fff, state_fff)
+        ff_ft = ensemble._dbns[0].get_transition_prob(state_fff, state_ftf)
+        ff_tf = ensemble._dbns[0].get_transition_prob(state_fff, state_tff)
+        ff_tt = ensemble._dbns[0].get_transition_prob(state_fff, state_ttf)
+
+        ff_post_conds = {
+            state_ff.to_and_cond(): ff_ff,
+            state_ft.to_and_cond(): ff_ft,
+            state_tf.to_and_cond(): ff_tf,
+            state_tt.to_and_cond(): ff_tt,
+        }
+
+        self.assertEqual(transition_dict[state_fff], ff_post_conds)
+        self.assertEqual(transition_dict[state_fft], ff_post_conds)
+
+        ft_ff = ensemble._dbns[0].get_transition_prob(state_ftf, state_fff)
+        ft_ft = ensemble._dbns[0].get_transition_prob(state_ftf, state_ftf)
+        ft_tf = ensemble._dbns[0].get_transition_prob(state_ftf, state_tff)
+        ft_tt = ensemble._dbns[0].get_transition_prob(state_ftf, state_ttf)
+
+        ft_post_conds = {
+            state_ff.to_and_cond(): ft_ff,
+            state_ft.to_and_cond(): ft_ft,
+            state_tf.to_and_cond(): ft_tf,
+            state_tt.to_and_cond(): ft_tt,
+        }
+
+        self.assertEqual(transition_dict[state_ftf], ft_post_conds)
+        self.assertEqual(transition_dict[state_ftt], ft_post_conds)
+
+        tf_ff = ensemble._dbns[0].get_transition_prob(state_tff, state_fff)
+        tf_ft = ensemble._dbns[0].get_transition_prob(state_tff, state_ftf)
+        tf_tf = ensemble._dbns[0].get_transition_prob(state_tff, state_tff)
+        tf_tt = ensemble._dbns[0].get_transition_prob(state_tff, state_ttf)
+
+        tf_post_conds = {
+            state_ff.to_and_cond(): tf_ff,
+            state_ft.to_and_cond(): tf_ft,
+            state_tf.to_and_cond(): tf_tf,
+            state_tt.to_and_cond(): tf_tt,
+        }
+
+        self.assertEqual(transition_dict[state_tff], tf_post_conds)
+        self.assertEqual(transition_dict[state_tft], tf_post_conds)
+
+        tt_ff = ensemble._dbns[0].get_transition_prob(state_ttf, state_fff)
+        tt_ft = ensemble._dbns[0].get_transition_prob(state_ttf, state_ftf)
+        tt_tf = ensemble._dbns[0].get_transition_prob(state_ttf, state_tff)
+        tt_tt = ensemble._dbns[0].get_transition_prob(state_ttf, state_ttf)
+
+        tt_post_conds = {
+            state_ff.to_and_cond(): tt_ff,
+            state_ft.to_and_cond(): tt_ft,
+            state_tf.to_and_cond(): tt_tf,
+            state_tt.to_and_cond(): tt_tt,
+        }
+
+        self.assertEqual(transition_dict[state_ttf], tt_post_conds)
+        self.assertEqual(transition_dict[state_ttt], tt_post_conds)
 
 
 class BuildTransitionDictsTest(unittest.TestCase):

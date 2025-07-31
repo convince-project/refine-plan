@@ -267,7 +267,7 @@ class DBNOptionEnsemble(Option):
                 for i in range(len(rest_of_state)):
                     full_state_dict[unused_sfs[i]] = rest_of_state[i]
                 for sf_name in pre_state._state_dict:
-                    full_state_dict[pre_state._state_dict[sf_name]] = pre_state[sf_name]
+                    full_state_dict[pre_state._sf_dict[sf_name]] = pre_state[sf_name]
                 full_state = State(full_state_dict)
 
                 if self._enabled_cond.is_satisfied(full_state):
