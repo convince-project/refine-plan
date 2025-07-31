@@ -5,9 +5,9 @@ Author: Charlie Street
 Owner: Charlie Street
 """
 
+from refine_plan.models.state_factor import IntStateFactor, BoolStateFactor, StateFactor
 from refine_plan.models.dbn_option_ensemble import DBNOptionEnsemble
 from refine_plan.models.condition import EqCondition, AddCondition
-from refine_plan.models.state_factor import IntStateFactor
 from refine_plan.models.state import State
 import unittest
 
@@ -148,6 +148,152 @@ class ComputeInfoGain(unittest.TestCase):
 
         info_gain = ensemble._compute_info_gain("s")
         self.assertAlmostEqual(info_gain, 0.65517015239)
+
+
+class CreateDatasetsTest(unittest.TestCase):
+
+    def test_function(self):
+        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        ensemble = DBNOptionEnsemble("option", [], 2, 100, sf_list, "enabled_cond")
+
+        data = {
+            "transition": {
+                "x0": [1, 2, 3],
+                "xt": [2, 3, 1],
+                "y0": [False, True, False],
+                "yt": [False, False, True],
+            },
+            "reward": {"x": [1, 2, 3], "y": [False, True, False], "r": [5, 5, 7]},
+        }
+
+        datasets = ensemble._create_datasets(data)
+
+        self.assertEqual(len(datasets), 2)
+
+        ds1 = {
+            "transition": {
+                "x0": [1, 3],
+                "xt": [2, 1],
+                "y0": [False, False],
+                "yt": [False, True],
+            },
+            "reward": {"x": [1, 3], "y": [False, False], "r": [5, 7]},
+        }
+
+        ds2 = {
+            "transition": {
+                "x0": [2],
+                "xt": [3],
+                "y0": [True],
+                "yt": [False],
+            },
+            "reward": {"x": [2], "y": [True], "r": [5]},
+        }
+
+        self.assertEqual(datasets[0], ds1)
+        self.assertEqual(datasets[1], ds2)
+
+
+class LearnDBNOptionsTest(unittest.TestCase):
+
+    def test_function(self):
+        # TODO: Fill in
+        pass
+
+
+class BuildTransitionDictForDBNTest(unittest.TestCase):
+
+    def test_function(self):
+        # TODO: Fill in
+        pass
+
+
+class BuildTransitionDictsTest(unittest.TestCase):
+
+    def test_function(self):
+        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+
+        def set_dbn_idx(s, i, q):
+            q.put((i, {i: i + 1}))
+
+        DBNOptionEnsemble._build_transition_dict_for_dbn = set_dbn_idx
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        ensemble = DBNOptionEnsemble("option", [], 2, 100, sf_list, "enabled_cond")
+
+        ensemble._build_transition_dicts()
+
+        self.assertEqual(ensemble._transition_dicts, [{0: 1}, {1: 2}])
+
+
+class ComputeSampledTransitionsAndInfoGainTest(unittest.TestCase):
+
+    def test_function(self):
+        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+
+        ensemble = DBNOptionEnsemble("option", [], 2, 100, "sf_list", "enabled_cond")
+
+        ensemble._transition_dicts[0] = {"s": {"n1": 0.7, "n2": 0.3}}
+        ensemble._transition_dicts[1] = {"s": {"n2": 0.4, "n3": 0.6}}
+
+        ensemble._compute_sampled_transitions_and_info_gain()
+
+        self.assertTrue(
+            ensemble._sampled_transition_dict["s"] == {"n1": 0.7, "n2": 0.3}
+            or ensemble._sampled_transition_dict["s"] == {"n2": 0.4, "n3": 0.6}
+        )
+
+        self.assertEqual(len(ensemble._reward_dict), 1)
+        self.assertAlmostEqual(ensemble._reward_dict["s"], 0.65517015239)
+
+
+class PrecomputePRISMStringsTest(unittest.TestCase):
+
+    def test_function(self):
+        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+        sf = StateFactor("sf", ["a", "b", "c"])
+
+        ensemble = DBNOptionEnsemble("opt", [], 2, 100, [sf], "enabled_cond")
+
+        a_cond = EqCondition(sf, "a")
+        b_cond = EqCondition(sf, "b")
+        c_cond = EqCondition(sf, "c")
+
+        ensemble._sampled_transition_dict = {
+            State({sf: "a"}): {b_cond: 0.6, c_cond: 0.4},
+            State({sf: "b"}): {a_cond: 0.3, c_cond: 0.7},
+        }
+
+        ensemble._reward_dict = {
+            State({sf: "a"}): 7.5,
+            State({sf: "b"}): 1.3,
+        }
+
+        ensemble._precompute_prism_strings()
+
+        trans_str = (
+            "[opt] ((sf = 0) & (time < 100)) -> 0.6:(sf' = 1) & (time' = time + 1) + "
+        )
+        trans_str += "0.4:(sf' = 2) & (time' = time + 1);\n"
+        trans_str += (
+            "[opt] ((sf = 1) & (time < 100)) -> 0.3:(sf' = 0) & (time' = time + 1) + "
+        )
+        trans_str += "0.7:(sf' = 2) & (time' = time + 1);\n"
+        self.assertEqual(ensemble._transition_prism_str, trans_str)
+
+        reward_str = "[opt] ((sf = 0) & (time < 100)): 7.5;\n"
+        reward_str += "[opt] ((sf = 1) & (time < 100)): 1.3;\n"
+
+        self.assertEqual(ensemble._reward_prism_str, reward_str)
+
+
+class SetupEnsembleTests(unittest.TestCase):
+
+    def test_function(self):
+        # TODO: Fill in
+        pass
 
 
 if __name__ == "__main__":

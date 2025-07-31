@@ -14,9 +14,9 @@ from refine_plan.learning.option_learning import (
     _initialise_dict_for_option,
     learn_bns_for_one_option,
 )
+from multiprocessing import Process, SimpleQueue
 from refine_plan.models.option import Option
 from refine_plan.models.state import State
-from multiprocessing import Process
 from math import log
 import itertools
 import random
@@ -244,13 +244,14 @@ class DBNOptionEnsemble(Option):
                 reward_dbn=reward_bn,
             )
 
-    def _build_transition_dict_for_dbn(self, dbn_idx):
+    def _build_transition_dict_for_dbn(self, dbn_idx, queue):
         """Build the transition dictionary for the DBN at dbn_idx.
 
         Args:
             dbn_idx: The DBN index
+            queue: The queue to add the transition dictionary too
         """
-        self._transition_dicts[dbn_idx] = {}
+        transition_dict = {}
         # Return partial predecessor states, not preconditions
         pre_post_pairs = self._dbns[dbn_idx].get_pre_post_cond_pairs(True)
 
@@ -270,16 +271,26 @@ class DBNOptionEnsemble(Option):
                 full_state = State(full_state_dict)
 
                 if self._enabled_cond.is_satisfied(full_state):
-                    self._transition_dicts[dbn_idx][full_state] = prob_post_conds
+                    transition_dict[full_state] = prob_post_conds
+
+        queue.put((dbn_idx, transition_dict))
 
     def _build_transition_dicts(self):
         """Build all transition dictionaries for each model in parallel."""
 
         procs = []
+        queue = SimpleQueue()
         # Create and start processes for each model in the ensemble
         for i in range(self._ensemble_size):
-            procs.append(Process(target=self._build_transition_dict_for_dbn, args=(i,)))
+            procs.append(
+                Process(target=self._build_transition_dict_for_dbn, args=(i, queue))
+            )
             procs[-1].start()
+
+        # Update self._transition_dicts based on queue
+        for _ in range(self._ensemble_size):
+            idx, transition_dict = queue.get()
+            self._transition_dicts[idx] = transition_dict
 
         # Wait for all parallel processes to finish
         for i in range(self._ensemble_size):
@@ -319,12 +330,13 @@ class DBNOptionEnsemble(Option):
             )
 
             for post_cond in self._sampled_transition_dict[state]:
+                trans_prob = self._sampled_transition_dict[state][post_cond]
                 if not isinstance(post_cond, AndCondition):
                     post_cond = AndCondition(post_cond)
                 post_cond.add_cond(time_inc)
 
                 self._transition_prism_str += "{}:{} + ".format(
-                    self._sampled_transition_dict[state][post_cond],
+                    trans_prob,
                     post_cond.to_prism_string(is_post_cond=True),
                 )
 
