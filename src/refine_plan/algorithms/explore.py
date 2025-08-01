@@ -110,20 +110,24 @@ def synthesise_exploration_policy(
         The exploration policy
     """
     # Step 1: Retrieve the data from mongodb
+    print("Reading data from MongoDB...")
     dataset = mongodb_to_dict(
         connection_str, db_name, collection_name, sf_list, sort_by="_meta.inserted_at"
     )
     assert len(dataset) == len(option_names)
 
     # Step 2: Build the DBNOptionEnsemble objects
+    print("Building option ensembles...")
     option_list = _build_options(
         option_names, dataset, ensemble_size, horizon, sf_list, enabled_conds
     )
 
     # Step 3: Build the MDP
+    print("Building MDP...")
     time_sf = IntStateFactor("time", 0, horizon)
     labels = [Label("horizon", EqCondition(time_sf, horizon))]
     mdp = SemiMDP(sf_list + [time_sf], option_list, labels, initial_state=initial_state)
 
     # Step 4: Solve the MDP and return the policy
+    print("Synthesising Policy...")
     return synthesise_policy(mdp, prism_prop='Rmax=?[F "horizon"]')

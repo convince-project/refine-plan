@@ -285,12 +285,14 @@ class DBNOptionEnsemble(Option):
             procs.append(
                 Process(target=self._build_transition_dict_for_dbn, args=(i, queue))
             )
+            print("{}: Starting process for DBN {}".format(self.get_name(), i))
             procs[-1].start()
 
         # Update self._transition_dicts based on queue
         for _ in range(self._ensemble_size):
             idx, transition_dict = queue.get()
             self._transition_dicts[idx] = transition_dict
+            print("{}: Received dict for DBN {}".format(self.get_name(), idx))
 
         # Wait for all parallel processes to finish
         for i in range(self._ensemble_size):
@@ -354,12 +356,17 @@ class DBNOptionEnsemble(Option):
             data: A dictionary of new data items to learn from
         """
         # Step 1: Split data evenly amongst ensemble
+        print("{}: Splitting up datasets...".format(self.get_name()))
         datasets = self._create_datasets(data)
         # Step 2: Learn new DBNs
+        print("{}: Learning DBNS...".format(self.get_name()))
         self._learn_dbn_options(datasets)
         # Step 3: Do preprocessing for transition/reward computation
+        print("{}: Building transition dicts for each DBN".format(self.get_name()))
         self._build_transition_dicts()
         # Step 4: Compute sampled transition function and info gain reward function
+        print("{}: Sampling transitions and computing reward".format(self.get_name()))
         self._compute_sampled_transitions_and_info_gain()
         # Step 5: Precompute PRISM strings
+        print("{}: Computing PRISM strings".format(self.get_name()))
         self._precompute_prism_strings()
