@@ -1,0 +1,106 @@
+#!/usr/bin/env python3
+"""Unit tests for explore.py.
+
+Note that synthesise_exploration_policy is not unit tested here,
+and is instead integration tested in bin/.
+
+Author: Charlie Street
+Owner: Charlie Street
+"""
+
+from refine_plan.models.condition import OrCondition, AndCondition, EqCondition
+from refine_plan.models.state_factor import StateFactor
+from refine_plan.models.dbn_option import DBNOption
+import refine_plan.algorithms.explore
+import unittest
+import queue
+import yaml
+
+
+class CreateEnsembleForOptionTest(unittest.TestCase):
+    def test_function(self):
+        bookstore_data = "../../data/bookstore/dataset.yaml"
+
+        with open(bookstore_data, "r") as yaml_in:
+            data = yaml.load(yaml_in, Loader=yaml.FullLoader)["check_door"]
+
+        loc_sf = StateFactor("location", ["v{}".format(i) for i in range(1, 9)])
+        door_sfs = [
+            StateFactor("v2_door", ["unknown", "closed", "open"]),
+            StateFactor("v3_door", ["unknown", "closed", "open"]),
+            StateFactor("v4_door", ["unknown", "closed", "open"]),
+            StateFactor("v5_door", ["unknown", "closed", "open"]),
+            StateFactor("v6_door", ["unknown", "closed", "open"]),
+            StateFactor("v7_door", ["unknown", "closed", "open"]),
+        ]
+        sf_list = [loc_sf] + door_sfs
+        door_locs = ["v{}".format(i) for i in range(2, 8)]
+        enabled_cond = OrCondition()
+        for i in range(len(door_locs)):
+            enabled_cond.add_cond(
+                AndCondition(
+                    EqCondition(loc_sf, door_locs[i]),
+                    EqCondition(door_sfs[i], "unknown"),
+                )
+            )
+
+        q = queue.Queue()
+        refine_plan.algorithms.explore._create_ensemble_for_option(
+            "check_door", data, 3, 100, sf_list, enabled_cond, q
+        )
+        ensemble = q.get()
+
+        self.assertEqual(ensemble._ensemble_size, 3)
+        self.assertEqual(ensemble._horizon, 100)
+        self.assertEqual(ensemble._sf_list, sf_list)
+        self.assertEqual(ensemble._enabled_cond, enabled_cond)
+
+        self.assertEqual(len(ensemble._dbns), 3)
+        for i in range(3):
+            self.assertTrue(isinstance(ensemble._dbns[i], DBNOption))
+
+        self.assertEqual(len(ensemble._transition_dicts), 3)
+        for i in range(3):
+            self.assertEqual(
+                len(ensemble._sampled_transition_dict),
+                len(ensemble._transition_dicts[i]),
+            )
+            for state in ensemble._transition_dicts[i]:
+                self.assertTrue(enabled_cond.is_satisfied(state))
+
+        self.assertEqual(
+            len(ensemble._reward_dict), len(ensemble._sampled_transition_dict)
+        )
+        for state in ensemble._reward_dict:
+            self.assertTrue(enabled_cond.is_satisfied(state))
+        self.assertTrue(ensemble._transition_prism_str is not None)
+        self.assertTrue(ensemble._reward_prism_str is not None)
+
+
+class BuildOptionsTest(unittest.TestCase):
+
+    def test_function(self):
+        holder = refine_plan.algorithms.explore._create_ensemble_for_option
+
+        def just_name(opt, data, en_size, horizon, sf_list, e_cond, queue):
+            queue.put(opt)
+
+        refine_plan.algorithms.explore._create_ensemble_for_option = just_name
+
+        option_names = ["opt_1", "opt_2", "opt_3"]
+        dataset = {"opt_1": None, "opt_2": None, "opt_3": None}
+        enabled_conds = {"opt_1": None, "opt_2": None, "opt_3": None}
+        option_list = refine_plan.algorithms.explore._build_options(
+            option_names, dataset, 3, 100, [], enabled_conds
+        )
+
+        self.assertEqual(len(option_list), 3)
+        self.assertTrue("opt_1" in option_list)
+        self.assertTrue("opt_2" in option_list)
+        self.assertTrue("opt_3" in option_list)
+
+        refine_plan.algorithms.explore._create_ensemble_for_option = holder
+
+
+if __name__ == "__main__":
+    unittest.main()
