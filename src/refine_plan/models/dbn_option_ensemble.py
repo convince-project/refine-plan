@@ -40,9 +40,21 @@ class DBNOptionEnsemble(Option):
         _reward_dict: The reward dictionary containing information gain values
         _transition_prism_str: The transition PRISM string, cached
         _reward_prism_str: The reward PRISM string, cached
+        _state_idx_mapping: A mapping from states to matrix indices
+        _sampled_transition_mat: _sampled_transition_dict as a matrix
+        _reward_mat: _reward_dict as a matrix
     """
 
-    def __init__(self, name, data, ensemble_size, horizon, sf_list, enabled_cond):
+    def __init__(
+        self,
+        name,
+        data,
+        ensemble_size,
+        horizon,
+        sf_list,
+        enabled_cond,
+        state_idx_mapping,
+    ):
         """Initialise attributes.
 
         Args:
@@ -64,6 +76,9 @@ class DBNOptionEnsemble(Option):
         self._reward_dict = {}
         self._transition_prism_str = None
         self._reward_prism_str = None
+        self._state_idx_mapping = state_idx_mapping
+        self._sampled_transition_mat = None
+        self._reward_mat = None
         self._setup_ensemble(data)
 
     def get_transition_prob(self, state, next_state):
@@ -353,6 +368,26 @@ class DBNOptionEnsemble(Option):
                 self.get_name(), pre_cond.to_prism_string(), self._reward_dict[state]
             )
 
+    def _build_matrices(self):
+        """Build the sampled transition matrix and reward vector."""
+        num_states = len(self._state_idx_mapping)
+        self._sampled_transition_mat = np.zeros((num_states, num_states))
+        self._reward_mat = np.zeros(num_states)
+
+        for state in self._state_idx_mapping:
+            state_id = self._state_idx_mapping[state]
+            if state in self._reward_dict:
+                self._reward_mat[state_id] = self._reward_dict[state]
+
+            if state in self._sampled_transition_dict:
+                prob_post_conds = self._sampled_transition_dict[state]
+
+                for post_cond in prob_post_conds:
+                    next_state = state.apply_post_cond(post_cond)
+                    prob = prob_post_conds[post_cond]
+                    next_id = self._state_idx_mapping[next_state]
+                    self._sampled_transition_mat[state_id, next_id] = prob
+
     def _setup_ensemble(self, data):
         """Set up the ensemble using the available data.
 
@@ -371,6 +406,6 @@ class DBNOptionEnsemble(Option):
         # Step 4: Compute sampled transition function and info gain reward function
         print("{}: Sampling transitions and computing reward".format(self.get_name()))
         self._compute_sampled_transitions_and_info_gain()
-        # Step 5: Precompute PRISM strings
-        print("{}: Computing PRISM strings".format(self.get_name()))
-        self._precompute_prism_strings()
+        # Step 5: Build transition and reward matrices
+        print("{}: Building transition/reward matrices".format(self.get_name()))
+        self._build_matrices()
