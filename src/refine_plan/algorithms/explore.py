@@ -10,6 +10,7 @@ Owner: Charlie Street
 
 from refine_plan.models.dbn_option_ensemble import DBNOptionEnsemble
 from refine_plan.learning.option_learning import mongodb_to_dict
+from refine_plan.models.policy import TimeDependentPolicy
 from multiprocessing import Process, SimpleQueue
 from refine_plan.models.semi_mdp import SemiMDP
 from refine_plan.models.state import State
@@ -122,6 +123,52 @@ def _build_options(
     return option_list
 
 
+def solve_finite_horizon_mdp(mdp, state_idx_map, horizon):
+    """Synthesise a policy for a finite horizon MDP.
+
+    This can be done through one backwards Bellman backup through time.
+
+    Args:
+        mdp: The MDP (with DBNOptionEnsemble options)
+        state_idx_map: The state to matrix indice mapping
+        horizon: The planning horizon
+
+    Returns:
+        A TimeDependentPolicy
+    """
+
+    state_action_dicts, value_dicts = [None] * horizon, [None] * horizon
+    num_states = len(state_idx_map)
+    transition_mat = np.zeros((len(mdp._options), num_states, num_states))
+    reward_mat = np.zeros((len(mdp._options), num_states))
+    timestep = horizon - 1
+
+    idx_opt_map, opt_id = {}, 0
+    for option in mdp._options:
+        idx_opt_map[opt_id] = option
+        transition_mat[opt_id] = mdp._options[option]._sampled_transition_mat
+        reward_mat[opt_id] = mdp._options[option]._reward_mat
+        opt_id += 1
+
+    current_value = np.zeros(len(state_idx_map))  # All states have value 0 at horizon
+    while timestep >= 0:  # Move backwards through time
+
+        print("Solving MDP for timestep: {}".format(timestep))
+        q_vals = reward_mat + transition_mat * current_value
+        current_value = np.max(q_vals, axis=0)
+        policy_actions = np.argmax(q_vals, axis=0)
+
+        state_action_dict, value_dict = {}, {}
+        for state in state_idx_map:
+            state_action_dict[state] = idx_opt_map[policy_actions[state_idx_map[state]]]
+            value_dict[state] = current_value[state_idx_map[state]]
+        state_action_dicts[i] = state_action_dict
+        value_dicts[i] = value_dict
+        timestep -= 1
+
+    return TimeDependentPolicy(state_action_dicts, value_dicts)
+
+
 def synthesise_exploration_policy(
     connection_str,
     db_name,
@@ -178,4 +225,4 @@ def synthesise_exploration_policy(
 
     # Step 4: Solve the MDP and return the policy
     print("Synthesising Policy...")
-    return solve_finite_horizon_mdp(mdp, horizon)
+    return solve_finite_horizon_mdp(mdp, state_idx_map, horizon)
