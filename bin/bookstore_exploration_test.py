@@ -171,6 +171,7 @@ def build_exploration_policy(connection_str):
         initial_state=init_state,
     )
 
+    print("Policy synthesised")
     return policy
 
 

@@ -18,6 +18,7 @@ from multiprocessing import Process, SimpleQueue
 from refine_plan.models.option import Option
 from refine_plan.models.state import State
 from math import log
+import numpy as np
 import itertools
 import random
 
@@ -308,7 +309,9 @@ class DBNOptionEnsemble(Option):
             self._sampled_transition_dict[state] = random.choice(
                 self._transition_dicts
             )[state]
-            self._reward_dict[state] = self._compute_info_gain(state)
+            info_gain = self._compute_info_gain(state)
+            if not np.isclose(info_gain, 0.0):
+                self._reward_dict[state] = info_gain
 
     def _precompute_prism_strings(self):
         """Precompute the transition and reward PRISM strings.

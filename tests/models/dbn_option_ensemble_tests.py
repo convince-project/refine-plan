@@ -552,6 +552,13 @@ class ComputeSampledTransitionsAndInfoGainTest(unittest.TestCase):
         self.assertEqual(len(ensemble._reward_dict), 1)
         self.assertAlmostEqual(ensemble._reward_dict["s"], 0.65517015239)
 
+        ensemble._transition_dicts[0] = {"s": {"n1": 0.7, "n2": 0.3}}
+        ensemble._transition_dicts[1] = {"s": {"n1": 0.7, "n2": 0.3}}
+
+        ensemble._compute_sampled_transitions_and_info_gain()
+        self.assertEqual(ensemble._sampled_transition_dict["s"], {"n1": 0.7, "n2": 0.3})
+        self.assertEqual(len(ensemble._reward_dict), 1)
+
         DBNOptionEnsemble._setup_ensemble = setup
 
 
