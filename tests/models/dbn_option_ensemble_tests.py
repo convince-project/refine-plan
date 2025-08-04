@@ -568,14 +568,17 @@ class PrecomputePRISMStringsTest(unittest.TestCase):
         b_cond = EqCondition(sf, "b")
         c_cond = EqCondition(sf, "c")
 
+        a_state = State({sf: "a"})
+        b_state = State({sf: "b"})
+
         ensemble._sampled_transition_dict = {
-            State({sf: "a"}): {b_cond: 0.6, c_cond: 0.4},
-            State({sf: "b"}): {a_cond: 0.3, c_cond: 0.7},
+            a_state: {b_cond: 0.6, c_cond: 0.4},
+            b_state: {a_cond: 0.3, c_cond: 0.7},
         }
 
         ensemble._reward_dict = {
-            State({sf: "a"}): 7.5,
-            State({sf: "b"}): 1.3,
+            a_state: 7.5,
+            b_state: 1.3,
         }
 
         ensemble._precompute_prism_strings()
@@ -594,6 +597,19 @@ class PrecomputePRISMStringsTest(unittest.TestCase):
         reward_str += "[opt] ((sf = 1) & (time < 100)): 1.3;\n"
 
         self.assertEqual(ensemble._reward_prism_str, reward_str)
+
+        self.assertTrue(
+            EqCondition(sf, "b") in ensemble._sampled_transition_dict[a_state]
+        )
+        self.assertTrue(
+            EqCondition(sf, "c") in ensemble._sampled_transition_dict[a_state]
+        )
+        self.assertTrue(
+            EqCondition(sf, "a") in ensemble._sampled_transition_dict[b_state]
+        )
+        self.assertTrue(
+            EqCondition(sf, "c") in ensemble._sampled_transition_dict[b_state]
+        )
 
         DBNOptionEnsemble._setup_ensemble = setup
 

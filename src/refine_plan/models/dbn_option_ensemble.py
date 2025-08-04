@@ -334,8 +334,9 @@ class DBNOptionEnsemble(Option):
             for post_cond in self._sampled_transition_dict[state]:
                 trans_prob = self._sampled_transition_dict[state][post_cond]
                 if not isinstance(post_cond, AndCondition):
-                    post_cond = AndCondition(post_cond)
-                post_cond.add_cond(time_inc)  # TODO: Bug here! post_cond is modified
+                    post_cond = AndCondition(post_cond, time_inc)
+                else:
+                    post_cond = AndCondition(*(post_cond._cond_list + [time_inc]))
 
                 self._transition_prism_str += "{}:{} + ".format(
                     trans_prob,
