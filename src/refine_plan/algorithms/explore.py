@@ -154,7 +154,7 @@ def solve_finite_horizon_mdp(mdp, state_idx_map, horizon):
     while timestep >= 0:  # Move backwards through time
 
         print("Solving MDP for timestep: {}".format(timestep))
-        q_vals = reward_mat + transition_mat * current_value
+        q_vals = reward_mat + np.matmul(transition_mat, current_value)
         current_value = np.max(q_vals, axis=0)
         policy_actions = np.argmax(q_vals, axis=0)
 
