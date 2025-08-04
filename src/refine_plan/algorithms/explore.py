@@ -15,6 +15,7 @@ from multiprocessing import Process, SimpleQueue
 from refine_plan.models.semi_mdp import SemiMDP
 from refine_plan.models.state import State
 from itertools import product
+import numpy as np
 
 
 def _build_state_idx_map(sf_list):
@@ -162,8 +163,8 @@ def solve_finite_horizon_mdp(mdp, state_idx_map, horizon):
         for state in state_idx_map:
             state_action_dict[state] = idx_opt_map[policy_actions[state_idx_map[state]]]
             value_dict[state] = current_value[state_idx_map[state]]
-        state_action_dicts[i] = state_action_dict
-        value_dicts[i] = value_dict
+        state_action_dicts[timestep] = state_action_dict
+        value_dicts[timestep] = value_dict
         timestep -= 1
 
     return TimeDependentPolicy(state_action_dicts, value_dicts)
