@@ -8,17 +8,46 @@ Author: Charlie Street
 Owner: Charlie Street
 """
 
-from refine_plan.algorithms.semi_mdp_solver import synthesise_policy
 from refine_plan.models.dbn_option_ensemble import DBNOptionEnsemble
 from refine_plan.learning.option_learning import mongodb_to_dict
-from refine_plan.models.condition import Label, EqCondition
-from refine_plan.models.state_factor import IntStateFactor
 from multiprocessing import Process, SimpleQueue
 from refine_plan.models.semi_mdp import SemiMDP
+from refine_plan.models.state import State
+from itertools import product
+
+
+def _build_state_idx_map(sf_list):
+    """Build a mapping from states to numerical IDs.
+
+    Args:
+        sf_list: The list of state factors
+
+    Return:
+        A dictionary from states to numerical IDs
+    """
+    sf_vals = [sf.get_valid_values() for sf in sf_list]
+    state_idx_map = {}
+    state_id = 0
+
+    for state_vals in product(*sf_vals):
+        state_dict = {}
+        for i in range(len(state_vals)):
+            state_dict[sf_list[i]] = state_vals[i]
+        state_idx_map[State(state_dict)] = state_id
+        state_id += 1
+
+    return state_idx_map
 
 
 def _create_ensemble_for_option(
-    opt, data, ensemble_size, horizon, sf_list, enabled_cond, queue
+    opt,
+    data,
+    ensemble_size,
+    horizon,
+    sf_list,
+    enabled_cond,
+    state_idx_map,
+    queue,
 ):
     """Auxiliary function for creating an ensemble model.
 
@@ -31,15 +60,24 @@ def _create_ensemble_for_option(
         horizon: The planning horizon length
         sf_list: The state factors for planning
         enabled_cond: The enabled condition for this option
+        state_idx_map: A mapping from states to matrix indices
         queue: A thread-safe queue for return values
     """
     queue.put(
-        DBNOptionEnsemble(opt, data, ensemble_size, horizon, sf_list, enabled_cond)
+        DBNOptionEnsemble(
+            opt, data, ensemble_size, horizon, sf_list, enabled_cond, state_idx_map
+        )
     )
 
 
 def _build_options(
-    option_names, dataset, ensemble_size, horizon, sf_list, enabled_conds
+    option_names,
+    dataset,
+    ensemble_size,
+    horizon,
+    sf_list,
+    enabled_conds,
+    state_idx_map,
 ):
     """Build a set of DBNOptionEnsemble objects in parallel using processes.
 
@@ -50,6 +88,7 @@ def _build_options(
         horizon: The planning horizon length
         sf_list: The state factors used for planning
         enabled_conds: A dictionary from option name to enabled condition
+        state_idx_map: A mapping from states to matrix indices
 
     Returns:
         A list of DBNOptionEnsemble objects
@@ -67,6 +106,7 @@ def _build_options(
                     horizon,
                     sf_list,
                     enabled_conds[opt],
+                    state_idx_map,
                     queue,
                 ),
             )
@@ -116,18 +156,26 @@ def synthesise_exploration_policy(
     )
     assert len(dataset) == len(option_names)
 
+    # Step 2: Build the state to idx mapping
+    print("Building state to idx mapping...")
+    state_idx_map = _build_state_idx_map(sf_list)
+
     # Step 2: Build the DBNOptionEnsemble objects
     print("Building option ensembles...")
     option_list = _build_options(
-        option_names, dataset, ensemble_size, horizon, sf_list, enabled_conds
+        option_names,
+        dataset,
+        ensemble_size,
+        horizon,
+        sf_list,
+        enabled_conds,
+        state_idx_map,
     )
 
     # Step 3: Build the MDP
     print("Building MDP...")
-    time_sf = IntStateFactor("time", 0, horizon)
-    labels = [Label("horizon", EqCondition(time_sf, horizon))]
-    mdp = SemiMDP(sf_list + [time_sf], option_list, labels, initial_state=initial_state)
+    mdp = SemiMDP(sf_list, option_list, [], initial_state=initial_state)
 
     # Step 4: Solve the MDP and return the policy
     print("Synthesising Policy...")
-    return synthesise_policy(mdp, prism_prop='Rmax=?[F "horizon"]')
+    return solve_finite_horizon_mdp(mdp, horizon)

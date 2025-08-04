@@ -40,7 +40,7 @@ class DBNOptionEnsemble(Option):
         _reward_dict: The reward dictionary containing information gain values
         _transition_prism_str: The transition PRISM string, cached
         _reward_prism_str: The reward PRISM string, cached
-        _state_idx_mapping: A mapping from states to matrix indices
+        _state_idx_map: A map from states to matrix indices
         _sampled_transition_mat: _sampled_transition_dict as a matrix
         _reward_mat: _reward_dict as a matrix
     """
@@ -53,7 +53,7 @@ class DBNOptionEnsemble(Option):
         horizon,
         sf_list,
         enabled_cond,
-        state_idx_mapping,
+        state_idx_map,
     ):
         """Initialise attributes.
 
@@ -76,7 +76,7 @@ class DBNOptionEnsemble(Option):
         self._reward_dict = {}
         self._transition_prism_str = None
         self._reward_prism_str = None
-        self._state_idx_mapping = state_idx_mapping
+        self._state_idx_map = state_idx_map
         self._sampled_transition_mat = None
         self._reward_mat = None
         self._setup_ensemble(data)
@@ -370,12 +370,12 @@ class DBNOptionEnsemble(Option):
 
     def _build_matrices(self):
         """Build the sampled transition matrix and reward vector."""
-        num_states = len(self._state_idx_mapping)
+        num_states = len(self._state_idx_map)
         self._sampled_transition_mat = np.zeros((num_states, num_states))
         self._reward_mat = np.zeros(num_states)
 
-        for state in self._state_idx_mapping:
-            state_id = self._state_idx_mapping[state]
+        for state in self._state_idx_map:
+            state_id = self._state_idx_map[state]
             if state in self._reward_dict:
                 self._reward_mat[state_id] = self._reward_dict[state]
 
@@ -385,7 +385,7 @@ class DBNOptionEnsemble(Option):
                 for post_cond in prob_post_conds:
                     next_state = state.apply_post_cond(post_cond)
                     prob = prob_post_conds[post_cond]
-                    next_id = self._state_idx_mapping[next_state]
+                    next_id = self._state_idx_map[next_state]
                     self._sampled_transition_mat[state_id, next_id] = prob
 
     def _setup_ensemble(self, data):

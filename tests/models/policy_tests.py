@@ -6,7 +6,7 @@ Owner: Charlie Street
 """
 
 from refine_plan.models.state_factor import StateFactor, IntStateFactor, BoolStateFactor
-from refine_plan.models.policy import Policy
+from refine_plan.models.policy import Policy, TimeDependentPolicy
 from refine_plan.models.state import State
 import unittest
 import tempfile
@@ -97,6 +97,77 @@ class PolicyTest(unittest.TestCase):
                     self.assertEqual(policy.get_action(state), None)
                     self.assertEqual(policy[state], None)
                     self.assertEqual(policy.get_value(state), None)
+
+
+class TimeDependentPolicyTest(unittest.TestCase):
+
+    def test_function(self):
+        loc = StateFactor("loc", ["v1", "v2", "v3"])
+        battery = StateFactor("battery", ["low", "med", "high"])
+
+        state_action_dict = {
+            State({loc: "v1", battery: "high"}): "move",
+            State({loc: "v2", battery: "med"}): "charge",
+            State({loc: "v3", battery: "low"}): "stop",
+        }
+
+        state_action_dict_2 = {
+            State({loc: "v1", battery: "high"}): "charge",
+            State({loc: "v2", battery: "med"}): "stop",
+            State({loc: "v3", battery: "low"}): "move",
+        }
+
+        policy = TimeDependentPolicy([state_action_dict, state_action_dict_2])
+        with self.assertRaises(Exception):
+            policy.get_value(State({loc: "v1", battery: "high"}), 0)
+
+        value_dict = {
+            State({loc: "v1", battery: "high"}): 3,
+            State({loc: "v2", battery: "med"}): 1,
+            State({loc: "v3", battery: "low"}): 2,
+        }
+
+        value_dict_2 = {
+            State({loc: "v1", battery: "high"}): 1,
+            State({loc: "v2", battery: "med"}): 2,
+            State({loc: "v3", battery: "low"}): 3,
+        }
+
+        policy = TimeDependentPolicy(
+            [state_action_dict, state_action_dict_2],
+            value_dicts=[value_dict, value_dict_2],
+        )
+        for l in loc.get_valid_values():
+            for b in battery.get_valid_values():
+                state = State({loc: l, battery: b})
+                if l == "v1" and b == "high":
+                    self.assertEqual(policy.get_action(state, 0), "move")
+                    self.assertEqual(policy[state, 0], "move")
+                    self.assertEqual(policy.get_value(state, 0), 3)
+                    self.assertEqual(policy.get_action(state, 1), "charge")
+                    self.assertEqual(policy[state, 1], "charge")
+                    self.assertEqual(policy.get_value(state, 1), 1)
+                elif l == "v2" and b == "med":
+                    self.assertEqual(policy.get_action(state, 0), "charge")
+                    self.assertEqual(policy[state, 0], "charge")
+                    self.assertEqual(policy.get_value(state, 0), 1)
+                    self.assertEqual(policy.get_action(state, 1), "stop")
+                    self.assertEqual(policy[state, 1], "stop")
+                    self.assertEqual(policy.get_value(state, 1), 2)
+                elif l == "v3" and b == "low":
+                    self.assertEqual(policy.get_action(state, 0), "stop")
+                    self.assertEqual(policy[state, 0], "stop")
+                    self.assertEqual(policy.get_value(state, 0), 2)
+                    self.assertEqual(policy.get_action(state, 1), "move")
+                    self.assertEqual(policy[state, 1], "move")
+                    self.assertEqual(policy.get_value(state, 1), 3)
+                else:
+                    self.assertEqual(policy.get_action(state, 0), None)
+                    self.assertEqual(policy[state, 0], None)
+                    self.assertEqual(policy.get_value(state, 0), None)
+                    self.assertEqual(policy.get_action(state, 1), None)
+                    self.assertEqual(policy[state, 1], None)
+                    self.assertEqual(policy.get_value(state, 1), None)
 
 
 class ReadWriteTest(unittest.TestCase):

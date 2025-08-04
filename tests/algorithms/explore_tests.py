@@ -11,10 +11,36 @@ Owner: Charlie Street
 from refine_plan.models.condition import OrCondition, AndCondition, EqCondition
 from refine_plan.models.state_factor import StateFactor
 from refine_plan.models.dbn_option import DBNOption
+from refine_plan.models.state import State
 import refine_plan.algorithms.explore
 import unittest
 import queue
 import yaml
+
+
+class BuildStateIdxMapTest(unittest.TestCase):
+
+    def test_function(self):
+        sf_1 = StateFactor("sf1", ["a", "b", "c"])
+        sf_2 = StateFactor("sf2", [1, 2, 3])
+
+        state_idx_map = refine_plan.algorithms.explore._build_state_idx_map(
+            [sf_1, sf_2]
+        )
+
+        expected = {
+            State({sf_1: "a", sf_2: 1}): 0,
+            State({sf_1: "a", sf_2: 2}): 1,
+            State({sf_1: "a", sf_2: 3}): 2,
+            State({sf_1: "b", sf_2: 1}): 3,
+            State({sf_1: "b", sf_2: 2}): 4,
+            State({sf_1: "b", sf_2: 3}): 5,
+            State({sf_1: "c", sf_2: 1}): 6,
+            State({sf_1: "c", sf_2: 2}): 7,
+            State({sf_1: "c", sf_2: 3}): 8,
+        }
+
+        self.assertEqual(state_idx_map, expected)
 
 
 class CreateEnsembleForOptionTest(unittest.TestCase):
@@ -44,9 +70,10 @@ class CreateEnsembleForOptionTest(unittest.TestCase):
                 )
             )
 
+        state_idx_map = refine_plan.algorithms.explore._build_state_idx_map(sf_list)
         q = queue.Queue()
         refine_plan.algorithms.explore._create_ensemble_for_option(
-            "check_door", data, 3, 100, sf_list, enabled_cond, q
+            "check_door", data, 3, 100, sf_list, enabled_cond, state_idx_map, q
         )
         ensemble = q.get()
 
@@ -73,8 +100,8 @@ class CreateEnsembleForOptionTest(unittest.TestCase):
         )
         for state in ensemble._reward_dict:
             self.assertTrue(enabled_cond.is_satisfied(state))
-        self.assertTrue(ensemble._transition_prism_str is not None)
-        self.assertTrue(ensemble._reward_prism_str is not None)
+        self.assertTrue(ensemble._sampled_transition_mat is not None)
+        self.assertTrue(ensemble._reward_mat is not None)
 
 
 class BuildOptionsTest(unittest.TestCase):
@@ -82,7 +109,7 @@ class BuildOptionsTest(unittest.TestCase):
     def test_function(self):
         holder = refine_plan.algorithms.explore._create_ensemble_for_option
 
-        def just_name(opt, data, en_size, horizon, sf_list, e_cond, queue):
+        def just_name(opt, data, en_size, horizon, sf_list, e_cond, s_map, queue):
             queue.put(opt)
 
         refine_plan.algorithms.explore._create_ensemble_for_option = just_name
@@ -91,7 +118,7 @@ class BuildOptionsTest(unittest.TestCase):
         dataset = {"opt_1": None, "opt_2": None, "opt_3": None}
         enabled_conds = {"opt_1": None, "opt_2": None, "opt_3": None}
         option_list = refine_plan.algorithms.explore._build_options(
-            option_names, dataset, 3, 100, [], enabled_conds
+            option_names, dataset, 3, 100, [], enabled_conds, {}
         )
 
         self.assertEqual(len(option_list), 3)

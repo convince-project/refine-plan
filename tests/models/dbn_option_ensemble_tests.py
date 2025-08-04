@@ -45,7 +45,7 @@ class ConstructorTest(unittest.TestCase):
         self.assertEqual(ensemble._reward_dict, {})
         self.assertEqual(ensemble._transition_prism_str, None)
         self.assertEqual(ensemble._reward_prism_str, None)
-        self.assertEqual(ensemble._state_idx_mapping, "map")
+        self.assertEqual(ensemble._state_idx_map, "map")
         self.assertEqual(ensemble._sampled_transition_mat, None)
         self.assertEqual(ensemble._reward_mat, None)
 
@@ -592,7 +592,7 @@ class BuildMatricesTest(unittest.TestCase):
 
         sf = StateFactor("sf", ["s", "t", "n1", "n2", "n3"])
 
-        state_idx_mapping = {
+        state_idx_map = {
             State({sf: "s"}): 0,
             State({sf: "t"}): 1,
             State({sf: "n1"}): 2,
@@ -601,7 +601,7 @@ class BuildMatricesTest(unittest.TestCase):
         }
 
         ensemble = DBNOptionEnsemble(
-            "option", [], 2, 100, [sf], "enabled_cond", state_idx_mapping
+            "option", [], 2, 100, [sf], "enabled_cond", state_idx_map
         )
 
         ensemble._sampled_transition_dict[State({sf: "s"})] = {
