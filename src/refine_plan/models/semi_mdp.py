@@ -183,10 +183,13 @@ class SemiMDP(object):
             prism_str += label.to_prism_string()
 
         # Write rewards
-        prism_str += "\nrewards\n"
+        reward_str = ""
         for option in self._options:
-            prism_str += self._options[option].get_reward_prism_string()
-        prism_str += "endrewards\n"
+            reward_str += self._options[option].get_reward_prism_string()
+        if reward_str != "":
+            prism_str += "\nrewards\n"
+            prism_str += reward_str
+            prism_str += "endrewards\n"
 
         # All states can be initial states
         if self._initial_state is None:

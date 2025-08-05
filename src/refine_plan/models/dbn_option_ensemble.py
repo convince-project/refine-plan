@@ -338,7 +338,6 @@ class DBNOptionEnsemble(Option):
         time_guard = LtCondition(time_sf, self._horizon)
         time_inc = AddCondition(time_sf, 1)
         self._transition_prism_str, self._reward_prism_str = "", ""
-        assert len(self._sampled_transition_dict) == len(self._reward_dict)
 
         for state in self._sampled_transition_dict:
             pre_cond = state.to_and_cond()
@@ -364,9 +363,12 @@ class DBNOptionEnsemble(Option):
             self._transition_prism_str = self._transition_prism_str[:-3] + ";\n"
 
             # Add to reward PRISM string
-            self._reward_prism_str += "[{}] {}: {};\n".format(
-                self.get_name(), pre_cond.to_prism_string(), self._reward_dict[state]
-            )
+            if state in self._reward_dict:
+                self._reward_prism_str += "[{}] {}: {};\n".format(
+                    self.get_name(),
+                    pre_cond.to_prism_string(),
+                    self._reward_dict[state],
+                )
 
     def _build_matrices(self):
         """Build the sampled transition matrix and reward vector."""
@@ -409,3 +411,6 @@ class DBNOptionEnsemble(Option):
         # Step 5: Build transition and reward matrices
         print("{}: Building transition/reward matrices".format(self.get_name()))
         self._build_matrices()
+        # Step 6: Precompute PRISM strings
+        print("{}: Precomputing PRISM strings".format(self.get_name()))
+        self._precompute_prism_strings()

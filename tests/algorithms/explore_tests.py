@@ -103,8 +103,8 @@ class CreateEnsembleForOptionTest(unittest.TestCase):
         for state in ensemble._reward_dict:
             self.assertTrue(enabled_cond.is_satisfied(state))
 
-        self.assertTrue(ensemble._transition_prism_str is None)
-        self.assertTrue(ensemble._reward_prism_str is None)
+        self.assertTrue(ensemble._transition_prism_str is not None)
+        self.assertTrue(ensemble._reward_prism_str is not None)
         self.assertTrue(ensemble._sampled_transition_mat is not None)
         self.assertTrue(ensemble._reward_mat is not None)
 
