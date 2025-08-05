@@ -191,12 +191,12 @@ class SolveFiniteHorizonMDPTest(unittest.TestCase):
         self.assertEqual(policy[State({sf: 0}), 0], "opt_0")
         self.assertEqual(policy[State({sf: 1}), 0], "opt_2")
         self.assertEqual(policy[State({sf: 2}), 0], "opt_3")
-        self.assertEqual(policy.get_value(State({sf: 0}), 1), 5.0)
-        self.assertEqual(policy.get_value(State({sf: 1}), 1), 3)
-        self.assertEqual(policy.get_value(State({sf: 2}), 1), 7)
-        self.assertEqual(policy.get_value(State({sf: 0}), 0), 9.6)
-        self.assertEqual(policy.get_value(State({sf: 1}), 0), 8)
-        self.assertEqual(policy.get_value(State({sf: 2}), 0), 12)
+        self.assertAlmostEqual(policy.get_value(State({sf: 0}), 1), 5.0, 6)
+        self.assertAlmostEqual(policy.get_value(State({sf: 1}), 1), 3, 6)
+        self.assertAlmostEqual(policy.get_value(State({sf: 2}), 1), 7, 6)
+        self.assertAlmostEqual(policy.get_value(State({sf: 0}), 0), 9.6, 6)
+        self.assertAlmostEqual(policy.get_value(State({sf: 1}), 0), 8, 6)
+        self.assertAlmostEqual(policy.get_value(State({sf: 2}), 0), 12, 6)
 
 
 if __name__ == "__main__":

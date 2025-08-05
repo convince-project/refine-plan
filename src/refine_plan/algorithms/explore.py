@@ -124,7 +124,7 @@ def _build_options(
     return option_list
 
 
-def solve_finite_horizon_mdp(mdp, state_idx_map, horizon):
+def solve_finite_horizon_mdp(mdp, state_idx_map, horizon, mat_type=np.float32):
     """Synthesise a policy for a finite horizon MDP.
 
     This can be done through one backwards Bellman backup through time.
@@ -133,26 +133,26 @@ def solve_finite_horizon_mdp(mdp, state_idx_map, horizon):
         mdp: The MDP (with DBNOptionEnsemble options)
         state_idx_map: The state to matrix indice mapping
         horizon: The planning horizon
+        mat_type: The dtype for the matrices
 
     Returns:
         A TimeDependentPolicy
     """
-
     state_action_dicts, value_dicts = [None] * horizon, [None] * horizon
-    num_states = len(state_idx_map)
-    transition_mat = np.zeros((len(mdp._options), num_states, num_states))
-    reward_mat = np.zeros((len(mdp._options), num_states))
-    timestep = horizon - 1
 
     idx_opt_map, opt_id = {}, 0
+    trans_to_stack, rew_to_stack = [], []
     for option in mdp._options:
         idx_opt_map[opt_id] = option
-        transition_mat[opt_id] = mdp._options[option]._sampled_transition_mat
-        reward_mat[opt_id] = mdp._options[option]._reward_mat
+        trans_to_stack.append(mdp._options[option]._sampled_transition_mat)
+        rew_to_stack.append(mdp._options[option]._reward_mat)
         opt_id += 1
+    transition_mat = np.stack(trans_to_stack, axis=0, dtype=mat_type)
+    reward_mat = np.stack(rew_to_stack, axis=0, dtype=mat_type)
 
-    current_value = np.zeros(len(state_idx_map))  # All states have value 0 at horizon
-    while timestep >= 0:  # Move backwards through time
+    # All states have value 0 at horizon
+    current_value = np.zeros(len(state_idx_map), dtype=mat_type)
+    for timestep in range(horizon - 1, -1, -1):  # Move backwards through time
 
         print("Solving MDP for timestep: {}".format(timestep))
         q_vals = reward_mat + np.matmul(transition_mat, current_value)
@@ -165,7 +165,6 @@ def solve_finite_horizon_mdp(mdp, state_idx_map, horizon):
             value_dict[state] = current_value[state_idx_map[state]]
         state_action_dicts[timestep] = state_action_dict
         value_dicts[timestep] = value_dict
-        timestep -= 1
 
     return TimeDependentPolicy(state_action_dicts, value_dicts)
 
