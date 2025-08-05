@@ -8,8 +8,11 @@ Author: Charlie Street
 Owner: Charlie Street
 """
 
+from refine_plan.algorithms.semi_mdp_solver import synthesise_policy
 from refine_plan.models.dbn_option_ensemble import DBNOptionEnsemble
 from refine_plan.learning.option_learning import mongodb_to_dict
+from refine_plan.models.condition import Label, EqCondition
+from refine_plan.models.state_factor import IntStateFactor
 from refine_plan.models.policy import TimeDependentPolicy
 from multiprocessing import Process, SimpleQueue
 from refine_plan.models.semi_mdp import SemiMDP
@@ -179,6 +182,7 @@ def synthesise_exploration_policy(
     horizon,
     enabled_conds,
     initial_state=None,
+    use_storm=False,
 ):
     """Synthesises an exploration policy for the current episode.
 
@@ -192,10 +196,13 @@ def synthesise_exploration_policy(
         horizon: The length of the planning horizon
         enabled_conds: A dictionary from option name to enabled Condition
         initial_state: The initial state of the exploration MDP
+        use_storm: If True, use Storm instead of the local solver
 
     Returns:
         The exploration policy
     """
+    print("USING STORM: {}".format(use_storm))
+
     # Step 1: Retrieve the data from mongodb
     print("Reading data from MongoDB...")
     dataset = mongodb_to_dict(
@@ -221,8 +228,17 @@ def synthesise_exploration_policy(
 
     # Step 3: Build the MDP
     print("Building MDP...")
-    mdp = SemiMDP(sf_list, option_list, [], initial_state=initial_state)
+    labels = []
+    if use_storm:
+        time_sf = IntStateFactor("time", 0, horizon)
+        sf_list = sf_list + [time_sf]
+        labels.append(Label("horizon", EqCondition(time_sf, horizon)))
+
+    mdp = SemiMDP(sf_list, option_list, labels, initial_state=initial_state)
 
     # Step 4: Solve the MDP and return the policy
     print("Synthesising Policy...")
-    return solve_finite_horizon_mdp(mdp, state_idx_map, horizon)
+    if use_storm:
+        return synthesise_policy(mdp, prism_prop='Rmax=?[F "horizon"]')
+    else:
+        return solve_finite_horizon_mdp(mdp, state_idx_map, horizon)
