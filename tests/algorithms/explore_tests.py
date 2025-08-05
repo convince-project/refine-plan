@@ -9,12 +9,40 @@ Owner: Charlie Street
 """
 
 from refine_plan.models.condition import OrCondition, AndCondition, EqCondition
-from refine_plan.models.state_factor import StateFactor
+from refine_plan.models.state_factor import StateFactor, IntStateFactor
 from refine_plan.models.dbn_option import DBNOption
+from refine_plan.models.semi_mdp import SemiMDP
+from refine_plan.models.state import State
 import refine_plan.algorithms.explore
+import numpy as np
 import unittest
 import queue
 import yaml
+
+
+class BuildStateIdxMapTest(unittest.TestCase):
+
+    def test_function(self):
+        sf_1 = StateFactor("sf1", ["a", "b", "c"])
+        sf_2 = StateFactor("sf2", [1, 2, 3])
+
+        state_idx_map = refine_plan.algorithms.explore._build_state_idx_map(
+            [sf_1, sf_2]
+        )
+
+        expected = {
+            State({sf_1: "a", sf_2: 1}): 0,
+            State({sf_1: "a", sf_2: 2}): 1,
+            State({sf_1: "a", sf_2: 3}): 2,
+            State({sf_1: "b", sf_2: 1}): 3,
+            State({sf_1: "b", sf_2: 2}): 4,
+            State({sf_1: "b", sf_2: 3}): 5,
+            State({sf_1: "c", sf_2: 1}): 6,
+            State({sf_1: "c", sf_2: 2}): 7,
+            State({sf_1: "c", sf_2: 3}): 8,
+        }
+
+        self.assertEqual(state_idx_map, expected)
 
 
 class CreateEnsembleForOptionTest(unittest.TestCase):
@@ -44,9 +72,10 @@ class CreateEnsembleForOptionTest(unittest.TestCase):
                 )
             )
 
+        state_idx_map = refine_plan.algorithms.explore._build_state_idx_map(sf_list)
         q = queue.Queue()
         refine_plan.algorithms.explore._create_ensemble_for_option(
-            "check_door", data, 3, 100, sf_list, enabled_cond, q
+            "check_door", data, 3, 100, sf_list, enabled_cond, state_idx_map, q
         )
         ensemble = q.get()
 
@@ -73,8 +102,11 @@ class CreateEnsembleForOptionTest(unittest.TestCase):
         )
         for state in ensemble._reward_dict:
             self.assertTrue(enabled_cond.is_satisfied(state))
+
         self.assertTrue(ensemble._transition_prism_str is not None)
         self.assertTrue(ensemble._reward_prism_str is not None)
+        self.assertTrue(ensemble._sampled_transition_mat is not None)
+        self.assertTrue(ensemble._reward_mat is not None)
 
 
 class BuildOptionsTest(unittest.TestCase):
@@ -82,7 +114,7 @@ class BuildOptionsTest(unittest.TestCase):
     def test_function(self):
         holder = refine_plan.algorithms.explore._create_ensemble_for_option
 
-        def just_name(opt, data, en_size, horizon, sf_list, e_cond, queue):
+        def just_name(opt, data, en_size, horizon, sf_list, e_cond, s_map, queue):
             queue.put(opt)
 
         refine_plan.algorithms.explore._create_ensemble_for_option = just_name
@@ -91,7 +123,7 @@ class BuildOptionsTest(unittest.TestCase):
         dataset = {"opt_1": None, "opt_2": None, "opt_3": None}
         enabled_conds = {"opt_1": None, "opt_2": None, "opt_3": None}
         option_list = refine_plan.algorithms.explore._build_options(
-            option_names, dataset, 3, 100, [], enabled_conds
+            option_names, dataset, 3, 100, [], enabled_conds, {}
         )
 
         self.assertEqual(len(option_list), 3)
@@ -100,6 +132,71 @@ class BuildOptionsTest(unittest.TestCase):
         self.assertTrue("opt_3" in option_list)
 
         refine_plan.algorithms.explore._create_ensemble_for_option = holder
+
+
+class DummyOption(object):
+
+    def __init__(self, name, trans_mat, reward_mat):
+        self._sampled_transition_mat = trans_mat
+        self._reward_mat = reward_mat
+        self._name = name
+
+    def get_name(self):
+        return self._name
+
+
+class SolveFiniteHorizonMDPTest(unittest.TestCase):
+
+    def test_function(self):
+
+        trans_mat_0 = np.zeros((3, 3))
+        trans_mat_0[0, 1] = 0.6
+        trans_mat_0[0, 2] = 0.4
+        reward_mat_0 = np.zeros(3)
+        reward_mat_0[0] = 5
+        opt_0 = DummyOption("opt_0", trans_mat_0, reward_mat_0)
+
+        trans_mat_1 = np.zeros((3, 3))
+        trans_mat_1[0, 1] = 0.7
+        trans_mat_1[0, 2] = 0.3
+        reward_mat_1 = np.zeros(3)
+        reward_mat_1[0] = 4
+        opt_1 = DummyOption("opt_1", trans_mat_1, reward_mat_1)
+
+        trans_mat_2 = np.zeros((3, 3))
+        trans_mat_2[1, 0] = 1.0
+        reward_mat_2 = np.zeros(3)
+        reward_mat_2[1] = 3
+        opt_2 = DummyOption("opt_2", trans_mat_2, reward_mat_2)
+
+        trans_mat_3 = np.zeros((3, 3))
+        trans_mat_3[2, 0] = 1.0
+        reward_mat_3 = np.zeros(3)
+        reward_mat_3[2] = 7
+        opt_3 = DummyOption("opt_3", trans_mat_3, reward_mat_3)
+
+        sf = IntStateFactor("s", 0, 2)
+        mdp = SemiMDP([sf], [opt_0, opt_1, opt_2, opt_3], [], None)
+
+        state_idx_map = {State({sf: i}): i for i in range(3)}
+        horizon = 2
+
+        policy = refine_plan.algorithms.explore.solve_finite_horizon_mdp(
+            mdp, state_idx_map, horizon
+        )
+
+        self.assertEqual(policy[State({sf: 0}), 1], "opt_0")
+        self.assertEqual(policy[State({sf: 1}), 1], "opt_2")
+        self.assertEqual(policy[State({sf: 2}), 1], "opt_3")
+        self.assertEqual(policy[State({sf: 0}), 0], "opt_0")
+        self.assertEqual(policy[State({sf: 1}), 0], "opt_2")
+        self.assertEqual(policy[State({sf: 2}), 0], "opt_3")
+        self.assertAlmostEqual(policy.get_value(State({sf: 0}), 1), 5.0, 6)
+        self.assertAlmostEqual(policy.get_value(State({sf: 1}), 1), 3, 6)
+        self.assertAlmostEqual(policy.get_value(State({sf: 2}), 1), 7, 6)
+        self.assertAlmostEqual(policy.get_value(State({sf: 0}), 0), 9.6, 6)
+        self.assertAlmostEqual(policy.get_value(State({sf: 1}), 0), 8, 6)
+        self.assertAlmostEqual(policy.get_value(State({sf: 2}), 0), 12, 6)
 
 
 if __name__ == "__main__":

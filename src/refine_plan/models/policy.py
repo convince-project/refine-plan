@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Class for deterministic memoryless policies.
+"""Class for deterministic memoryless policies and time-dependent policies.
 
 Author: Charlie Street
 Owner: Charlie Street
@@ -286,3 +286,93 @@ class Policy(object):
         xml = et.ElementTree(scxml)
         et.indent(xml, space="\t", level=0)  # Indent to improve readability
         xml.write(output_file, encoding="UTF-8", xml_declaration=True)
+
+
+class TimeDependentPolicy(Policy):
+    """Data class for time dependent policies.
+
+    In _state_action_dicts and _value_dicts, the list index refers to the timestep.
+
+    Attributes:
+        _state_action_dicts: A list of dictionaries from states to actions
+        _value_dicts: A list of dictionaries from states to values under that policy
+    """
+
+    def __init__(self, state_action_dicts, value_dicts=None):
+        """Initialise attributes.
+
+        Args:
+            state_action_dicts: The state action mapping for each timestep
+            value_dicts: Optional. A state value mapping for each timestep
+        """
+        self._state_action_dicts = state_action_dicts
+        self._value_dicts = value_dicts
+
+    def get_action(self, state, time):
+        """Return the policy action for a given state and time.
+
+        Args:
+            state: The state we want an action for
+            time: The current timestep
+
+        Returns:
+            The policy action
+        """
+        if time < 0 or time >= len(self._state_action_dicts):
+            return None
+
+        if state not in self._state_action_dicts[time]:
+            return None
+
+        return self._state_action_dicts[time][state]
+
+    def get_value(self, state, time):
+        """Return the value at a given state and time.
+
+        Args:
+            state: The state we want to retrieve the value for
+            time: The current timestep
+
+        Returns:
+            The value at state at time
+
+        Raises:
+            no_value_dict_exception: Raised if there is no value dictionary
+        """
+        if self._value_dicts is None:
+            raise Exception("No value dictionaries provided to policy")
+
+        if time < 0 or time >= len(self._value_dicts):
+            return None
+        if state not in self._value_dicts[time]:
+            return None
+
+        return self._value_dicts[time][state]
+
+    def __getitem__(self, state_time):
+        """Syntactic sugar for get_action.
+
+        Args:
+            state_time: A tuple with a state and a timestep
+
+        Returns:
+            The policy action
+        """
+        return self.get_action(state_time[0], state_time[1])
+
+    def write_policy(self, out_file):
+        # TODO: Implement
+        raise NotImplementedError()
+
+    def _read_policy(self, in_file):
+        # TODO: Implement
+        raise NotImplementedError()
+
+    def _hierarchical_rep(self):
+        raise NotImplementedError()
+
+    def _build_up_nested_scxml(self, hier_policy, model_name):
+        raise NotImplementedError()
+
+    def to_scxml(self, output_file, model_name, initial_state, name="policy"):
+        raise NotImplementedError()
