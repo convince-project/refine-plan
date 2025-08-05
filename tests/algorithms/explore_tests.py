@@ -9,10 +9,12 @@ Owner: Charlie Street
 """
 
 from refine_plan.models.condition import OrCondition, AndCondition, EqCondition
-from refine_plan.models.state_factor import StateFactor
+from refine_plan.models.state_factor import StateFactor, IntStateFactor
 from refine_plan.models.dbn_option import DBNOption
+from refine_plan.models.semi_mdp import SemiMDP
 from refine_plan.models.state import State
 import refine_plan.algorithms.explore
+import numpy as np
 import unittest
 import queue
 import yaml
@@ -130,6 +132,71 @@ class BuildOptionsTest(unittest.TestCase):
         self.assertTrue("opt_3" in option_list)
 
         refine_plan.algorithms.explore._create_ensemble_for_option = holder
+
+
+class DummyOption(object):
+
+    def __init__(self, name, trans_mat, reward_mat):
+        self._sampled_transition_mat = trans_mat
+        self._reward_mat = reward_mat
+        self._name = name
+
+    def get_name(self):
+        return self._name
+
+
+class SolveFiniteHorizonMDPTest(unittest.TestCase):
+
+    def test_function(self):
+
+        trans_mat_0 = np.zeros((3, 3))
+        trans_mat_0[0, 1] = 0.6
+        trans_mat_0[0, 2] = 0.4
+        reward_mat_0 = np.zeros(3)
+        reward_mat_0[0] = 5
+        opt_0 = DummyOption("opt_0", trans_mat_0, reward_mat_0)
+
+        trans_mat_1 = np.zeros((3, 3))
+        trans_mat_1[0, 1] = 0.7
+        trans_mat_1[0, 2] = 0.3
+        reward_mat_1 = np.zeros(3)
+        reward_mat_1[0] = 4
+        opt_1 = DummyOption("opt_1", trans_mat_1, reward_mat_1)
+
+        trans_mat_2 = np.zeros((3, 3))
+        trans_mat_2[1, 0] = 1.0
+        reward_mat_2 = np.zeros(3)
+        reward_mat_2[1] = 3
+        opt_2 = DummyOption("opt_2", trans_mat_2, reward_mat_2)
+
+        trans_mat_3 = np.zeros((3, 3))
+        trans_mat_3[2, 0] = 1.0
+        reward_mat_3 = np.zeros(3)
+        reward_mat_3[2] = 7
+        opt_3 = DummyOption("opt_3", trans_mat_3, reward_mat_3)
+
+        sf = IntStateFactor("s", 0, 2)
+        mdp = SemiMDP([sf], [opt_0, opt_1, opt_2, opt_3], [], None)
+
+        state_idx_map = {State({sf: i}): i for i in range(3)}
+        horizon = 2
+
+        policy = refine_plan.algorithms.explore.solve_finite_horizon_mdp(
+            mdp, state_idx_map, horizon
+        )
+
+        self.assertEqual(policy[State({sf: 0}), 1], "opt_0")
+        self.assertEqual(policy[State({sf: 1}), 1], "opt_2")
+        self.assertEqual(policy[State({sf: 2}), 1], "opt_3")
+        self.assertEqual(policy[State({sf: 0}), 0], "opt_0")
+        self.assertEqual(policy[State({sf: 1}), 0], "opt_2")
+        self.assertEqual(policy[State({sf: 2}), 0], "opt_3")
+        self.assertEqual(policy.get_value(State({sf: 0}), 1), 5.0)
+        self.assertEqual(policy.get_value(State({sf: 1}), 1), 3)
+        self.assertEqual(policy.get_value(State({sf: 2}), 1), 7)
+        self.assertEqual(policy.get_value(State({sf: 0}), 0), 9.6)
+        self.assertEqual(policy.get_value(State({sf: 1}), 0), 8)
+        self.assertEqual(policy.get_value(State({sf: 2}), 0), 12)
 
 
 if __name__ == "__main__":

@@ -166,7 +166,7 @@ def build_exploration_policy(connection_str):
         sf_list,
         option_names,
         1,
-        20,
+        100,
         enabled_conds,
         initial_state=init_state,
     )
