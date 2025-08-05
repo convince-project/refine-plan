@@ -44,37 +44,6 @@ def _build_state_idx_map(sf_list):
     return state_idx_map
 
 
-def _create_ensemble_for_option(
-    opt,
-    data,
-    ensemble_size,
-    horizon,
-    sf_list,
-    enabled_cond,
-    state_idx_map,
-    queue,
-):
-    """Auxiliary function for creating an ensemble model.
-
-    This will be called in separate processes for concurrency.
-
-    Args:
-        opt: The option name
-        data: The dataset for this option
-        ensemble_size: The number of DBNs in the ensemble
-        horizon: The planning horizon length
-        sf_list: The state factors for planning
-        enabled_cond: The enabled condition for this option
-        state_idx_map: A mapping from states to matrix indices
-        queue: A thread-safe queue for return values
-    """
-    queue.put(
-        DBNOptionEnsemble(
-            opt, data, ensemble_size, horizon, sf_list, enabled_cond, state_idx_map
-        )
-    )
-
-
 def _build_options(
     option_names,
     dataset,
@@ -84,7 +53,7 @@ def _build_options(
     enabled_conds,
     state_idx_map,
 ):
-    """Build a set of DBNOptionEnsemble objects in parallel using processes.
+    """Build a set of DBNOptionEnsemble objects.
 
     Args:
         option_names: A list of option names
@@ -98,31 +67,20 @@ def _build_options(
     Returns:
         A list of DBNOptionEnsemble objects
     """
-    queue = SimpleQueue()
-    procs, option_list = [], []
+    option_list = []
+
     for opt in option_names:
-        procs.append(
-            Process(
-                target=_create_ensemble_for_option,
-                args=(
-                    opt,
-                    dataset[opt],
-                    ensemble_size,
-                    horizon,
-                    sf_list,
-                    enabled_conds[opt],
-                    state_idx_map,
-                    queue,
-                ),
+        option_list.append(
+            DBNOptionEnsemble(
+                opt,
+                dataset[opt],
+                ensemble_size,
+                horizon,
+                sf_list,
+                enabled_conds[opt],
+                state_idx_map,
             )
         )
-        procs[-1].start()
-
-    while len(option_list) != len(option_names):  # Get all complete ensembles
-        option_list.append(queue.get())
-
-    for p in procs:  # Possibly not necessary, but do to be safe
-        p.join()
 
     return option_list
 

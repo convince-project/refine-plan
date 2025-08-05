@@ -45,12 +45,12 @@ class BuildStateIdxMapTest(unittest.TestCase):
         self.assertEqual(state_idx_map, expected)
 
 
-class CreateEnsembleForOptionTest(unittest.TestCase):
+class BuildOptionsTest(unittest.TestCase):
     def test_function(self):
         bookstore_data = "../../data/bookstore/dataset.yaml"
 
         with open(bookstore_data, "r") as yaml_in:
-            data = yaml.load(yaml_in, Loader=yaml.FullLoader)["check_door"]
+            data = yaml.load(yaml_in, Loader=yaml.FullLoader)
 
         loc_sf = StateFactor("location", ["v{}".format(i) for i in range(1, 9)])
         door_sfs = [
@@ -73,11 +73,16 @@ class CreateEnsembleForOptionTest(unittest.TestCase):
             )
 
         state_idx_map = refine_plan.algorithms.explore._build_state_idx_map(sf_list)
-        q = queue.Queue()
-        refine_plan.algorithms.explore._create_ensemble_for_option(
-            "check_door", data, 3, 100, sf_list, enabled_cond, state_idx_map, q
+        option_list = refine_plan.algorithms.explore._build_options(
+            ["check_door"],
+            data,
+            3,
+            100,
+            sf_list,
+            {"check_door": enabled_cond},
+            state_idx_map,
         )
-        ensemble = q.get()
+        ensemble = option_list[0]
 
         self.assertEqual(ensemble._ensemble_size, 3)
         self.assertEqual(ensemble._horizon, 100)
@@ -107,31 +112,6 @@ class CreateEnsembleForOptionTest(unittest.TestCase):
         self.assertTrue(ensemble._reward_prism_str is not None)
         self.assertTrue(ensemble._sampled_transition_mat is not None)
         self.assertTrue(ensemble._reward_mat is not None)
-
-
-class BuildOptionsTest(unittest.TestCase):
-
-    def test_function(self):
-        holder = refine_plan.algorithms.explore._create_ensemble_for_option
-
-        def just_name(opt, data, en_size, horizon, sf_list, e_cond, s_map, queue):
-            queue.put(opt)
-
-        refine_plan.algorithms.explore._create_ensemble_for_option = just_name
-
-        option_names = ["opt_1", "opt_2", "opt_3"]
-        dataset = {"opt_1": None, "opt_2": None, "opt_3": None}
-        enabled_conds = {"opt_1": None, "opt_2": None, "opt_3": None}
-        option_list = refine_plan.algorithms.explore._build_options(
-            option_names, dataset, 3, 100, [], enabled_conds, {}
-        )
-
-        self.assertEqual(len(option_list), 3)
-        self.assertTrue("opt_1" in option_list)
-        self.assertTrue("opt_2" in option_list)
-        self.assertTrue("opt_3" in option_list)
-
-        refine_plan.algorithms.explore._create_ensemble_for_option = holder
 
 
 class DummyOption(object):
