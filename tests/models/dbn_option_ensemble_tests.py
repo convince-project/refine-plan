@@ -739,7 +739,7 @@ class ComputeSampledTransitionsAndInfoGainTest(unittest.TestCase):
         ensemble = DBNOptionEnsemble(
             "option", [], 2, 100, "sf_list", "enabled_cond", {}
         )
-
+        ensemble._enabled_states = ["s"]
         ensemble._transition_dicts[0] = {"s": {"n1": 0.7, "n2": 0.3}}
         ensemble._transition_dicts[1] = {"s": {"n2": 0.4, "n3": 0.6}}
 
@@ -791,6 +791,7 @@ class BuildMatricesTest(unittest.TestCase):
             EqCondition(sf, "n2"): 0.4,
             EqCondition(sf, "n3"): 0.6,
         }
+        ensemble._sampled_transition_dict[State({sf: "n1"})] = None
 
         ensemble._reward_dict[State({sf: "s"})] = 0.65517015239
         ensemble._reward_dict[State({sf: "t"})] = 0.7
@@ -808,6 +809,11 @@ class BuildMatricesTest(unittest.TestCase):
         trans_mat[0, 3] = 0.3
         trans_mat[1, 3] = 0.4
         trans_mat[1, 4] = 0.6
+        trans_mat[2, 0] = 0.2
+        trans_mat[2, 1] = 0.2
+        trans_mat[2, 2] = 0.2
+        trans_mat[2, 3] = 0.2
+        trans_mat[2, 4] = 0.2
 
         self.assertTrue(np.array_equal(ensemble._sampled_transition_mat, trans_mat))
 

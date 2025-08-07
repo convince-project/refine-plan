@@ -331,11 +331,7 @@ class DBNOptionEnsemble(Option):
 
     def _compute_sampled_transitions_and_info_gain(self):
         """Compute the transition and reward functions for the exploration MDP."""
-        # TODO: This might break if each transition_dict has a different length
-        # With enough data this would be fine as all variable values would be covered
-        # in the DBN. However, in the early stages this may not be the case, causing
-        # failures in this function (and those it calls)
-        for state in self._transition_dicts[0]:
+        for state in self._enabled_states:
             self._sampled_transition_dict[state] = random.choice(
                 self._transition_dicts
             )[state]
@@ -398,12 +394,14 @@ class DBNOptionEnsemble(Option):
 
             if state in self._sampled_transition_dict:
                 prob_post_conds = self._sampled_transition_dict[state]
-
-                for post_cond in prob_post_conds:
-                    next_state = state.apply_post_cond(post_cond)
-                    prob = prob_post_conds[post_cond]
-                    next_id = self._state_idx_map[next_state]
-                    self._sampled_transition_mat[state_id, next_id] = prob
+                if prob_post_conds is None:  # uniform distribution
+                    self._sampled_transition_mat[state_id, :] = 1.0 / num_states
+                else:
+                    for post_cond in prob_post_conds:
+                        next_state = state.apply_post_cond(post_cond)
+                        prob = prob_post_conds[post_cond]
+                        next_id = self._state_idx_map[next_state]
+                        self._sampled_transition_mat[state_id, next_id] = prob
 
     def _setup_ensemble(self, data):
         """Set up the ensemble using the available data.
