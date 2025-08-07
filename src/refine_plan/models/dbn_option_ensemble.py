@@ -34,6 +34,7 @@ class DBNOptionEnsemble(Option):
         _horizon: Number of steps in the planning horizon
         _sf_list: The list of state factors that make up the state space
         _enabled_cond: A Condition which is satisfied in states where the option is enabled
+        _enabled_states: A list of states where the option is enabled
         _dbns: The ensemble (list) of DBNOptions
         _transition_dicts: The corresponding transition dicts for each DBNOption.
         _sampled_transition_dict: The sampled transitions
@@ -70,6 +71,7 @@ class DBNOptionEnsemble(Option):
         self._horizon = horizon
         self._sf_list = sf_list
         self._enabled_cond = enabled_cond
+        self._enabled_states = None
         self._dbns = [None] * self._ensemble_size
         self._transition_dicts = [None] * self._ensemble_size
         self._sampled_transition_dict = {}
@@ -207,6 +209,13 @@ class DBNOptionEnsemble(Option):
         avg_entropy /= self._ensemble_size
 
         return entropy_of_avg - avg_entropy
+
+    def _identify_enabled_states(self):
+        """Identify the enabled states for this option."""
+        self._enabled_states = []
+        for state in self._state_idx_map:
+            if self._enabled_cond.is_satisfied(state):
+                self._enabled_states.append(state)
 
     def _create_datasets(self, data):
         """Create the datasets for each model in the ensemble for DBN learning.
@@ -396,6 +405,9 @@ class DBNOptionEnsemble(Option):
         Args:
             data: A dictionary of new data items to learn from
         """
+        # Step 1: Create the list of enabled states
+        print("{}: Identifying enabled states...".format(self.get_name()))
+        self._identify_enabled_states()
         # Step 1: Split data evenly amongst ensemble
         print("{}: Splitting up datasets...".format(self.get_name()))
         datasets = self._create_datasets(data)

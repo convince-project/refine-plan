@@ -7,6 +7,7 @@ Owner: Charlie Street
 
 from refine_plan.models.state_factor import IntStateFactor, BoolStateFactor, StateFactor
 from refine_plan.models.dbn_option_ensemble import DBNOptionEnsemble
+from refine_plan.algorithms.explore import _build_state_idx_map
 from refine_plan.models.dbn_option import DBNOption
 from refine_plan.models.state import State
 from refine_plan.models.condition import (
@@ -22,6 +23,7 @@ import xml.etree.ElementTree as et
 import pyAgrum as gum
 import numpy as np
 import unittest
+import itertools
 import yaml
 
 
@@ -39,6 +41,7 @@ class ConstructorTest(unittest.TestCase):
         self.assertEqual(ensemble._horizon, 100)
         self.assertEqual(ensemble._sf_list, "sf_list")
         self.assertEqual(ensemble._enabled_cond, "enabled_cond")
+        self.assertEqual(ensemble._enabled_states, None)
         self.assertEqual(ensemble._dbns, [None] * 32)
         self.assertEqual(ensemble._transition_dicts, [None] * 32)
         self.assertEqual(ensemble._sampled_transition_dict, {})
@@ -284,6 +287,35 @@ class ComputeInfoGain(unittest.TestCase):
 
         info_gain = ensemble._compute_info_gain("s")
         self.assertAlmostEqual(info_gain, 0.65517015239)
+
+        DBNOptionEnsemble._setup_ensemble = setup
+
+
+class IdentifyEnabledStatesTest(unittest.TestCase):
+
+    def test_function(self):
+        setup = DBNOptionEnsemble._setup_ensemble
+        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        enabled_cond = EqCondition(sf_list[0], True)
+        state_map = {
+            State({sf_list[0]: False, sf_list[1]: False}): 0,
+            State({sf_list[0]: False, sf_list[1]: True}): 1,
+            State({sf_list[0]: True, sf_list[1]: False}): 2,
+            State({sf_list[0]: True, sf_list[1]: True}): 3,
+        }
+        ensemble = DBNOptionEnsemble(
+            "option", [], 2, 100, sf_list, enabled_cond, state_map
+        )
+        ensemble._identify_enabled_states()
+        self.assertEqual(
+            ensemble._enabled_states,
+            [
+                State({sf_list[0]: True, sf_list[1]: False}),
+                State({sf_list[0]: True, sf_list[1]: True}),
+            ],
+        )
 
         DBNOptionEnsemble._setup_ensemble = setup
 
@@ -694,7 +726,7 @@ class PrecomputePRISMStringsTest(unittest.TestCase):
         DBNOptionEnsemble._setup_ensemble = setup
 
 
-class SetupEnsembleTests(unittest.TestCase):
+class SetupEnsembleTest(unittest.TestCase):
 
     def test_function(self):
         bookstore_data = "../../data/bookstore/dataset.yaml"
@@ -723,8 +755,35 @@ class SetupEnsembleTests(unittest.TestCase):
             )
 
         ensemble = DBNOptionEnsemble(
-            "check_door", data, 3, 100, sf_list, enabled_cond, {}
+            "check_door",
+            data,
+            3,
+            100,
+            sf_list,
+            enabled_cond,
+            _build_state_idx_map(sf_list),
         )
+
+        enabled_states = []
+        sf_dict = {sf.get_name(): sf for sf in sf_list}
+        for loc in ["v{}".format(i) for i in range(2, 8)]:
+            unused_sfs = []
+            for sf_name in sf_dict:
+                if sf_name != "location" and sf_name != "{}_door".format(loc):
+                    unused_sfs.append(sf_dict[sf_name])
+            unused_sf_vals = [sf.get_valid_values() for sf in unused_sfs]
+            for rest_of_state in itertools.product(*unused_sf_vals):
+                state_dict = {
+                    sf_dict["location"]: loc,
+                    sf_dict["{}_door".format(loc)]: "unknown",
+                }
+                for i in range(len(rest_of_state)):
+                    state_dict[unused_sfs[i]] = rest_of_state[i]
+
+                enabled_states.append(State(state_dict))
+
+        self.assertEqual(len(enabled_states), len(ensemble._enabled_states))
+        self.assertEqual(enabled_states, ensemble._enabled_states)
 
         self.assertEqual(ensemble._ensemble_size, 3)
         self.assertEqual(ensemble._horizon, 100)

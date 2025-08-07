@@ -165,7 +165,7 @@ def build_exploration_policy(connection_str):
         "bookstore-data",
         sf_list,
         option_names,
-        1,
+        2,
         5,
         enabled_conds,
         initial_state=init_state,
