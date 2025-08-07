@@ -282,7 +282,7 @@ class DBNOptionEnsemble(Option):
             dbn_idx: The DBN index
             queue: The queue to add the transition dictionary too
         """
-        transition_dict = {}
+        transition_dict = {s: None for s in self._enabled_states}
         # Return partial predecessor states, not preconditions
         pre_post_pairs = self._dbns[dbn_idx].get_pre_post_cond_pairs(True)
 
@@ -301,7 +301,7 @@ class DBNOptionEnsemble(Option):
                     full_state_dict[pre_state._sf_dict[sf_name]] = pre_state[sf_name]
                 full_state = State(full_state_dict)
 
-                if self._enabled_cond.is_satisfied(full_state):
+                if full_state in transition_dict:  # This is an enabled check
                     transition_dict[full_state] = prob_post_conds
 
         queue.put((dbn_idx, transition_dict))

@@ -441,8 +441,20 @@ class BuildTransitionDictForDBNTest(unittest.TestCase):
         DBNOptionEnsemble._setup_ensemble = lambda s, d: None
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y"), BoolStateFactor("z")]
-        ensemble = DBNOptionEnsemble("test", [], 2, 100, sf_list, TrueCondition(), {})
-
+        state_idx_map = {
+            State({sf_list[0]: False, sf_list[1]: False, sf_list[2]: False}): 0,
+            State({sf_list[0]: False, sf_list[1]: False, sf_list[2]: True}): 1,
+            State({sf_list[0]: False, sf_list[1]: True, sf_list[2]: False}): 2,
+            State({sf_list[0]: False, sf_list[1]: True, sf_list[2]: True}): 3,
+            State({sf_list[0]: True, sf_list[1]: False, sf_list[2]: False}): 4,
+            State({sf_list[0]: True, sf_list[1]: False, sf_list[2]: True}): 5,
+            State({sf_list[0]: True, sf_list[1]: True, sf_list[2]: False}): 6,
+            State({sf_list[0]: True, sf_list[1]: True, sf_list[2]: True}): 7,
+        }
+        ensemble = DBNOptionEnsemble(
+            "test", [], 2, 100, sf_list, TrueCondition(), state_idx_map
+        )
+        ensemble._identify_enabled_states()
         t_bn = gum.BayesNet()
         _ = t_bn.add(gum.LabelizedVariable("x0", "x0?", ["False", "True"]))
         _ = t_bn.add(gum.LabelizedVariable("xt", "xt?", ["False", "True"]))
@@ -570,6 +582,127 @@ class BuildTransitionDictForDBNTest(unittest.TestCase):
 
         self.assertEqual(transition_dict[state_ttf], tt_post_conds)
         self.assertEqual(transition_dict[state_ttt], tt_post_conds)
+
+        DBNOptionEnsemble._setup_ensemble = setup
+
+    def test_uniform_dists(self):
+
+        setup = DBNOptionEnsemble._setup_ensemble
+        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y"), BoolStateFactor("z")]
+        state_idx_map = {
+            State({sf_list[0]: False, sf_list[1]: False, sf_list[2]: False}): 0,
+            State({sf_list[0]: False, sf_list[1]: False, sf_list[2]: True}): 1,
+            State({sf_list[0]: False, sf_list[1]: True, sf_list[2]: False}): 2,
+            State({sf_list[0]: False, sf_list[1]: True, sf_list[2]: True}): 3,
+            State({sf_list[0]: True, sf_list[1]: False, sf_list[2]: False}): 4,
+            State({sf_list[0]: True, sf_list[1]: False, sf_list[2]: True}): 5,
+            State({sf_list[0]: True, sf_list[1]: True, sf_list[2]: False}): 6,
+            State({sf_list[0]: True, sf_list[1]: True, sf_list[2]: True}): 7,
+        }
+        ensemble = DBNOptionEnsemble(
+            "test", [], 2, 100, sf_list, TrueCondition(), state_idx_map
+        )
+        ensemble._identify_enabled_states()
+        t_bn = gum.BayesNet()
+        _ = t_bn.add(gum.LabelizedVariable("x0", "x0?", ["False"]))
+        _ = t_bn.add(gum.LabelizedVariable("xt", "xt?", ["False", "True"]))
+        _ = t_bn.add(gum.LabelizedVariable("y0", "y0?", ["False", "True"]))
+        _ = t_bn.add(gum.LabelizedVariable("yt", "yt?", ["False", "True"]))
+        t_bn.addArc("x0", "xt")
+        t_bn.addArc("x0", "yt")
+        t_bn.addArc("y0", "xt")
+        t_bn.addArc("y0", "yt")
+
+        t_bn.cpt("xt")[{"x0": "False", "y0": "False"}] = [0.4, 0.6]
+        t_bn.cpt("xt")[{"x0": "False", "y0": "True"}] = [0.5, 0.5]
+
+        t_bn.cpt("yt")[{"x0": "False", "y0": "False"}] = [0.8, 0.2]
+        t_bn.cpt("yt")[{"x0": "False", "y0": "True"}] = [0.1, 0.9]
+
+        # Create the reward DBN
+        r_bn = gum.BayesNet()
+        _ = r_bn.add(gum.LabelizedVariable("x", "x?", ["False", "True"]))
+        _ = r_bn.add(gum.LabelizedVariable("y", "y?", ["False", "True"]))
+        _ = r_bn.add(gum.LabelizedVariable("r", "r?", ["0", "1", "2", "3"]))
+        r_bn.addArc("x", "r")
+        r_bn.addArc("y", "r")
+
+        r_bn.cpt("x").fillWith([0.5, 0.5])
+        r_bn.cpt("y").fillWith([0.5, 0.5])
+        r_bn.cpt("r")[{"x": "False", "y": "False"}] = [0.0, 0.2, 0.3, 0.5]
+        r_bn.cpt("r")[{"x": "False", "y": "True"}] = [0.0, 0.6, 0.1, 0.3]
+        r_bn.cpt("r")[{"x": "True", "y": "False"}] = [0.0, 0.4, 0.4, 0.2]
+        r_bn.cpt("r")[{"x": "True", "y": "True"}] = [0.0, 0.3, 0.3, 0.4]
+
+        ensemble._dbns[0] = DBNOption(
+            "test",
+            None,
+            None,
+            sf_list,
+            TrueCondition(),
+            transition_dbn=t_bn,
+            reward_dbn=r_bn,
+        )
+
+        queue = SimpleQueue()
+
+        ensemble._build_transition_dict_for_dbn(0, queue)
+
+        dbn_idx, transition_dict = queue.get()
+
+        self.assertEqual(dbn_idx, 0)
+        self.assertEqual(len(transition_dict), 8)
+
+        state_ff = State({sf_list[0]: False, sf_list[1]: False})
+        state_ft = State({sf_list[0]: False, sf_list[1]: True})
+        state_tf = State({sf_list[0]: True, sf_list[1]: False})
+        state_tt = State({sf_list[0]: True, sf_list[1]: True})
+
+        state_fff = State({sf_list[0]: False, sf_list[1]: False, sf_list[2]: False})
+        state_fft = State({sf_list[0]: False, sf_list[1]: False, sf_list[2]: True})
+        state_ftf = State({sf_list[0]: False, sf_list[1]: True, sf_list[2]: False})
+        state_ftt = State({sf_list[0]: False, sf_list[1]: True, sf_list[2]: True})
+        state_tff = State({sf_list[0]: True, sf_list[1]: False, sf_list[2]: False})
+        state_tft = State({sf_list[0]: True, sf_list[1]: False, sf_list[2]: True})
+        state_ttf = State({sf_list[0]: True, sf_list[1]: True, sf_list[2]: False})
+        state_ttt = State({sf_list[0]: True, sf_list[1]: True, sf_list[2]: True})
+
+        ff_ff = ensemble._dbns[0].get_transition_prob(state_fff, state_fff)
+        ff_ft = ensemble._dbns[0].get_transition_prob(state_fff, state_ftf)
+        ff_tf = ensemble._dbns[0].get_transition_prob(state_fff, state_tff)
+        ff_tt = ensemble._dbns[0].get_transition_prob(state_fff, state_ttf)
+
+        ff_post_conds = {
+            state_ff.to_and_cond(): ff_ff,
+            state_ft.to_and_cond(): ff_ft,
+            state_tf.to_and_cond(): ff_tf,
+            state_tt.to_and_cond(): ff_tt,
+        }
+
+        self.assertEqual(transition_dict[state_fff], ff_post_conds)
+        self.assertEqual(transition_dict[state_fft], ff_post_conds)
+
+        ft_ff = ensemble._dbns[0].get_transition_prob(state_ftf, state_fff)
+        ft_ft = ensemble._dbns[0].get_transition_prob(state_ftf, state_ftf)
+        ft_tf = ensemble._dbns[0].get_transition_prob(state_ftf, state_tff)
+        ft_tt = ensemble._dbns[0].get_transition_prob(state_ftf, state_ttf)
+
+        ft_post_conds = {
+            state_ff.to_and_cond(): ft_ff,
+            state_ft.to_and_cond(): ft_ft,
+            state_tf.to_and_cond(): ft_tf,
+            state_tt.to_and_cond(): ft_tt,
+        }
+
+        self.assertEqual(transition_dict[state_ftf], ft_post_conds)
+        self.assertEqual(transition_dict[state_ftt], ft_post_conds)
+
+        self.assertEqual(transition_dict[state_tff], None)
+        self.assertEqual(transition_dict[state_tft], None)
+        self.assertEqual(transition_dict[state_ttf], None)
+        self.assertEqual(transition_dict[state_ttt], None)
 
         DBNOptionEnsemble._setup_ensemble = setup
 
