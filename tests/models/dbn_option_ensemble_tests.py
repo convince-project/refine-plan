@@ -61,14 +61,22 @@ class GetTransitionProbTest(unittest.TestCase):
         setup = DBNOptionEnsemble._setup_ensemble
         DBNOptionEnsemble._setup_ensemble = lambda s, d: None
 
-        ensemble = DBNOptionEnsemble(
-            "option", [], 32, 100, "sf_list", "enabled_cond", {}
-        )
-
         sf = IntStateFactor("sf", 0, 10)
         state = State({sf: 1})
+        state_2 = State({sf: 2})
 
-        trans_dict = {state: {EqCondition(sf, 3): 0.6, AddCondition(sf, 5): 0.4}}
+        state_idx_map = {}
+        for i in range(11):
+            state_idx_map[State({sf: i})] = i
+
+        ensemble = DBNOptionEnsemble(
+            "option", [], 32, 100, "sf_list", "enabled_cond", state_idx_map
+        )
+
+        trans_dict = {
+            state: {EqCondition(sf, 3): 0.6, AddCondition(sf, 5): 0.4},
+            state_2: None,
+        }
 
         ensemble._sampled_transition_dict = trans_dict
 
@@ -78,6 +86,12 @@ class GetTransitionProbTest(unittest.TestCase):
         self.assertEqual(ensemble.get_transition_prob(state, next_state), 0.4)
         next_state = State({sf: 1})
         self.assertEqual(ensemble.get_transition_prob(state, next_state), 0.0)
+
+        self.assertEqual(ensemble.get_transition_prob(state_2, state), 1.0 / 11)
+        next_state = State({sf: 3})
+        self.assertEqual(ensemble.get_transition_prob(state_2, next_state), 1.0 / 11)
+        next_state = State({sf: 6})
+        self.assertEqual(ensemble.get_transition_prob(state_2, next_state), 1.0 / 11)
 
         DBNOptionEnsemble._setup_ensemble = setup
 

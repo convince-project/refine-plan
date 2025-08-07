@@ -28,6 +28,9 @@ class DBNOptionEnsemble(Option):
 
     Each DBNOption in the ensemble is trained on a different subset of the data.
 
+    In _transition_dicts[i][state] or _sampled_transition_dict[state], a None
+    value is used to represent a uniform distribution over the state space.
+
     Attributes:
         Same as superclass, plus:
         _ensemble_size: The size of the ensemble
@@ -95,6 +98,9 @@ class DBNOptionEnsemble(Option):
         Returns:
             The transition probability
         """
+        if self._sampled_transition_dict[state] is None:
+            return 1.0 / len(self._state_idx_map)
+
         for post_cond in self._sampled_transition_dict[state]:
             if state.apply_post_cond(post_cond) == next_state:
                 return self._sampled_transition_dict[state][post_cond]
