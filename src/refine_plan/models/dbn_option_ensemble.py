@@ -167,6 +167,8 @@ class DBNOptionEnsemble(Option):
     def _compute_entropy(self, dist):
         """Compute the Shannon entropy for a distribution.
 
+        Note that None is used as a keyword for uniform distributions
+
         Args:
             dist: A dictionary from event to probability
 
@@ -174,8 +176,23 @@ class DBNOptionEnsemble(Option):
             The Shannon entropy
         """
         entropy = 0
+
+        uniform_p = None
+        num_remaining_states = 0
+        if dist is None:  # Entirely uniform distribution
+            uniform_p = 1.0 / len(self._state_idx_map)
+            num_remaining_states = len(self._state_idx_map)
+
         for event in dist:
-            entropy += dist[event] * log(dist[event], 2)
+            if event is None:  # Save the uniform parts for later
+                uniform_p = dist[None]
+                num_remaining_states = len(self._state_idx_map) - (len(dist) - 1)
+            else:
+                entropy += dist[event] * log(dist[event], 2)
+
+        if uniform_p is not None:  # Add all the uniform parts on compactly
+            entropy += num_remaining_states * (uniform_p * log(uniform_p, 2))
+
         return -1 * entropy
 
     def _compute_avg_dist(self, state):
@@ -188,13 +205,25 @@ class DBNOptionEnsemble(Option):
             The average distribution (from post cond to prob)
         """
         avg_dist = {}
+        num_uniform = 0
         for i in range(self._ensemble_size):
+            if self._transition_dicts[i][state] is None:
+                num_uniform += 1
+                continue
             for post_cond in self._transition_dicts[i][state]:
                 if post_cond not in avg_dist:
                     avg_dist[post_cond] = 0
                 avg_dist[post_cond] += (  # Do division incrementally to save time
                     self._transition_dicts[i][state][post_cond] / self._ensemble_size
                 )
+
+        if num_uniform > 0:  # Compactly represent all the uniform distributions
+            uniform_p = (
+                num_uniform * (1.0 / len(self._state_idx_map)) / self._ensemble_size
+            )
+            for post_cond in avg_dist:
+                avg_dist[post_cond] += uniform_p
+            avg_dist[None] = uniform_p
 
         return avg_dist
 
