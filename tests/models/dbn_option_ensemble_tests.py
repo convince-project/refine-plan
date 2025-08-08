@@ -127,7 +127,15 @@ class GetSCXMLTransitionsTest(unittest.TestCase):
         setup = DBNOptionEnsemble._setup_ensemble
         DBNOptionEnsemble._setup_ensemble = lambda s, d: None
 
-        ensemble = DBNOptionEnsemble("opt", [], 32, 100, [sf], "enabled_cond", {})
+        state_idx_map = {State({sf: "a"}): 0, State({sf: "b"}): 1, State({sf: "c"}): 2}
+        ensemble = DBNOptionEnsemble(
+            "opt", [], 32, 100, [sf], "enabled_cond", state_idx_map
+        )
+        ensemble._enabled_states = [
+            State({sf: "a"}),
+            State({sf: "b"}),
+            State({sf: "c"}),
+        ]
 
         a_cond = EqCondition(sf, "a")
         b_cond = EqCondition(sf, "b")
@@ -136,6 +144,7 @@ class GetSCXMLTransitionsTest(unittest.TestCase):
         ensemble._sampled_transition_dict = {
             State({sf: "a"}): {b_cond: 0.6, c_cond: 0.4},
             State({sf: "b"}): {a_cond: 0.3, c_cond: 0.7},
+            State({sf: "c"}): None,
         }
 
         scxml_transitions = ensemble.get_scxml_transitions(["sf"], "policy")
@@ -171,31 +180,29 @@ class GetSCXMLTransitionsTest(unittest.TestCase):
         trans_str = et.tostring(scxml_transitions[1], encoding="utf8").decode("utf8")
         self.assertEqual(trans_str, xml_string_2)
 
-        ensemble._sampled_transition_dict = {State({sf: "a"}): {b_cond: 1.0}}
         xml_string_3 = "<?xml version='1.0' encoding='utf8'?>\n"
-        xml_string_3 += '<transition target="init" event="opt" cond="sf==0">'
+        xml_string_3 += '<transition target="init" event="opt" cond="sf==2">'
+        xml_string_3 += '<assign location="rand" expr="Math.random()" />'
+        xml_string_3 += '<if cond="rand &lt;= {}">'.format(1.0 / 3)
+        xml_string_3 += '<assign location="sf" expr="0" />'
+        xml_string_3 += '<elseif cond="rand &lt;= {}" />'.format(1.0 / 3 + 1.0 / 3)
         xml_string_3 += '<assign location="sf" expr="1" />'
+        xml_string_3 += "<else />"
+        xml_string_3 += '<assign location="sf" expr="2" />'
+        xml_string_3 += "</if>"
         xml_string_3 += '<send event="update_datamodel" target="policy">'
         xml_string_3 += '<param name="sf" expr="sf" />'
         xml_string_3 += "</send>"
         xml_string_3 += "</transition>"
-        scxml_transitions = ensemble.get_scxml_transitions(["sf"], "policy")
-        trans_str = et.tostring(scxml_transitions[0], encoding="utf8").decode("utf8")
+
+        trans_str = et.tostring(scxml_transitions[2], encoding="utf8").decode("utf8")
         self.assertEqual(trans_str, xml_string_3)
 
-        ensemble._sampled_transition_dict = {
-            State({sf: "a"}): {a_cond: 0.2, b_cond: 0.3, c_cond: 0.5}
-        }
+        ensemble._sampled_transition_dict = {State({sf: "a"}): {b_cond: 1.0}}
+        ensemble._enabled_states = [State({sf: "a"})]
         xml_string_4 = "<?xml version='1.0' encoding='utf8'?>\n"
         xml_string_4 += '<transition target="init" event="opt" cond="sf==0">'
-        xml_string_4 += '<assign location="rand" expr="Math.random()" />'
-        xml_string_4 += '<if cond="rand &lt;= 0.2">'
-        xml_string_4 += '<assign location="sf" expr="0" />'
-        xml_string_4 += '<elseif cond="rand &lt;= 0.5" />'
         xml_string_4 += '<assign location="sf" expr="1" />'
-        xml_string_4 += "<else />"
-        xml_string_4 += '<assign location="sf" expr="2" />'
-        xml_string_4 += "</if>"
         xml_string_4 += '<send event="update_datamodel" target="policy">'
         xml_string_4 += '<param name="sf" expr="sf" />'
         xml_string_4 += "</send>"
@@ -203,6 +210,27 @@ class GetSCXMLTransitionsTest(unittest.TestCase):
         scxml_transitions = ensemble.get_scxml_transitions(["sf"], "policy")
         trans_str = et.tostring(scxml_transitions[0], encoding="utf8").decode("utf8")
         self.assertEqual(trans_str, xml_string_4)
+
+        ensemble._sampled_transition_dict = {
+            State({sf: "a"}): {a_cond: 0.2, b_cond: 0.3, c_cond: 0.5}
+        }
+        xml_string_5 = "<?xml version='1.0' encoding='utf8'?>\n"
+        xml_string_5 += '<transition target="init" event="opt" cond="sf==0">'
+        xml_string_5 += '<assign location="rand" expr="Math.random()" />'
+        xml_string_5 += '<if cond="rand &lt;= 0.2">'
+        xml_string_5 += '<assign location="sf" expr="0" />'
+        xml_string_5 += '<elseif cond="rand &lt;= 0.5" />'
+        xml_string_5 += '<assign location="sf" expr="1" />'
+        xml_string_5 += "<else />"
+        xml_string_5 += '<assign location="sf" expr="2" />'
+        xml_string_5 += "</if>"
+        xml_string_5 += '<send event="update_datamodel" target="policy">'
+        xml_string_5 += '<param name="sf" expr="sf" />'
+        xml_string_5 += "</send>"
+        xml_string_5 += "</transition>"
+        scxml_transitions = ensemble.get_scxml_transitions(["sf"], "policy")
+        trans_str = et.tostring(scxml_transitions[0], encoding="utf8").decode("utf8")
+        self.assertEqual(trans_str, xml_string_5)
 
         DBNOptionEnsemble._setup_ensemble = setup
 
@@ -887,7 +915,21 @@ class PrecomputePRISMStringsTest(unittest.TestCase):
         DBNOptionEnsemble._setup_ensemble = lambda s, d: None
         sf = StateFactor("sf", ["a", "b", "c"])
 
-        ensemble = DBNOptionEnsemble("opt", [], 2, 100, [sf], "enabled_cond", {})
+        a_cond = EqCondition(sf, "a")
+        b_cond = EqCondition(sf, "b")
+        c_cond = EqCondition(sf, "c")
+
+        a_state = State({sf: "a"})
+        b_state = State({sf: "b"})
+        c_state = State({sf: "c"})
+
+        state_idx_map = {a_state: 0, b_state: 1, c_state: 2}
+
+        ensemble = DBNOptionEnsemble(
+            "opt", [], 2, 100, [sf], "enabled_cond", state_idx_map
+        )
+
+        ensemble._enabled_states = [a_state, b_state]
 
         a_cond = EqCondition(sf, "a")
         b_cond = EqCondition(sf, "b")
@@ -916,6 +958,74 @@ class PrecomputePRISMStringsTest(unittest.TestCase):
             "[opt] ((sf = 1) & (time < 100)) -> 0.3:(sf' = 0) & (time' = time + 1) + "
         )
         trans_str += "0.7:(sf' = 2) & (time' = time + 1);\n"
+        self.assertEqual(ensemble._transition_prism_str, trans_str)
+
+        reward_str = "[opt] ((sf = 0) & (time < 100)): 7.5;\n"
+        reward_str += "[opt] ((sf = 1) & (time < 100)): 1.3;\n"
+
+        self.assertEqual(ensemble._reward_prism_str, reward_str)
+
+        self.assertTrue(
+            EqCondition(sf, "b") in ensemble._sampled_transition_dict[a_state]
+        )
+        self.assertTrue(
+            EqCondition(sf, "c") in ensemble._sampled_transition_dict[a_state]
+        )
+        self.assertTrue(
+            EqCondition(sf, "a") in ensemble._sampled_transition_dict[b_state]
+        )
+        self.assertTrue(
+            EqCondition(sf, "c") in ensemble._sampled_transition_dict[b_state]
+        )
+
+        DBNOptionEnsemble._setup_ensemble = setup
+
+    def test_uniform(self):
+        setup = DBNOptionEnsemble._setup_ensemble
+        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+        sf = StateFactor("sf", ["a", "b", "c"])
+
+        a_cond = EqCondition(sf, "a")
+        b_cond = EqCondition(sf, "b")
+        c_cond = EqCondition(sf, "c")
+
+        a_state = State({sf: "a"})
+        b_state = State({sf: "b"})
+        c_state = State({sf: "c"})
+
+        state_idx_map = {a_state: 0, b_state: 1, c_state: 2}
+
+        ensemble = DBNOptionEnsemble(
+            "opt", [], 2, 100, [sf], "enabled_cond", state_idx_map
+        )
+
+        ensemble._enabled_states = [a_state, b_state, c_state]
+        ensemble._sampled_transition_dict = {
+            a_state: {b_cond: 0.6, c_cond: 0.4},
+            b_state: {a_cond: 0.3, c_cond: 0.7},
+            c_state: None,
+        }
+
+        ensemble._reward_dict = {
+            a_state: 7.5,
+            b_state: 1.3,
+        }
+
+        ensemble._precompute_prism_strings()
+
+        trans_str = (
+            "[opt] ((sf = 0) & (time < 100)) -> 0.6:(sf' = 1) & (time' = time + 1) + "
+        )
+        trans_str += "0.4:(sf' = 2) & (time' = time + 1);\n"
+        trans_str += (
+            "[opt] ((sf = 1) & (time < 100)) -> 0.3:(sf' = 0) & (time' = time + 1) + "
+        )
+        trans_str += "0.7:(sf' = 2) & (time' = time + 1);\n"
+        trans_str += (
+            "[opt] ((sf = 2) & (time < 100)) -> {}:(sf' = 0) & (time' = time + 1) + "
+        ).format(1.0 / 3)
+        trans_str += "{}:(sf' = 1) & (time' = time + 1) + ".format(1.0 / 3)
+        trans_str += "{}:(sf' = 2) & (time' = time + 1);\n".format(1.0 / 3)
         self.assertEqual(ensemble._transition_prism_str, trans_str)
 
         reward_str = "[opt] ((sf = 0) & (time < 100)): 7.5;\n"

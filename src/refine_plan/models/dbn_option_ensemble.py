@@ -135,10 +135,16 @@ class DBNOptionEnsemble(Option):
         """
         transitions = []
 
-        for state in self._sampled_transition_dict:
+        for state in self._enabled_states:
             pre_cond = state.to_and_cond()
+            prob_post_conds = self._sampled_transition_dict[state]
+            if prob_post_conds is None:
+                prob_post_conds = {
+                    s.to_and_cond(): 1.0 / len(self._state_idx_map)
+                    for s in self._state_idx_map
+                }
             scxml_trans = self._build_single_scxml_transition(
-                pre_cond, self._sampled_transition_dict[state], sf_names, policy_name
+                pre_cond, prob_post_conds, sf_names, policy_name
             )
             transitions.append(scxml_trans)
 
@@ -378,7 +384,7 @@ class DBNOptionEnsemble(Option):
         time_inc = AddCondition(time_sf, 1)
         self._transition_prism_str, self._reward_prism_str = "", ""
 
-        for state in self._sampled_transition_dict:
+        for state in self._enabled_states:
             pre_cond = state.to_and_cond()
             pre_cond.add_cond(time_guard)
 
@@ -387,17 +393,26 @@ class DBNOptionEnsemble(Option):
                 self.get_name(), pre_cond.to_prism_string()
             )
 
-            for post_cond in self._sampled_transition_dict[state]:
-                trans_prob = self._sampled_transition_dict[state][post_cond]
-                if not isinstance(post_cond, AndCondition):
-                    post_cond = AndCondition(post_cond, time_inc)
-                else:
-                    post_cond = AndCondition(*(post_cond._cond_list + [time_inc]))
+            if self._sampled_transition_dict[state] is None:  # Uniform distributions
+                for post_state in self._state_idx_map:
+                    post_cond = post_state.to_and_cond()
+                    post_cond.add_cond(time_inc)
+                    self._transition_prism_str += "{}:{} + ".format(
+                        1.0 / len(self._state_idx_map),
+                        post_cond.to_prism_string(is_post_cond=True),
+                    )
+            else:
+                for post_cond in self._sampled_transition_dict[state]:
+                    trans_prob = self._sampled_transition_dict[state][post_cond]
+                    if not isinstance(post_cond, AndCondition):
+                        post_cond = AndCondition(post_cond, time_inc)
+                    else:
+                        post_cond = AndCondition(*(post_cond._cond_list + [time_inc]))
 
-                self._transition_prism_str += "{}:{} + ".format(
-                    trans_prob,
-                    post_cond.to_prism_string(is_post_cond=True),
-                )
+                    self._transition_prism_str += "{}:{} + ".format(
+                        trans_prob,
+                        post_cond.to_prism_string(is_post_cond=True),
+                    )
 
             self._transition_prism_str = self._transition_prism_str[:-3] + ";\n"
 
