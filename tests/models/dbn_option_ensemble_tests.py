@@ -31,7 +31,7 @@ class ConstructorTest(unittest.TestCase):
 
     def test_function(self):
         setup = DBNOptionEnsemble._setup_ensemble
-        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+        DBNOptionEnsemble._setup_ensemble = lambda s, d, compute_prism_str=False: None
 
         ensemble = DBNOptionEnsemble(
             "option", [], 32, 100, "sf_list", "enabled_cond", "map"
@@ -59,7 +59,7 @@ class GetTransitionProbTest(unittest.TestCase):
 
     def test_function(self):
         setup = DBNOptionEnsemble._setup_ensemble
-        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+        DBNOptionEnsemble._setup_ensemble = lambda s, d, compute_prism_str=False: None
 
         sf = IntStateFactor("sf", 0, 10)
         state = State({sf: 1})
@@ -100,7 +100,7 @@ class GetRewardTest(unittest.TestCase):
 
     def test_function(self):
         setup = DBNOptionEnsemble._setup_ensemble
-        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+        DBNOptionEnsemble._setup_ensemble = lambda s, d, compute_prism_str=False: None
 
         ensemble = DBNOptionEnsemble(
             "option", [], 32, 100, "sf_list", "enabled_cond", {}
@@ -125,7 +125,7 @@ class GetSCXMLTransitionsTest(unittest.TestCase):
         sf = StateFactor("sf", ["a", "b", "c"])
 
         setup = DBNOptionEnsemble._setup_ensemble
-        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+        DBNOptionEnsemble._setup_ensemble = lambda s, d, compute_prism_str=False: None
 
         state_idx_map = {State({sf: "a"}): 0, State({sf: "b"}): 1, State({sf: "c"}): 2}
         ensemble = DBNOptionEnsemble(
@@ -239,7 +239,7 @@ class GetTransitionPRISMStringTest(unittest.TestCase):
 
     def test_function(self):
         setup = DBNOptionEnsemble._setup_ensemble
-        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+        DBNOptionEnsemble._setup_ensemble = lambda s, d, compute_prism_str=False: None
 
         ensemble = DBNOptionEnsemble(
             "option", [], 32, 100, "sf_list", "enabled_cond", {}
@@ -259,7 +259,7 @@ class GetRewardPRISMStringTest(unittest.TestCase):
 
     def test_function(self):
         setup = DBNOptionEnsemble._setup_ensemble
-        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+        DBNOptionEnsemble._setup_ensemble = lambda s, d, compute_prism_str=False: None
 
         ensemble = DBNOptionEnsemble(
             "option", [], 32, 100, "sf_list", "enabled_cond", {}
@@ -279,7 +279,7 @@ class ComputeEntropyTest(unittest.TestCase):
 
     def test_function(self):
         setup = DBNOptionEnsemble._setup_ensemble
-        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+        DBNOptionEnsemble._setup_ensemble = lambda s, d, compute_prism_str=False: None
 
         ensemble = DBNOptionEnsemble(
             "option", [], 32, 100, "sf_list", "enabled_cond", {}
@@ -295,7 +295,7 @@ class ComputeEntropyTest(unittest.TestCase):
 
     def test_uniform(self):
         setup = DBNOptionEnsemble._setup_ensemble
-        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+        DBNOptionEnsemble._setup_ensemble = lambda s, d, compute_prism_str=False: None
 
         state_idx_map = {"s": 0, "t": 1, "n1": 2, "n2": 3, "n3": 4}
         ensemble = DBNOptionEnsemble(
@@ -316,7 +316,7 @@ class ComputeAvgDistTest(unittest.TestCase):
 
     def test_function(self):
         setup = DBNOptionEnsemble._setup_ensemble
-        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+        DBNOptionEnsemble._setup_ensemble = lambda s, d, compute_prism_str=False: None
 
         ensemble = DBNOptionEnsemble(
             "option", [], 2, 100, "sf_list", "enabled_cond", {}
@@ -333,7 +333,7 @@ class ComputeAvgDistTest(unittest.TestCase):
 
     def test_uniform(self):
         setup = DBNOptionEnsemble._setup_ensemble
-        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+        DBNOptionEnsemble._setup_ensemble = lambda s, d, compute_prism_str=False: None
 
         state_idx_map = {"s": 0, "t": 1, "n1": 2, "n2": 3, "n3": 4}
         ensemble = DBNOptionEnsemble(
@@ -356,7 +356,7 @@ class ComputeInfoGainTest(unittest.TestCase):
 
     def test_function(self):
         setup = DBNOptionEnsemble._setup_ensemble
-        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+        DBNOptionEnsemble._setup_ensemble = lambda s, d, compute_prism_str=False: None
 
         ensemble = DBNOptionEnsemble(
             "option", [], 2, 100, "sf_list", "enabled_cond", {}
@@ -372,7 +372,7 @@ class ComputeInfoGainTest(unittest.TestCase):
 
     def test_uniform(self):
         setup = DBNOptionEnsemble._setup_ensemble
-        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+        DBNOptionEnsemble._setup_ensemble = lambda s, d, compute_prism_str=False: None
 
         state_idx_map = {"s": 0, "t": 1, "n1": 2, "n2": 3, "n3": 4}
         ensemble = DBNOptionEnsemble(
@@ -397,7 +397,7 @@ class IdentifyEnabledStatesTest(unittest.TestCase):
 
     def test_function(self):
         setup = DBNOptionEnsemble._setup_ensemble
-        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+        DBNOptionEnsemble._setup_ensemble = lambda s, d, compute_prism_str=False: None
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
         enabled_cond = EqCondition(sf_list[0], True)
@@ -426,7 +426,7 @@ class CreateDatasetsTest(unittest.TestCase):
 
     def test_function(self):
         setup = DBNOptionEnsemble._setup_ensemble
-        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+        DBNOptionEnsemble._setup_ensemble = lambda s, d, compute_prism_str=False: None
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
         ensemble = DBNOptionEnsemble("option", [], 2, 100, sf_list, "enabled_cond", {})
@@ -475,7 +475,7 @@ class LearnDBNOptionsTest(unittest.TestCase):
 
     def test_function(self):
         setup = DBNOptionEnsemble._setup_ensemble
-        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+        DBNOptionEnsemble._setup_ensemble = lambda s, d, compute_prism_str=False: None
 
         sf_list = [IntStateFactor("x", 1, 3), BoolStateFactor("y")]
         enabled_cond = GeqCondition(sf_list[0], 1)
@@ -526,7 +526,7 @@ class BuildTransitionDictForDBNTest(unittest.TestCase):
     def test_function(self):
 
         setup = DBNOptionEnsemble._setup_ensemble
-        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+        DBNOptionEnsemble._setup_ensemble = lambda s, d, compute_prism_str=False: None
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y"), BoolStateFactor("z")]
         state_idx_map = {
@@ -676,7 +676,7 @@ class BuildTransitionDictForDBNTest(unittest.TestCase):
     def test_uniform_dists(self):
 
         setup = DBNOptionEnsemble._setup_ensemble
-        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+        DBNOptionEnsemble._setup_ensemble = lambda s, d, compute_prism_str=False: None
 
         sf_list = [BoolStateFactor("x"), BoolStateFactor("y"), BoolStateFactor("z")]
         state_idx_map = {
@@ -799,7 +799,7 @@ class BuildTransitionDictsTest(unittest.TestCase):
 
     def test_function(self):
         setup = DBNOptionEnsemble._setup_ensemble
-        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+        DBNOptionEnsemble._setup_ensemble = lambda s, d, compute_prism_str=False: None
 
         def set_dbn_idx(s, i, q):
             q.put((i, {i: i + 1}))
@@ -822,7 +822,7 @@ class ComputeSampledTransitionsAndInfoGainTest(unittest.TestCase):
 
     def test_function(self):
         setup = DBNOptionEnsemble._setup_ensemble
-        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+        DBNOptionEnsemble._setup_ensemble = lambda s, d, compute_prism_str=False: None
 
         ensemble = DBNOptionEnsemble(
             "option", [], 2, 100, "sf_list", "enabled_cond", {}
@@ -855,7 +855,7 @@ class BuildMatricesTest(unittest.TestCase):
 
     def test_function(self):
         setup = DBNOptionEnsemble._setup_ensemble
-        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+        DBNOptionEnsemble._setup_ensemble = lambda s, d, compute_prism_str=False: None
 
         sf = StateFactor("sf", ["s", "t", "n1", "n2", "n3"])
 
@@ -912,7 +912,7 @@ class PrecomputePRISMStringsTest(unittest.TestCase):
 
     def test_function(self):
         setup = DBNOptionEnsemble._setup_ensemble
-        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+        DBNOptionEnsemble._setup_ensemble = lambda s, d, compute_prism_str=False: None
         sf = StateFactor("sf", ["a", "b", "c"])
 
         a_cond = EqCondition(sf, "a")
@@ -982,7 +982,7 @@ class PrecomputePRISMStringsTest(unittest.TestCase):
 
     def test_uniform(self):
         setup = DBNOptionEnsemble._setup_ensemble
-        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+        DBNOptionEnsemble._setup_ensemble = lambda s, d, compute_prism_str=False: None
         sf = StateFactor("sf", ["a", "b", "c"])
 
         a_cond = EqCondition(sf, "a")
@@ -1131,8 +1131,8 @@ class SetupEnsembleTest(unittest.TestCase):
         )
         for state in ensemble._reward_dict:
             self.assertTrue(enabled_cond.is_satisfied(state))
-        self.assertTrue(ensemble._transition_prism_str is not None)
-        self.assertTrue(ensemble._reward_prism_str is not None)
+        self.assertTrue(ensemble._transition_prism_str is None)
+        self.assertTrue(ensemble._reward_prism_str is None)
         self.assertTrue(ensemble._sampled_transition_mat is not None)
         self.assertTrue(ensemble._reward_mat is not None)
 

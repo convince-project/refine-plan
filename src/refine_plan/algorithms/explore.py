@@ -52,6 +52,7 @@ def _build_options(
     sf_list,
     enabled_conds,
     state_idx_map,
+    compute_prism_str=False,
 ):
     """Build a set of DBNOptionEnsemble objects.
 
@@ -63,6 +64,7 @@ def _build_options(
         sf_list: The state factors used for planning
         enabled_conds: A dictionary from option name to enabled condition
         state_idx_map: A mapping from states to matrix indices
+        compute_prism_str: If True, build the PRISM strings
 
     Returns:
         A list of DBNOptionEnsemble objects
@@ -79,6 +81,7 @@ def _build_options(
                 sf_list,
                 enabled_conds[opt],
                 state_idx_map,
+                compute_prism_str=compute_prism_str,
             )
         )
 
@@ -182,6 +185,7 @@ def synthesise_exploration_policy(
         sf_list,
         enabled_conds,
         state_idx_map,
+        use_storm,
     )
 
     # Step 3: Build the MDP

@@ -58,6 +58,7 @@ class DBNOptionEnsemble(Option):
         sf_list,
         enabled_cond,
         state_idx_map,
+        compute_prism_str=False,
     ):
         """Initialise attributes.
 
@@ -68,6 +69,7 @@ class DBNOptionEnsemble(Option):
             horizon: The planning horizon length
             sf_list: The list of state factors that make up the state space
             enabled_cond: A Condition which is satisfied in states where the option is enabled
+            compute_prism_str: If True, compute PRISM strings
         """
         super(DBNOptionEnsemble, self).__init__(name, [], [])
         self._ensemble_size = ensemble_size
@@ -84,7 +86,7 @@ class DBNOptionEnsemble(Option):
         self._state_idx_map = state_idx_map
         self._sampled_transition_mat = None
         self._reward_mat = None
-        self._setup_ensemble(data)
+        self._setup_ensemble(data, compute_prism_str=compute_prism_str)
 
     def get_transition_prob(self, state, next_state):
         """Return the exploration probability for a (s,s') pair.
@@ -446,11 +448,12 @@ class DBNOptionEnsemble(Option):
                         next_id = self._state_idx_map[next_state]
                         self._sampled_transition_mat[state_id, next_id] = prob
 
-    def _setup_ensemble(self, data):
+    def _setup_ensemble(self, data, compute_prism_str=False):
         """Set up the ensemble using the available data.
 
         Args:
             data: A dictionary of new data items to learn from
+            compute_prism_str: If True, compute the PRISM strings
         """
         # Step 1: Create the list of enabled states
         print("{}: Identifying enabled states...".format(self.get_name()))
@@ -470,6 +473,7 @@ class DBNOptionEnsemble(Option):
         # Step 5: Build transition and reward matrices
         print("{}: Building transition/reward matrices".format(self.get_name()))
         self._build_matrices()
-        # Step 6: Precompute PRISM strings
-        print("{}: Precomputing PRISM strings".format(self.get_name()))
-        self._precompute_prism_strings()
+        if compute_prism_str:
+            # Step 6: Precompute PRISM strings
+            print("{}: Precomputing PRISM strings".format(self.get_name()))
+            # self._precompute_prism_strings()
