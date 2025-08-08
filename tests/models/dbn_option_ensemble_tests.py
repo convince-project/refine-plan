@@ -265,8 +265,26 @@ class ComputeEntropyTest(unittest.TestCase):
 
         DBNOptionEnsemble._setup_ensemble = setup
 
+    def test_uniform(self):
+        setup = DBNOptionEnsemble._setup_ensemble
+        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
 
-class ComputeAvgDist(unittest.TestCase):
+        state_idx_map = {"s": 0, "t": 1, "n1": 2, "n2": 3, "n3": 4}
+        ensemble = DBNOptionEnsemble(
+            "option", [], 4, 100, "sf_list", "enabled_cond", state_idx_map
+        )
+
+        entropy = ensemble._compute_entropy(None)
+        self.assertAlmostEqual(entropy, 2.32192809489)
+
+        dist = {"n1": 0.275, "n2": 0.275, "n3": 0.25, None: 0.1}
+        entropy = ensemble._compute_entropy(dist)
+        self.assertAlmostEqual(entropy, 2.18875868092)
+
+        DBNOptionEnsemble._setup_ensemble = setup
+
+
+class ComputeAvgDistTest(unittest.TestCase):
 
     def test_function(self):
         setup = DBNOptionEnsemble._setup_ensemble
@@ -285,8 +303,28 @@ class ComputeAvgDist(unittest.TestCase):
 
         DBNOptionEnsemble._setup_ensemble = setup
 
+    def test_uniform(self):
+        setup = DBNOptionEnsemble._setup_ensemble
+        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
 
-class ComputeInfoGain(unittest.TestCase):
+        state_idx_map = {"s": 0, "t": 1, "n1": 2, "n2": 3, "n3": 4}
+        ensemble = DBNOptionEnsemble(
+            "option", [], 4, 100, "sf_list", "enabled_cond", state_idx_map
+        )
+
+        ensemble._transition_dicts[0] = {"s": {"n1": 0.7, "n2": 0.3}}
+        ensemble._transition_dicts[1] = {"s": None}
+        ensemble._transition_dicts[2] = {"s": {"n2": 0.4, "n3": 0.6}}
+        ensemble._transition_dicts[3] = {"s": None}
+
+        avg_dist = ensemble._compute_avg_dist("s")
+        expected = {"n1": 0.275, "n2": 0.275, "n3": 0.25, None: 0.1}
+        self.assertEqual(avg_dist, expected)
+
+        DBNOptionEnsemble._setup_ensemble = setup
+
+
+class ComputeInfoGainTest(unittest.TestCase):
 
     def test_function(self):
         setup = DBNOptionEnsemble._setup_ensemble
@@ -301,6 +339,28 @@ class ComputeInfoGain(unittest.TestCase):
 
         info_gain = ensemble._compute_info_gain("s")
         self.assertAlmostEqual(info_gain, 0.65517015239)
+
+        DBNOptionEnsemble._setup_ensemble = setup
+
+    def test_uniform(self):
+        setup = DBNOptionEnsemble._setup_ensemble
+        DBNOptionEnsemble._setup_ensemble = lambda s, d: None
+
+        state_idx_map = {"s": 0, "t": 1, "n1": 2, "n2": 3, "n3": 4}
+        ensemble = DBNOptionEnsemble(
+            "option", [], 4, 100, "sf_list", "enabled_cond", state_idx_map
+        )
+
+        ensemble._transition_dicts[0] = {"s": {"n1": 0.7, "n2": 0.3}}
+        ensemble._transition_dicts[1] = {"s": None}
+        ensemble._transition_dicts[2] = {"s": {"n2": 0.4, "n3": 0.6}}
+        ensemble._transition_dicts[3] = {"s": None}
+
+        expected = {"n1": 0.275, "n2": 0.275, "n3": 0.25, None: 0.1}
+
+        info_gain = ensemble._compute_info_gain("s")
+
+        self.assertAlmostEqual(info_gain, 0.56473426005)
 
         DBNOptionEnsemble._setup_ensemble = setup
 

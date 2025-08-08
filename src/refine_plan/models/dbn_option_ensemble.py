@@ -167,7 +167,7 @@ class DBNOptionEnsemble(Option):
     def _compute_entropy(self, dist):
         """Compute the Shannon entropy for a distribution.
 
-        Note that None is used as a keyword for uniform distributions
+        Note that None is used as a keyword for uniform distributions.
 
         Args:
             dist: A dictionary from event to probability
@@ -175,20 +175,20 @@ class DBNOptionEnsemble(Option):
         Returns:
             The Shannon entropy
         """
-        entropy = 0
+        entropy = 0.0
 
         uniform_p = None
         num_remaining_states = 0
         if dist is None:  # Entirely uniform distribution
             uniform_p = 1.0 / len(self._state_idx_map)
             num_remaining_states = len(self._state_idx_map)
-
-        for event in dist:
-            if event is None:  # Save the uniform parts for later
-                uniform_p = dist[None]
-                num_remaining_states = len(self._state_idx_map) - (len(dist) - 1)
-            else:
-                entropy += dist[event] * log(dist[event], 2)
+        else:
+            for event in dist:
+                if event is None:  # Save the uniform parts for later
+                    uniform_p = dist[None]
+                    num_remaining_states = len(self._state_idx_map) - (len(dist) - 1)
+                else:
+                    entropy += dist[event] * log(dist[event], 2)
 
         if uniform_p is not None:  # Add all the uniform parts on compactly
             entropy += num_remaining_states * (uniform_p * log(uniform_p, 2))
@@ -237,7 +237,6 @@ class DBNOptionEnsemble(Option):
             The information gain (approximation of the Jensen-Shannon Divergence)
         """
         entropy_of_avg = self._compute_entropy(self._compute_avg_dist(state))
-
         avg_entropy = 0
         for i in range(self._ensemble_size):
             avg_entropy += self._compute_entropy(self._transition_dicts[i][state])
