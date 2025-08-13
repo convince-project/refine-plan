@@ -1,0 +1,364 @@
+#!/usr/bin/env python3
+"""A synthetic example of the house wire search domain to compare data collection approaches.
+
+Author: Charlie Street
+Owner: Charlie Street
+"""
+
+from refine_plan.models.condition import AndCondition, OrCondition, EqCondition
+from refine_plan.algorithms.explore import synthesise_exploration_policy
+from refine_plan.models.state_factor import StateFactor
+from refine_plan.models.state import State
+from pymongo import MongoClient
+from datetime import datetime
+import numpy as np
+import copy
+import sys
+
+
+GRAPH = {
+    "v1": {"e12": "v2", "e13": "v3", "e14": "v4"},
+    "v2": {"e12": "v1", "e24": "v4"},
+    "v3": {"e13": "v1", "e34": "v4"},
+    "v4": {"e14": "v1", "e24": "v2", "e34": "v3", "e45": "v5"},
+    "v5": {"e45": "v4", "e56": "v6", "e57": "v7", "e58": "v8", "e59": "v9"},
+    "v6": {"e56": "v5", "e67": "v7"},
+    "v7": {"e57": "v5", "e67": "v6", "e78": "v8"},
+    "v8": {"e58": "v5", "e78": "v7"},
+    "v9": {"e59": "v5", "e910": "v10", "e911": "v11"},
+    "v10": {"e910": "v9"},
+    "v11": {"e911": "v9"},
+}
+
+
+class WireSearchSim(object):
+    """Discrete event simulator for the wire search domain.
+
+    Attributes:
+        _episode_id: The episode ID for the simulator
+        _state: The current state of the system
+        _timestep: The current timestep of the simulation
+        _mode: Can be 'data' or 'refined'
+        _wire_loc: The node the wire is located at in this simulation
+        _graph: The topological map
+        _costs: The cost dictionary for edge actions
+    """
+
+    def __init__(self, episode_id, mode):
+        """Initialise attributes.
+
+        Args:
+            episode_id: The episode ID for the simulator
+            mode: The mode of execution
+        """
+        self._episode_id = episode_id
+        self._state = self._create_initial_state()
+        self._timestep = 0
+        self._mode = mode
+        self._wire_loc = np.random.choice(
+            ["v2", "v7", "v10", "v11"], p=[0.1, 0.15, 0.5, 0.25]
+        )
+        self._graph = self._create_graph()
+        self._costs = self._create_costs()
+
+    def _create_graph(self):
+        """Create the topological map."""
+        return GRAPH
+
+    def _create_costs(self):
+        """Create the cost dictionary."""
+        return {
+            "e58": 18.961600862336393,
+            "e67": 18.941210814744007,
+            "e56": 37.31873743187375,
+            "e14": 43.032482078839614,
+            "e78": 36.859459457837836,
+            "e910": 12.813378664507947,
+            "e12": 42.52491981040685,
+            "e24": 11.611713209891622,
+            "e45": 8.615894349436978,
+            "e57": 45.636605914695664,
+            "e13": 11.870823252449165,
+            "e911": 14.433811540653732,
+            "e59": 23.447509934830247,
+            "e34": 40.17821765050201,
+        }
+
+    def _goal_reached(self):
+        """Goal termination condition.
+
+        Returns:
+            Whether or not the simulation goal has been reached
+        """
+        if self._mode == "data":
+            return self._timestep >= 100
+        else:
+            return (
+                self._state["wire_at_v2"] == "yes"
+                or self._state["wire_at_v7"] == "yes"
+                or self._state["wire_at_v10"] == "yes"
+                or self._state["wire_at_v11"] == "yes"
+            )
+
+    def _is_enabled(self, state, action):
+        """Tests whether an action is enabled in state.
+
+        Args:
+            state: The current state
+            action: The action to execute
+
+        Returns:
+            Whether the action is enabled
+        """
+        if action == "check_for_wire":
+            return (
+                state["location"] in ["v2", "v7", "v10", "v11"]
+                and state["wire_at_{}".format(state["location"])] == "unknown"
+            )
+        else:
+            return action in self._graph[state["location"]]
+
+    def _create_initial_state(self):
+        """Creates the initial state for the simulation.
+
+        Returns:
+            The initial state
+        """
+        loc_sf = StateFactor("location", ["v{}".format(i) for i in range(1, 12)])
+        door_sfs = [
+            StateFactor("wire_at_v2", ["unknown", "no", "yes"]),
+            StateFactor("wire_at_v7", ["unknown", "no", "yes"]),
+            StateFactor("wire_at_v10", ["unknown", "no", "yes"]),
+            StateFactor("wire_at_v11", ["unknown", "no", "yes"]),
+        ]
+
+        state_dict = {loc_sf: "v1"}
+        for sf in door_sfs:
+            state_dict[sf] = "unknown"
+
+        return State(state_dict)
+
+    def _build_mongo_log(self, state, action, cost, next_state):
+        """Build a mongo log for a timestep.
+
+        Args:
+            state: The predecessor state
+            action: The action executed
+            cost: The action cost
+            next_state: The next state
+
+        Returns:
+            The Mongo log
+        """
+        doc = {}
+        doc["run_id"] = self._episode_id
+        doc["option"] = action
+        doc["duration"] = cost
+        doc["_meta"] = {"inserted_at": datetime.now()}
+
+        for sf in state._state_dict:
+            doc["{}0".format(sf)] = state[sf]
+
+        for sf in next_state._state_dict:
+            doc["{}t".format(sf)] = next_state[sf]
+        return doc
+
+    def _step_forward(self, action):
+        """Step forward the simulation one step.
+
+        Args:
+            action: The action to execute
+
+        Returns:
+            A Mongo log for this step
+        """
+
+        if not self._is_enabled(self._state, action):
+            raise Exception("Can't execute {} in {}".format(action, self._state))
+
+        new_state_dict = copy.deepcopy(self._state._state_dict)
+        cost = 0.0
+        if action == "check_for_wire":
+            if self._state["location"] == self._wire_loc:
+                for wire_loc in ["v2", "v7", "v10", "v11"]:
+                    if wire_loc == self._state["location"]:
+                        new_state_dict["wire_at_{}".format(wire_loc)] = "yes"
+                    else:
+                        new_state_dict["wire_at_{}".format(wire_loc)] = "no"
+            else:
+                new_state_dict["wire_at_{}".format(self._state["location"])] = "no"
+        else:
+            new_loc = self._graph[self._state["location"]][action]
+            new_state_dict["location"] = new_loc
+            cost = self._costs[action] + np.random.uniform(-0.5, 0.5)
+
+        next_state = {}
+        for sf in new_state_dict:
+            next_state[self._state._sf_dict[sf]] = new_state_dict[sf]
+        next_state = State(next_state)
+
+        log = self._build_mongo_log(self._state, action, cost, next_state)
+        print(
+            "STATE: {}; TIME: {}; ACTION: {}; COST: {}; NEXT STATE: {}".format(
+                self._state, self._timestep, action, cost, next_state
+            )
+        )
+        self._state = next_state
+        return log
+
+    def run_sim(self, policy_fn):
+        """Run a simulation until a goal is satisfied.
+
+        The goal is dependent on self._mode
+
+        Args:
+            policy_fn: A function of state and time that returns an action
+
+        Returns:
+            The mongo logs for this run
+        """
+        logs = []
+        while not self._goal_reached():
+            action = policy_fn(self._state, self._timestep)
+            logs.append(self._step_forward(action))
+            self._timestep += 1
+        return logs
+
+
+def get_enabled_cond(sf_list, option):
+    """Get the enabled condition for an option.
+
+    Args:
+        sf_list: The list of state factors
+        option: The option we want the condition for
+
+    Returns:
+        The enabled condition for the option
+    """
+    sf_dict = {sf.get_name(): sf for sf in sf_list}
+    wire_locs = ["v{}".format(v) for v in [2, 7, 10, 11]]
+
+    if option == "check_for_wire":
+        enabled_cond = OrCondition()
+
+        for loc in wire_locs:
+            enabled_cond.add_cond(
+                AndCondition(
+                    EqCondition(sf_dict["location"], loc),
+                    EqCondition(sf_dict["wire_at_{}".format(loc)], "unknown"),
+                )
+            )
+        return enabled_cond
+    else:  # Edge navigation action
+        enabled_cond = OrCondition()
+        for node in GRAPH:
+            if option in GRAPH[node]:
+                enabled_cond.add_cond(EqCondition(sf_dict["location"], node))
+        return enabled_cond
+
+
+def get_enabled_actions(state):
+    """Get the enabled actions for a state.
+
+    Args:
+        state: The state to check
+
+    Returns:
+        The list of enabled actions
+    """
+    out_edges = {
+        "v1": ["e12", "e13", "e14"],
+        "v2": ["e12", "e24"],
+        "v3": ["e13", "e34"],
+        "v4": ["e14", "e24", "e34", "e45"],
+        "v5": ["e45", "e56", "e57", "e58", "e59"],
+        "v6": ["e56", "e67"],
+        "v7": ["e57", "e67", "e78"],
+        "v8": ["e58", "e78"],
+        "v9": ["e59", "e910", "e911"],
+        "v10": ["e910"],
+        "v11": ["e911"],
+    }
+    loc = state["location"]
+    enabled = out_edges[loc]
+
+    if (
+        loc in ["v2", "v7", "v10", "v11"]
+        and state["wire_at_{}".format(loc)] == "unknown"
+    ):
+        enabled.append("check_for_wire")
+
+    return enabled
+
+
+def run_random_data_collection(connection_str):
+    """Run 100 episodes of random data collection."""
+
+    client = MongoClient(connection_str)
+    db = client["refine-plan-v2"]
+    collection = db["fake-wire-random-data"]
+
+    def rand_policy(s, t):
+        return np.random.choice(get_enabled_actions(s))
+
+    for episode_id in range(100):
+        print("RANDOM DATA COLLECTION, EPISODE: {}".format(episode_id + 1))
+        sim = WireSearchSim(episode_id, "data")
+        logs = sim.run_sim(rand_policy)
+        collection.insert_many(logs)
+
+
+def run_informed_data_collection(connection_str):
+    """Run 3 episodes of random data collection and 97 of informed."""
+
+    client = MongoClient(connection_str)
+    db = client["refine-plan-v2"]
+    collection = db["fake-wire-informed-data"]
+
+    def rand_policy(s, t):
+        return np.random.choice(get_enabled_actions(s))
+
+    for episode_id in range(100):
+        print("INFORMED DATA COLLECTION, EPISODE: {}".format(episode_id + 1))
+        sim = WireSearchSim(episode_id, "data")
+        if episode_id < 3:
+            logs = sim.run_sim(rand_policy)
+        else:
+
+            loc_sf = StateFactor("location", ["v{}".format(i) for i in range(1, 12)])
+            wire_sfs = [
+                StateFactor("wire_at_v2", ["unknown", "no", "yes"]),
+                StateFactor("wire_at_v7", ["unknown", "no", "yes"]),
+                StateFactor("wire_at_v10", ["unknown", "no", "yes"]),
+                StateFactor("wire_at_v11", ["unknown", "no", "yes"]),
+            ]
+            sf_list = [loc_sf] + wire_sfs
+
+            option_names = set([])
+            for src in GRAPH:
+                option_names.update(list(GRAPH[src].keys()))
+            option_names.add("check_for_wire")
+
+            enabled_conds = {o: get_enabled_cond(sf_list, o) for o in option_names}
+
+            policy = synthesise_exploration_policy(
+                connection_str,
+                "refine-plan-v2",
+                "fake-wire-informed-data",
+                sf_list,
+                option_names,
+                10,
+                100,
+                enabled_conds,
+                initial_state=sim._state,
+            )
+            logs = sim.run_sim(policy.get_action)
+        collection.insert_many(logs)
+
+
+if __name__ == "__main__":
+    connection_str = sys.argv[1]
+    run_random_data_collection(connection_str)
+    # run_informed_data_collection(connection_str)
+    # run_random_refine_plan_experiment()
+    # run_informed_refine_plan_experiment()
