@@ -187,6 +187,12 @@ class WireSearchSim(object):
                         new_state_dict["wire_at_{}".format(wire_loc)] = "no"
             else:
                 new_state_dict["wire_at_{}".format(self._state["location"])] = "no"
+                unknowns = []
+                for wire_loc in ["v2", "v7", "v10", "v11"]:
+                    if new_state_dict["wire_at_{}".format(wire_loc)] == "unknown":
+                        unknowns.append("wire_at_{}".format(wire_loc))
+                if len(unknowns) == 1:  # Process of elimination, we've found it
+                    new_state_dict[unknowns[0]] = "yes"
         else:
             new_loc = self._graph[self._state["location"]][action]
             new_state_dict["location"] = new_loc
