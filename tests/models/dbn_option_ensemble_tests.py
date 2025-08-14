@@ -520,6 +520,31 @@ class LearnDBNOptionsTest(unittest.TestCase):
 
         DBNOptionEnsemble._setup_ensemble = setup
 
+    def test_no_data(self):
+        setup = DBNOptionEnsemble._setup_ensemble
+        DBNOptionEnsemble._setup_ensemble = lambda s, d, compute_prism_str=False: None
+
+        sf_list = [IntStateFactor("x", 1, 3), BoolStateFactor("y")]
+        enabled_cond = GeqCondition(sf_list[0], 1)
+        ensemble = DBNOptionEnsemble("option", [], 2, 100, sf_list, enabled_cond, {})
+        dataset = {
+            "transition": {
+                "x0": [],
+                "xt": [],
+                "y0": [],
+                "yt": [],
+            },
+            "reward": {"x": [], "y": [], "r": []},
+        }
+
+        datasets = [dataset, dataset]
+        ensemble._learn_dbn_options(datasets)
+
+        self.assertTrue(ensemble._dbns[0] is None)
+        self.assertTrue(ensemble._dbns[1] is None)
+
+        DBNOptionEnsemble._setup_ensemble = setup
+
 
 class BuildTransitionDictForDBNTest(unittest.TestCase):
 
@@ -791,6 +816,41 @@ class BuildTransitionDictForDBNTest(unittest.TestCase):
         self.assertEqual(transition_dict[state_tft], None)
         self.assertEqual(transition_dict[state_ttf], None)
         self.assertEqual(transition_dict[state_ttt], None)
+
+        DBNOptionEnsemble._setup_ensemble = setup
+
+    def test_no_dbn(self):
+
+        setup = DBNOptionEnsemble._setup_ensemble
+        DBNOptionEnsemble._setup_ensemble = lambda s, d, compute_prism_str=False: None
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y"), BoolStateFactor("z")]
+        state_idx_map = {
+            State({sf_list[0]: False, sf_list[1]: False, sf_list[2]: False}): 0,
+            State({sf_list[0]: False, sf_list[1]: False, sf_list[2]: True}): 1,
+            State({sf_list[0]: False, sf_list[1]: True, sf_list[2]: False}): 2,
+            State({sf_list[0]: False, sf_list[1]: True, sf_list[2]: True}): 3,
+            State({sf_list[0]: True, sf_list[1]: False, sf_list[2]: False}): 4,
+            State({sf_list[0]: True, sf_list[1]: False, sf_list[2]: True}): 5,
+            State({sf_list[0]: True, sf_list[1]: True, sf_list[2]: False}): 6,
+            State({sf_list[0]: True, sf_list[1]: True, sf_list[2]: True}): 7,
+        }
+        ensemble = DBNOptionEnsemble(
+            "test", [], 2, 100, sf_list, TrueCondition(), state_idx_map
+        )
+        ensemble._identify_enabled_states()
+
+        queue = SimpleQueue()
+
+        ensemble._build_transition_dict_for_dbn(0, queue)
+
+        dbn_idx, transition_dict = queue.get()
+
+        self.assertEqual(dbn_idx, 0)
+
+        self.assertEqual(len(transition_dict), 8)
+        for state in state_idx_map:
+            self.assertEqual(transition_dict[state], None)
 
         DBNOptionEnsemble._setup_ensemble = setup
 

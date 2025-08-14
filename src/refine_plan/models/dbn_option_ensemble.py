@@ -299,17 +299,20 @@ class DBNOptionEnsemble(Option):
             datasets: A list of length self._ensemble_size with each dataset.
         """
         for i in range(len(datasets)):
-            trans_dbn, reward_bn = learn_bns_for_one_option(datasets[i], self._sf_list)
-            self._dbns[i] = DBNOption(
-                self._name,
-                None,
-                None,
-                self._sf_list,
-                self._enabled_cond,
-                prune_dists=True,
-                transition_dbn=trans_dbn,
-                reward_dbn=reward_bn,
-            )
+            if len(datasets[i]["reward"]["r"]) > 0:  # If there's something to learn
+                trans_dbn, reward_bn = learn_bns_for_one_option(
+                    datasets[i], self._sf_list
+                )
+                self._dbns[i] = DBNOption(
+                    self._name,
+                    None,
+                    None,
+                    self._sf_list,
+                    self._enabled_cond,
+                    prune_dists=True,
+                    transition_dbn=trans_dbn,
+                    reward_dbn=reward_bn,
+                )
 
     def _build_transition_dict_for_dbn(self, dbn_idx, queue):
         """Build the transition dictionary for the DBN at dbn_idx.
@@ -319,26 +322,32 @@ class DBNOptionEnsemble(Option):
             queue: The queue to add the transition dictionary too
         """
         transition_dict = {s: None for s in self._enabled_states}
-        # Return partial predecessor states, not preconditions
-        pre_post_pairs = self._dbns[dbn_idx].get_pre_post_cond_pairs(True)
+        if self._dbns[dbn_idx] is not None:
+            # Return partial predecessor states, not preconditions
+            pre_post_pairs = self._dbns[dbn_idx].get_pre_post_cond_pairs(True)
 
-        unused_sfs, unused_vals = [], []
-        for sf in self._sf_list:
-            if sf.get_name() + "0" not in self._dbns[dbn_idx]._transition_dbn.names():
-                unused_sfs.append(sf)
-                unused_vals.append(sf.get_valid_values())
+            unused_sfs, unused_vals = [], []
+            for sf in self._sf_list:
+                if (
+                    sf.get_name() + "0"
+                    not in self._dbns[dbn_idx]._transition_dbn.names()
+                ):
+                    unused_sfs.append(sf)
+                    unused_vals.append(sf.get_valid_values())
 
-        for pre_state, prob_post_conds in pre_post_pairs:
-            for rest_of_state in itertools.product(*unused_vals):
-                full_state_dict = {}
-                for i in range(len(rest_of_state)):
-                    full_state_dict[unused_sfs[i]] = rest_of_state[i]
-                for sf_name in pre_state._state_dict:
-                    full_state_dict[pre_state._sf_dict[sf_name]] = pre_state[sf_name]
-                full_state = State(full_state_dict)
+            for pre_state, prob_post_conds in pre_post_pairs:
+                for rest_of_state in itertools.product(*unused_vals):
+                    full_state_dict = {}
+                    for i in range(len(rest_of_state)):
+                        full_state_dict[unused_sfs[i]] = rest_of_state[i]
+                    for sf_name in pre_state._state_dict:
+                        full_state_dict[pre_state._sf_dict[sf_name]] = pre_state[
+                            sf_name
+                        ]
+                    full_state = State(full_state_dict)
 
-                if full_state in transition_dict:  # This is an enabled check
-                    transition_dict[full_state] = prob_post_conds
+                    if full_state in transition_dict:  # This is an enabled check
+                        transition_dict[full_state] = prob_post_conds
 
         queue.put((dbn_idx, transition_dict))
 

@@ -353,7 +353,7 @@ def run_informed_data_collection(connection_str):
                 "fake-wire-informed-data",
                 sf_list,
                 option_names,
-                10,
+                5,
                 100,
                 enabled_conds,
                 initial_state=sim._state,
@@ -364,7 +364,7 @@ def run_informed_data_collection(connection_str):
 
 if __name__ == "__main__":
     connection_str = sys.argv[1]
-    run_random_data_collection(connection_str)
-    # run_informed_data_collection(connection_str)
+    # run_random_data_collection(connection_str)
+    run_informed_data_collection(connection_str)
     # run_random_refine_plan_experiment()
     # run_informed_refine_plan_experiment()
