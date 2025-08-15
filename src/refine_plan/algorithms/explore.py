@@ -125,8 +125,11 @@ def solve_finite_horizon_mdp(mdp, state_idx_map, horizon, mat_type=np.float32):
 
         state_action_dict, value_dict = {}, {}
         for state in state_idx_map:
-            state_action_dict[state] = idx_opt_map[policy_actions[state_idx_map[state]]]
-            value_dict[state] = current_value[state_idx_map[state]]
+            if current_value[state_idx_map[state]] != 0.0:
+                state_action_dict[state] = idx_opt_map[
+                    policy_actions[state_idx_map[state]]
+                ]
+                value_dict[state] = current_value[state_idx_map[state]]
         state_action_dicts[timestep] = state_action_dict
         value_dicts[timestep] = value_dict
 
