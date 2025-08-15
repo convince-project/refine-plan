@@ -90,15 +90,16 @@ class WireSearchSim(object):
         Returns:
             Whether or not the simulation goal has been reached
         """
+        goal_reached = (
+            self._state["wire_at_v2"] == "yes"
+            or self._state["wire_at_v7"] == "yes"
+            or self._state["wire_at_v10"] == "yes"
+            or self._state["wire_at_v11"] == "yes"
+        )
         if self._mode == "data":
             return self._timestep >= 100
         else:
-            return (
-                self._state["wire_at_v2"] == "yes"
-                or self._state["wire_at_v7"] == "yes"
-                or self._state["wire_at_v10"] == "yes"
-                or self._state["wire_at_v11"] == "yes"
-            )
+            return goal_reached
 
     def _is_enabled(self, state, action):
         """Tests whether an action is enabled in state.
@@ -226,6 +227,8 @@ class WireSearchSim(object):
         logs = []
         while not self._goal_reached():
             action = policy_fn(self._state, self._timestep)
+            if action is None:
+                break
             logs.append(self._step_forward(action))
             self._timestep += 1
         return logs
@@ -304,14 +307,23 @@ def run_random_data_collection(connection_str):
     db = client["refine-plan-v2"]
     collection = db["fake-wire-random-data"]
 
+    total_logs = 0
+    episode_id = 0
+
     def rand_policy(s, t):
         return np.random.choice(get_enabled_actions(s))
 
-    for episode_id in range(100):
-        print("RANDOM DATA COLLECTION, EPISODE: {}".format(episode_id + 1))
+    while total_logs < 10000:
+        print(
+            "RANDOM DATA COLLECTION, EPISODE: {}, LOGS: {}".format(
+                episode_id + 1, total_logs
+            )
+        )
         sim = WireSearchSim(episode_id, "data")
         logs = sim.run_sim(rand_policy)
         collection.insert_many(logs)
+        episode_id += 1
+        total_logs += len(logs)
 
 
 def run_informed_data_collection(connection_str):
@@ -321,13 +333,20 @@ def run_informed_data_collection(connection_str):
     db = client["refine-plan-v2"]
     collection = db["fake-wire-informed-data"]
 
+    total_logs = 0
+    episode_id = 0
+
     def rand_policy(s, t):
         return np.random.choice(get_enabled_actions(s))
 
-    for episode_id in range(100):
-        print("INFORMED DATA COLLECTION, EPISODE: {}".format(episode_id + 1))
+    while total_logs < 10000:
+        print(
+            "INFORMED DATA COLLECTION, EPISODE: {}, LOGS: {}".format(
+                episode_id + 1, total_logs
+            )
+        )
         sim = WireSearchSim(episode_id, "data")
-        if episode_id < 3:
+        if total_logs < 300:
             logs = sim.run_sim(rand_policy)
         else:
 
@@ -358,13 +377,17 @@ def run_informed_data_collection(connection_str):
                 enabled_conds,
                 initial_state=sim._state,
             )
+            if policy[sim._state, 0] is None:  # Stop infinite loops
+                break
             logs = sim.run_sim(policy.get_action)
         collection.insert_many(logs)
+        episode_id += 1
+        total_logs += len(logs)
 
 
 if __name__ == "__main__":
     connection_str = sys.argv[1]
-    # run_random_data_collection(connection_str)
+    run_random_data_collection(connection_str)
     run_informed_data_collection(connection_str)
     # run_random_refine_plan_experiment()
     # run_informed_refine_plan_experiment()
