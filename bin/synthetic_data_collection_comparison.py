@@ -464,10 +464,86 @@ def build_random_policies(mongo_connection_str):
         policy.write_policy("../data/fake_house/random_{}/policy.yaml".format(i))
 
 
+def build_informed_policies(mongo_connection_str):
+    """Build the policies for the informed data.
+
+    Args:
+        mongo_connection_str: The MongoDB conenction string"""
+
+    loc_sf = StateFactor("location", ["v{}".format(i) for i in range(1, 12)])
+    wire_sfs = [
+        StateFactor("wire_at_v2", ["unknown", "no", "yes"]),
+        StateFactor("wire_at_v7", ["unknown", "no", "yes"]),
+        StateFactor("wire_at_v10", ["unknown", "no", "yes"]),
+        StateFactor("wire_at_v11", ["unknown", "no", "yes"]),
+    ]
+    sf_list = [loc_sf] + wire_sfs
+
+    for i in range(500, 10001, 500):
+        tmp_file = tempfile.NamedTemporaryFile()
+        print("Writing Mongo Database to Yaml File for {} Items - Informed".format(i))
+        mongodb_to_yaml(
+            mongo_connection_str,
+            "refine-plan-v2",
+            "fake-wire-informed-data",
+            sf_list,
+            tmp_file.name,
+            sort_by="_meta.inserted_at",
+            limit=i,
+        )
+        print("YAML Dataset Created")
+
+        output_dir = "../data/fake_house/informed_{}".format(i)
+        print("Learning DBNs")
+        learn_dbns(tmp_file.name, output_dir, [loc_sf] + wire_sfs)
+
+        goal_cond = OrCondition()
+        wire_locs = ["v2", "v7", "v10", "v11"]
+        for j in range(len(wire_locs)):
+            goal_cond.add_cond(
+                AndCondition(
+                    EqCondition(loc_sf, wire_locs[j]), EqCondition(wire_sfs[j], "yes")
+                )
+            )
+
+        labels = [Label("goal", goal_cond)]
+
+        option_names = set([])
+        for src in GRAPH:
+            option_names.update(list(GRAPH[src].keys()))
+        option_names.add("check_for_wire")
+
+        assert len(set(option_names)) == 15  # Quick safety check
+
+        init_state_dict = {sf: "unknown" for sf in wire_sfs}
+        init_state_dict[loc_sf] = "v1"
+        init_state = State(init_state_dict)
+
+        option_list = []
+        for option in option_names:
+            print("Reading in option: {}".format(option))
+            t_path = "../data/fake_house/informed_{}/{}_transition.bifxml".format(
+                i, option
+            )
+            r_path = "../data/fake_house/informed_{}/{}_reward.bifxml".format(i, option)
+            option_list.append(
+                DBNOption(
+                    option, t_path, r_path, sf_list, get_enabled_cond(sf_list, option)
+                )
+            )
+
+        print("Creating MDP...")
+        semi_mdp = SemiMDP(sf_list, option_list, labels, initial_state=init_state)
+        print("Synthesising Policy...")
+        policy = synthesise_policy(semi_mdp, prism_prop='Rmin=?[F "goal"]')
+        policy.write_policy("../data/fake_house/informed_{}/policy.yaml".format(i))
+
+
 if __name__ == "__main__":
     connection_str = sys.argv[1]
     # run_random_data_collection(connection_str)
     # run_informed_data_collection(connection_str)
-    build_random_policies(connection_str)
+    # build_random_policies(connection_str)
+    build_informed_policies(connection_str)
     # run_random_refine_plan_experiment()
     # run_informed_refine_plan_experiment()
