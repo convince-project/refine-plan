@@ -12,11 +12,14 @@ from refine_plan.algorithms.refine import synthesise_policy
 from refine_plan.models.state_factor import StateFactor
 from refine_plan.models.dbn_option import DBNOption
 from refine_plan.models.semi_mdp import SemiMDP
+from refine_plan.models.policy import Policy
 from refine_plan.models.state import State
 from pymongo import MongoClient
 from datetime import datetime
+import matplotlib.pyplot as plt
 import numpy as np
 import tempfile
+import yaml
 import copy
 import sys
 
@@ -104,7 +107,7 @@ class WireSearchSim(object):
         if self._mode == "data":
             return self._timestep >= 100
         else:
-            return goal_reached
+            return goal_reached or self._timestep >= 100
 
     def _is_enabled(self, state, action):
         """Tests whether an action is enabled in state.
@@ -210,11 +213,11 @@ class WireSearchSim(object):
         next_state = State(next_state)
 
         log = self._build_mongo_log(self._state, action, cost, next_state)
-        print(
-            "STATE: {}; TIME: {}; ACTION: {}; COST: {}; NEXT STATE: {}".format(
-                self._state, self._timestep, action, cost, next_state
-            )
-        )
+        # print(
+        #    "STATE: {}; TIME: {}; ACTION: {}; COST: {}; NEXT STATE: {}".format(
+        #        self._state, self._timestep, action, cost, next_state
+        #    )
+        # )
         self._state = next_state
         return log
 
@@ -539,11 +542,119 @@ def build_informed_policies(mongo_connection_str):
         policy.write_policy("../data/fake_house/informed_{}/policy.yaml".format(i))
 
 
+def collect_experiment_data():
+    """Collect data for each of the checkpointed policies (random and informed)."""
+
+    results = {"random": {}, "informed": {}}
+
+    for method in ["random", "informed"]:
+        for checkpoint in range(500, 10001, 500):
+            print("EXPERIMENTS: {}; {}".format(method, checkpoint))
+            results[method][checkpoint] = []
+            policy = Policy(
+                {},
+                {},
+                policy_file="../data/fake_house/{}_{}/policy.yaml".format(
+                    method, checkpoint
+                ),
+            )
+            for _ in range(100):
+                sim = WireSearchSim(0, "refined")
+                logs = sim.run_sim(lambda s, t: policy.get_action(s))
+                time_to_goal = sum([l["duration"] for l in logs])
+                results[method][checkpoint].append(time_to_goal)
+
+    result_file = "../data/fake_house/results.yaml"
+    with open(result_file, "w") as yaml_out:
+        yaml.dump(results, yaml_out)
+
+
+def set_box_colors(bp):
+
+    count_1 = 0
+    count_2 = 0
+
+    for _ in range(40):
+        colour = "tab:blue" if count_1 % 2 == 0 else "tab:red"
+
+        plt.setp(bp["boxes"][count_1], color=colour, linewidth=4.0)
+        plt.setp(bp["caps"][count_2], color=colour, linewidth=4.0)
+        plt.setp(bp["caps"][count_2 + 1], color=colour, linewidth=4.0)
+        plt.setp(bp["whiskers"][count_2], color=colour, linewidth=4.0)
+        plt.setp(bp["whiskers"][count_2 + 1], color=colour, linewidth=4.0)
+        plt.setp(bp["medians"][count_1], color=colour, linewidth=4.0)
+        count_1 += 1
+        count_2 += 2
+
+
+def plot_results():
+    """Plot the results of the random vs informed data collection experiment
+
+    Args:
+        results: method to env to results list
+        env: The environment name to plot
+    """
+
+    results_file = "../data/fake_house/results.yaml"
+    with open(results_file, "r") as yaml_in:
+        results = yaml.load(yaml_in, Loader=yaml.FullLoader)
+
+    checks = list(range(500, 10001, 500))
+
+    results_list = []
+    for check in checks:
+        for method in ["random", "informed"]:
+            results_list.append(results[method][check])
+
+    box = plt.boxplot(
+        results_list,
+        whis=[0, 100],
+        positions=list(range(1, 41)),
+        widths=0.6,
+    )
+    set_box_colors(box)
+
+    plt.tick_params(
+        axis="x",  # changes apply to the x-axis
+        which="both",  # both major and minor ticks are affected
+        bottom=True,  # ticks along the bottom edge are off
+        top=False,  # ticks along the top edge are off
+        labelbottom=True,  # labels along the bottom edge are offcd
+        labelsize=24,
+    )
+    plt.tick_params(
+        axis="y",  # changes apply to the x-axis
+        which="both",  # both major and minor ticks are affected
+        bottom=True,  # ticks along the bottom edge are off
+        top=False,  # ticks along the top edge are off
+        labelbottom=True,  # labels along the bottom edge are offcd
+        labelsize=24,
+    )
+    plt.ylabel("Time to Find Wire (s)", fontsize=40)
+
+    plt.xticks(
+        [x + 0.5 for x in range(1, 40, 2)],
+        checks,
+    )
+    plt.xlabel("Data Items Collected", fontsize=40)
+
+    (hB,) = plt.plot([], color="tab:blue", linewidth=6.0)
+    (hR,) = plt.plot([], color="tab:red", linewidth=6.0)
+    plt.legend(
+        (hB, hR),
+        ("Random Collection", "Informed Collection"),
+        loc="upper right",
+        prop={"size": 24},
+    )
+
+    plt.show()
+
+
 if __name__ == "__main__":
-    connection_str = sys.argv[1]
+    # connection_str = sys.argv[1]
     # run_random_data_collection(connection_str)
     # run_informed_data_collection(connection_str)
     # build_random_policies(connection_str)
-    build_informed_policies(connection_str)
-    # run_random_refine_plan_experiment()
-    # run_informed_refine_plan_experiment()
+    # build_informed_policies(connection_str)
+    # collect_experiment_data()
+    plot_results()
