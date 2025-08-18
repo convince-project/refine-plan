@@ -60,7 +60,13 @@ def _is_zero_cost_loop(doc, sf_list):
 
 
 def mongodb_to_dict(
-    connection_str, db_name, collection_name, sf_list, query={}, sort_by=None
+    connection_str,
+    db_name,
+    collection_name,
+    sf_list,
+    query={},
+    sort_by=None,
+    limit=None,
 ):
     """Process a mongodb collection into a dictionary for learning.
 
@@ -72,6 +78,7 @@ def mongodb_to_dict(
         out_file: The path for the yaml file
         query: A query to filter the documents that get collected
         sort_by: A field to sort the documents by
+        limit: A limit on the number of documents returned
 
     Returns:
         dataset_dict: The dataset from mongodb into a pyAgrum format dictionary
@@ -85,6 +92,9 @@ def mongodb_to_dict(
     docs = collection.find(query)
     if sort_by is not None:
         docs = docs.sort(sort_by)
+
+    if limit is not None:
+        docs = docs.limit(limit)
 
     for doc in docs:
         if _is_zero_cost_loop(doc, sf_list):
@@ -108,7 +118,14 @@ def mongodb_to_dict(
 
 
 def mongodb_to_yaml(
-    connection_str, db_name, collection_name, sf_list, out_file, query={}, sort_by=None
+    connection_str,
+    db_name,
+    collection_name,
+    sf_list,
+    out_file,
+    query={},
+    sort_by=None,
+    limit=None,
 ):
     """Processes a mongodb collection into a yaml dataset for DBN learning.
 
@@ -120,10 +137,17 @@ def mongodb_to_yaml(
         out_file: The path for the yaml file
         query: A query to filter the documents that get collected
         sort_by: A field to sort the documents by
+        limit: A limit on the number of documents returned
     """
 
     yaml_dict = mongodb_to_dict(
-        connection_str, db_name, collection_name, sf_list, query=query, sort_by=sort_by
+        connection_str,
+        db_name,
+        collection_name,
+        sf_list,
+        query=query,
+        sort_by=sort_by,
+        limit=limit,
     )
 
     # Write dataset to yaml
