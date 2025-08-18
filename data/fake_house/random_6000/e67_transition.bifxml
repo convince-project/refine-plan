@@ -1,0 +1,40 @@
+<?xml version="1.0" ?>
+
+<BIF VERSION="0.3">
+<NETWORK>
+<NAME>unnamedBN</NAME>
+<PROPERTY>software aGrUM</PROPERTY>
+
+<!-- Variables -->
+<VARIABLE TYPE="nature">
+	<NAME>location0</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>v6</OUTCOME>
+	<OUTCOME>v7</OUTCOME>
+</VARIABLE>
+
+<VARIABLE TYPE="nature">
+	<NAME>locationt</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>v6</OUTCOME>
+	<OUTCOME>v7</OUTCOME>
+</VARIABLE>
+
+<!-- Probability distributions -->
+<DEFINITION>
+	<FOR>location0</FOR>
+	<TABLE>
+		0.489924 0.510076
+	</TABLE>
+</DEFINITION>
+<DEFINITION>
+	<FOR>locationt</FOR>
+	<GIVEN>location0</GIVEN>
+	<TABLE>
+		0.00128535 0.998715
+		0.998765 0.00123457
+	</TABLE>
+</DEFINITION>
+
+</NETWORK>
+</BIF>

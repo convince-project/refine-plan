@@ -1,0 +1,83 @@
+<?xml version="1.0" ?>
+
+<BIF VERSION="0.3">
+<NETWORK>
+<NAME>unnamedBN</NAME>
+<PROPERTY>software aGrUM</PROPERTY>
+
+<!-- Variables -->
+<VARIABLE TYPE="nature">
+	<NAME>location</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>v10</OUTCOME>
+	<OUTCOME>v11</OUTCOME>
+	<OUTCOME>v2</OUTCOME>
+	<OUTCOME>v7</OUTCOME>
+</VARIABLE>
+
+<VARIABLE TYPE="nature">
+	<NAME>r</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>0</OUTCOME>
+</VARIABLE>
+
+<VARIABLE TYPE="nature">
+	<NAME>wire_at_v10</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>no</OUTCOME>
+	<OUTCOME>unknown</OUTCOME>
+</VARIABLE>
+
+<VARIABLE TYPE="nature">
+	<NAME>wire_at_v7</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>no</OUTCOME>
+	<OUTCOME>unknown</OUTCOME>
+</VARIABLE>
+
+<!-- Probability distributions -->
+<DEFINITION>
+	<FOR>location</FOR>
+	<TABLE>
+		0.171117 0.21966 0.316748 0.292476
+	</TABLE>
+</DEFINITION>
+<DEFINITION>
+	<FOR>r</FOR>
+	<GIVEN>location</GIVEN>
+	<GIVEN>wire_at_v7</GIVEN>
+	<GIVEN>wire_at_v10</GIVEN>
+	<TABLE>
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+	</TABLE>
+</DEFINITION>
+<DEFINITION>
+	<FOR>wire_at_v10</FOR>
+	<TABLE>
+		0.0606796 0.93932
+	</TABLE>
+</DEFINITION>
+<DEFINITION>
+	<FOR>wire_at_v7</FOR>
+	<TABLE>
+		0.245146 0.754854
+	</TABLE>
+</DEFINITION>
+
+</NETWORK>
+</BIF>
