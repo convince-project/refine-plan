@@ -52,19 +52,22 @@ class WireSearchSim(object):
         _costs: The cost dictionary for edge actions
     """
 
-    def __init__(self, episode_id, mode):
+    def __init__(self, episode_id, mode, wire_loc=None):
         """Initialise attributes.
 
         Args:
             episode_id: The episode ID for the simulator
             mode: The mode of execution
+            wire_loc: Overwrite the wire location
         """
         self._episode_id = episode_id
         self._state = self._create_initial_state()
         self._timestep = 0
         self._mode = mode
-        self._wire_loc = np.random.choice(
-            ["v2", "v7", "v10", "v11"], p=[0.1, 0.15, 0.5, 0.25]
+        self._wire_loc = (
+            np.random.choice(["v2", "v7", "v10", "v11"], p=[0.1, 0.15, 0.5, 0.25])
+            if wire_loc is None
+            else wire_loc
         )
         self._graph = self._create_graph()
         self._costs = self._create_costs()
@@ -546,6 +549,13 @@ def collect_experiment_data():
     """Collect data for each of the checkpointed policies (random and informed)."""
 
     results = {"random": {}, "informed": {}}
+    success_rates = {"random": {}, "informed": {}}
+
+    wire_locs = []
+    for _ in range(100):
+        wire_locs.append(
+            np.random.choice(["v2", "v7", "v10", "v11"], p=[0.1, 0.15, 0.5, 0.25])
+        )
 
     for method in ["random", "informed"]:
         for checkpoint in range(500, 10001, 500):
@@ -558,15 +568,23 @@ def collect_experiment_data():
                     method, checkpoint
                 ),
             )
-            for _ in range(100):
-                sim = WireSearchSim(0, "refined")
+            success_rate = 0
+            for i in range(100):
+                sim = WireSearchSim(0, "refined", wire_loc=wire_locs[i])
                 logs = sim.run_sim(lambda s, t: policy.get_action(s))
-                time_to_goal = sum([l["duration"] for l in logs])
-                results[method][checkpoint].append(time_to_goal)
+                if len(logs) < 100:
+                    success_rate += 1
+                    time_to_goal = sum([l["duration"] for l in logs])
+                    results[method][checkpoint].append(time_to_goal)
+            success_rates[method][checkpoint] = success_rate / 100
 
     result_file = "../data/fake_house/results.yaml"
     with open(result_file, "w") as yaml_out:
         yaml.dump(results, yaml_out)
+
+    succ_file = "../data/fake_house/success_rates.yaml"
+    with open(succ_file, "w") as yaml_out:
+        yaml.dump(success_rates, yaml_out)
 
 
 def set_box_colors(bp):
@@ -604,6 +622,11 @@ def plot_results():
     results_list = []
     for check in checks:
         for method in ["random", "informed"]:
+            print(
+                "{} ITEMS, {} DATA COLLECTION, MEAN: {}".format(
+                    check, method, np.mean(results[method][check])
+                )
+            )
             results_list.append(results[method][check])
 
     box = plt.boxplot(
