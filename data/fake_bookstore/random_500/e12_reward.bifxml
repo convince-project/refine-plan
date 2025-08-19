@@ -1,0 +1,117 @@
+<?xml version="1.0" ?>
+
+<BIF VERSION="0.3">
+<NETWORK>
+<NAME>unnamedBN</NAME>
+<PROPERTY>software aGrUM</PROPERTY>
+
+<!-- Variables -->
+<VARIABLE TYPE="nature">
+	<NAME>r</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>8</OUTCOME>
+</VARIABLE>
+
+<VARIABLE TYPE="nature">
+	<NAME>v2_door</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>open</OUTCOME>
+	<OUTCOME>unknown</OUTCOME>
+</VARIABLE>
+
+<VARIABLE TYPE="nature">
+	<NAME>v3_door</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>closed</OUTCOME>
+	<OUTCOME>open</OUTCOME>
+	<OUTCOME>unknown</OUTCOME>
+</VARIABLE>
+
+<VARIABLE TYPE="nature">
+	<NAME>v5_door</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>open</OUTCOME>
+	<OUTCOME>unknown</OUTCOME>
+</VARIABLE>
+
+<VARIABLE TYPE="nature">
+	<NAME>v6_door</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>closed</OUTCOME>
+	<OUTCOME>open</OUTCOME>
+	<OUTCOME>unknown</OUTCOME>
+</VARIABLE>
+
+<!-- Probability distributions -->
+<DEFINITION>
+	<FOR>r</FOR>
+	<GIVEN>v2_door</GIVEN>
+	<GIVEN>v3_door</GIVEN>
+	<GIVEN>v5_door</GIVEN>
+	<GIVEN>v6_door</GIVEN>
+	<TABLE>
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+		1
+	</TABLE>
+</DEFINITION>
+<DEFINITION>
+	<FOR>v2_door</FOR>
+	<TABLE>
+		0.701923 0.298077
+	</TABLE>
+</DEFINITION>
+<DEFINITION>
+	<FOR>v3_door</FOR>
+	<TABLE>
+		0.294872 0.487179 0.217949
+	</TABLE>
+</DEFINITION>
+<DEFINITION>
+	<FOR>v5_door</FOR>
+	<TABLE>
+		0.413462 0.586538
+	</TABLE>
+</DEFINITION>
+<DEFINITION>
+	<FOR>v6_door</FOR>
+	<TABLE>
+		0.102564 0.333333 0.564103
+	</TABLE>
+</DEFINITION>
+
+</NETWORK>
+</BIF>
