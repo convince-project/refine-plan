@@ -53,6 +53,7 @@ def _build_options(
     enabled_conds,
     state_idx_map,
     compute_prism_str=False,
+    motion_params=None,
 ):
     """Build a set of DBNOptionEnsemble objects.
 
@@ -65,6 +66,7 @@ def _build_options(
         enabled_conds: A dictionary from option name to enabled condition
         state_idx_map: A mapping from states to matrix indices
         compute_prism_str: If True, build the PRISM strings
+        motion_params: A dictionary from option names to a list of params for that option
 
     Returns:
         A list of DBNOptionEnsemble objects
@@ -72,18 +74,24 @@ def _build_options(
     option_list = []
 
     for opt in option_names:
-        option_list.append(
-            DBNOptionEnsemble(
-                opt,
-                dataset[opt],
-                ensemble_size,
-                horizon,
-                sf_list,
-                enabled_conds[opt],
-                state_idx_map,
-                compute_prism_str=compute_prism_str,
+        params = [None] if motion_params is None else motion_params[opt]
+        for param in params:
+            if param is None:
+                full_name = opt
+            else:
+                full_name = "{}.{}".format(opt, param)
+            option_list.append(
+                DBNOptionEnsemble(
+                    full_name,
+                    dataset[full_name],
+                    ensemble_size,
+                    horizon,
+                    sf_list,
+                    enabled_conds[opt],
+                    state_idx_map,
+                    compute_prism_str=compute_prism_str,
+                )
             )
-        )
 
     return option_list
 
@@ -147,6 +155,7 @@ def synthesise_exploration_policy(
     enabled_conds,
     initial_state=None,
     use_storm=False,
+    motion_params=None,
 ):
     """Synthesises an exploration policy for the current episode.
 
@@ -161,6 +170,7 @@ def synthesise_exploration_policy(
         enabled_conds: A dictionary from option name to enabled Condition
         initial_state: The initial state of the exploration MDP
         use_storm: If True, use Storm instead of the local solver
+        motion_params: A dictionary from option names to a list of params for that option
 
     Returns:
         The exploration policy
@@ -170,7 +180,12 @@ def synthesise_exploration_policy(
     # Step 1: Retrieve the data from mongodb
     print("Reading data from MongoDB...")
     dataset = mongodb_to_dict(
-        connection_str, db_name, collection_name, sf_list, sort_by="_meta.inserted_at"
+        connection_str,
+        db_name,
+        collection_name,
+        sf_list,
+        sort_by="_meta.inserted_at",
+        split_by_motion=(motion_params is not None),
     )
     assert len(dataset) == len(option_names)
 
@@ -189,6 +204,7 @@ def synthesise_exploration_policy(
         enabled_conds,
         state_idx_map,
         use_storm,
+        motion_params=motion_params,
     )
 
     # Step 3: Build the MDP

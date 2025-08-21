@@ -336,6 +336,80 @@ class MongodbToDictTest(unittest.TestCase):
 
         self.assertEqual(dataset, expected)
 
+    def test_with_params(self):
+        # This test requires a local mongo server to be setup on port 27017
+        connection_str = "mongodb://localhost:27017"
+        db_name = "test_db"
+        collection_name = "test_collection"
+
+        client = MongoClient(connection_str)
+        collection = client[db_name][collection_name]
+        doc_1 = {
+            "option": "test",
+            "x0": 1,
+            "xt": 2,
+            "y0": False,
+            "yt": False,
+            "duration": 5,
+            "motion": "p1",
+        }
+        doc_2 = {
+            "option": "test",
+            "x0": 2,
+            "xt": 3,
+            "y0": True,
+            "yt": False,
+            "duration": 5,
+            "motion": "p2",
+        }
+        doc_3 = {
+            "option": "test",
+            "x0": 3,
+            "xt": 1,
+            "y0": False,
+            "yt": True,
+            "duration": 7,
+            "motion": "p1",
+        }
+        doc_4 = {  # Zero cost self loop, should be removed
+            "option": "test",
+            "x0": 1,
+            "xt": 1,
+            "y0": False,
+            "yt": False,
+            "duration": 0,
+            "motion": "p2",
+        }
+        collection.insert_many([doc_1, doc_2, doc_3, doc_4])
+
+        sf_list = [StateFactor("x", [1, 2, 3]), BoolStateFactor("y")]
+        dataset = mongodb_to_dict(
+            connection_str, db_name, collection_name, sf_list, split_by_motion=True
+        )
+        client.drop_database("test_db")
+
+        expected = {
+            "test.p1": {
+                "transition": {
+                    "x0": [1, 3],
+                    "xt": [2, 1],
+                    "y0": [False, False],
+                    "yt": [False, True],
+                },
+                "reward": {"x": [1, 3], "y": [False, False], "r": [5, 7]},
+            },
+            "test.p2": {
+                "transition": {
+                    "x0": [2],
+                    "xt": [3],
+                    "y0": [True],
+                    "yt": [False],
+                },
+                "reward": {"x": [2], "y": [True], "r": [5]},
+            },
+        }
+        self.assertEqual(dataset, expected)
+
 
 @unittest.skipIf(not MONGO_RUNNING, "MongoDB server not running.")
 class MongodbToYamlTest(unittest.TestCase):

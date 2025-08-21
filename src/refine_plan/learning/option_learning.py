@@ -67,6 +67,7 @@ def mongodb_to_dict(
     query={},
     sort_by=None,
     limit=None,
+    split_by_motion=False,
 ):
     """Process a mongodb collection into a dictionary for learning.
 
@@ -79,6 +80,7 @@ def mongodb_to_dict(
         query: A query to filter the documents that get collected
         sort_by: A field to sort the documents by
         limit: A limit on the number of documents returned
+        split_by_motion: Should the option datasets be split by motion parameter?
 
     Returns:
         dataset_dict: The dataset from mongodb into a pyAgrum format dictionary
@@ -100,6 +102,8 @@ def mongodb_to_dict(
         if _is_zero_cost_loop(doc, sf_list):
             continue
         option = doc["option"]
+        if split_by_motion:
+            option += ".{}".format(doc["motion"])
         if option not in dataset_dict:
             _initialise_dict_for_option(dataset_dict, option, sf_list)
 
@@ -126,6 +130,7 @@ def mongodb_to_yaml(
     query={},
     sort_by=None,
     limit=None,
+    split_by_motion=False,
 ):
     """Processes a mongodb collection into a yaml dataset for DBN learning.
 
@@ -138,6 +143,7 @@ def mongodb_to_yaml(
         query: A query to filter the documents that get collected
         sort_by: A field to sort the documents by
         limit: A limit on the number of documents returned
+        split_by_motion: Should the option datasets be split by motion parameter?
     """
 
     yaml_dict = mongodb_to_dict(
@@ -148,6 +154,7 @@ def mongodb_to_yaml(
         query=query,
         sort_by=sort_by,
         limit=limit,
+        split_by_motion=split_by_motion,
     )
 
     # Write dataset to yaml
