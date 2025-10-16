@@ -494,10 +494,10 @@ Planning an exploration policy to support Bayesian network learning
 
 In this tutorial, we show how to efficiently collect data to support Bayesian network learning.
 For this, we implement the active exploration approach `MAX <https://arxiv.org/abs/1810.12162>`__.
-It is recommended that the above tutorials are followed prior to running through this one.
+The above tutorials should be followed prior to this one.
 
 
-The source code for this tutorial can be found within the following `script <https://github.com/convince-project/refine-plan/blob/main/bin/bookstore_exploration_test.py>`__.
+The source code for this tutorial can be found in the following `script <https://github.com/convince-project/refine-plan/blob/main/bin/bookstore_exploration_test.py>`__.
 
 Consider the robot in the bookstore below:
 
@@ -582,7 +582,7 @@ We also define the robot's start and end location.
     INITIAL_LOC = "v1"
     GOAL_LOC = "v8"
 
-To support policy synthesis, we now create a function ``_get_enabled_cond`` which captures the states in which each action node is enabled.
+To support policy synthesis, we now create a function ``_get_enabled_cond`` which captures the states in which each action is enabled.
 This function reasons over edge connectivity and the effects of doors on navigation.
 
 .. code-block:: python
@@ -673,10 +673,10 @@ Next, we list all of the action nodes the robot can execute, and compute the ena
 
 Finally, we create our initial ``State`` for the robot and call ``synthesise_exploration_policy``.
 ``synthesise_exploration_policy`` takes a connection string, database, and collection name for a MongoDB instance.
-This is for reading existing data collected for this model.
-Next it receives the list of robot ``StateFactor`` objects and the list of action node names.
-After that it receives a parameter which describes the size of the ensemble models used within MAX. 
-It is not recommended to select a value above 10.
+This is for reading existing data collected for the model.
+Next it receives the ``StateFactor`` objects and a list of action node names.
+After that it receives a parameter describing the size of the ensemble models used for MAX. 
+We recommend a value less than or equal to 10.
 After that, the exploration episode length is passed in.
 The last two parameters are the enabled conditions for each action node and the robot's initial state.
 
@@ -698,18 +698,18 @@ The last two parameters are the enabled conditions for each action node and the 
         initial_state=init_state,
     )
 
-In this example, the BT action nodes are treated as black boxes.
-However, to support geometric reasoning, a user may wish to parametrise the behaviour within each action node.
+In this example, BT action nodes are treated as black boxes.
+To support geometric reasoning, a user may wish to parametrise the behaviour within each action node.
 This is supported through the use of **motion parameters**.
-To enable this behaviour, ``synthesise_exploration_policy`` has an additional optional parameter called ``motion_params``, which is a dictionary from action names to a list of parameterss for that action.
-For example, say we have a robot manipulator which can pick up objects with different grasps, the ``motion_params`` dictionary may look like:
+For this, ``synthesise_exploration_policy`` has an additional optional parameter called ``motion_params``, which maps from action names to a list of parameters for that action.
+For example, if we have a robot manipulator that can pick up objects with different grasps, the ``motion_params`` dictionary may look like:
 
 .. code-block:: python
 
     motion_params = {"pick_up": ["top", "left", "right", "up", "down"]}
 
 This captures all possible directions the robot could grasp an object from.
-By providing motion parameters, the data collected by the exploration policy for each action will be split by motion parameter in the MongoDB database.
+When motion parameters are provided, the data for each action will be split by motion parameter in the MongoDB database.
 
 .. |Bookstore| image:: images/book_store_cropped.png
   :width: 400
