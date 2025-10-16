@@ -50,6 +50,8 @@ class DBNOption(Option):
         sf_list,
         enabled_cond,
         prune_dists=True,
+        transition_dbn=None,
+        reward_dbn=None,
     ):
         """Initialise attributes.
 
@@ -60,10 +62,20 @@ class DBNOption(Option):
             sf_list: The list of state factors that make up the state space
             enabled_cond: A Condition which captures the states where this option is enabled
             prune_dists: If True, remove small probs in transition DBN and renormalise
+            transition_dbn: If set, use an existing DBN rather than that at transition_dbn_path
+            reward_dbn: If set, use an existing BN rather than that at reward_dbn_path
         """
         super(DBNOption, self).__init__(name, [], [])
-        self._transition_dbn = gum.loadBN(transition_dbn_path)
-        self._reward_dbn = gum.loadBN(reward_dbn_path)
+        if transition_dbn is None:
+            self._transition_dbn = gum.loadBN(transition_dbn_path)
+        else:
+            self._transition_dbn = transition_dbn
+            assert isinstance(self._transition_dbn, gum.pyAgrum.BayesNet)
+        if reward_dbn is None:
+            self._reward_dbn = gum.loadBN(reward_dbn_path)
+        else:
+            self._reward_dbn = reward_dbn
+            assert isinstance(self._reward_dbn, gum.pyAgrum.BayesNet)
         self._sf_list = sf_list
         assert enabled_cond.is_pre_cond()
         self._enabled_cond = enabled_cond
@@ -481,8 +493,12 @@ class DBNOption(Option):
 
         posterior.normalize()
 
-    def get_pre_post_cond_pairs(self):
+    def get_pre_post_cond_pairs(self, pre_state_keys=False):
         """Return a list of (pre, prob_post_cond) pairs from the DBN.
+
+        Args:
+            pre_state_keys: If True, return the predecessor state (only using vars
+                            in the DBN) as keys, not the complete pre-condition
 
         Returns:
             A list of (pre, prob_post_cond) pairs
@@ -543,7 +559,10 @@ class DBNOption(Option):
                     prob_post_conds[post_cond] = posterior.get(instantiation)
 
             if len(prob_post_conds) > 0:  # Only write if valid transitions present
-                cond_pairs.append((pre_cond, prob_post_conds))
+                if pre_state_keys:
+                    cond_pairs.append((pre_state, prob_post_conds))
+                else:
+                    cond_pairs.append((pre_cond, prob_post_conds))
             inf_eng.eraseAllEvidence()
 
         return cond_pairs

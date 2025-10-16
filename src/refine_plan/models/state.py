@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-""" State class for Markov models. 
+"""State class for Markov models.
 
 Author: Charlie Street
 Owner: Charlie Street
 """
 
-from refine_plan.models.condition import AndCondition, EqCondition
+from refine_plan.models.condition import AndCondition, EqCondition, AddCondition
 
 
 class State(object):
@@ -126,3 +126,43 @@ class State(object):
             cond.add_cond(EqCondition(self._sf_dict[sf], self._state_dict[sf]))
 
         return cond
+
+    def _get_applied_state_dict(self, state_dict, cond):
+        """Build up the state dictionary after applying a post condition.
+
+        Args:
+            state_dict: The current applied state dictionary
+            cond: The condition being applied
+        """
+
+        if isinstance(cond, EqCondition):
+            state_dict[cond._sf] = cond._value
+        elif isinstance(cond, AddCondition):
+            state_dict[cond._sf] = (
+                self._state_dict[cond._sf.get_name()] + cond._inc_value
+            )
+        elif isinstance(cond, AndCondition):
+            for sub_cond in cond._cond_list:
+                self._get_applied_state_dict(state_dict, sub_cond)
+
+    def apply_post_cond(self, cond):
+        """Apply a postcondition to produce a new state.
+
+        Args:
+            cond: The postcondition to apply
+
+        Returns:
+            The new state
+        """
+
+        assert cond.is_post_cond()
+
+        state_dict = {}
+        self._get_applied_state_dict(state_dict, cond)
+
+        for sf in self._sf_dict:
+            sf_obj = self._sf_dict[sf]
+            if sf_obj not in state_dict:
+                state_dict[sf_obj] = self._state_dict[sf]
+
+        return State(state_dict)

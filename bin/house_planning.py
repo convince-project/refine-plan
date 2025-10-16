@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-""" A script to run REFINE-PLAN in the house domain.
+"""A script to run REFINE-PLAN in the house domain.
 
 Author: Charlie Street
 Owner: Charlie Street

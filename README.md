@@ -17,9 +17,27 @@ If you use this repository, please consider citing:
 
 REFINE-PLAN has been tested on Ubuntu 22.04 with Python 3.10.12.
 
-### Installing Dependencies
+### Installing Storm and Stormpy
 
-COVERAGE-PLAN requires the following dependencies:
+REFINE-PLAN (and Stormpy, see below) requires the use of [Storm](https://www.stormchecker.org/).
+Instructions for installing Storm can be found [here](https://www.stormchecker.org/getting-started.html).
+Storm should be installed before any other dependencies. 
+When building Storm with `make`, use the `-j<num_cores>` option to speed up compilation. 
+Instructions for installing stormpy alongside its dependencies can be found [here](https://moves-rwth.github.io/stormpy/installation.html#).
+
+REFINE-PLAN has been tested with the following software versions during the above installation steps:
+
+* Storm - 1.8.1. Specifically we use this [commit](https://github.com/moves-rwth/storm/commit/5b662c76549558750938fdb980c5727b062d662d).
+* Carl - 14.27 (this is the `carl-storm` version of Carl, as mentioned in the Storm installation instructions)
+* pycarl - 2.2.0. Specifically we use this [commit](https://github.com/moves-rwth/pycarl/commit/9aaf039dc8413e09f5cb3045ca6705feb27a493f).
+* stormpy - 1.8.0. Specifically we use this [commit](https://github.com/moves-rwth/stormpy/commit/8ab412153ea5f37545cdc4e635757d23223b3092).
+
+As Storm is updated, you may want newer versions of these libraries. 
+The current master of Stormpy and Storm should usually be compatible.
+
+### Installing Other Dependencies
+
+REFINE-PLAN requires the following dependencies:
 
 * [Numpy](https://numpy.org/) (Tested with 26.4)
 * [Sympy](https://www.sympy.org/en/index.html) (Tested with 1.12)
@@ -36,22 +54,7 @@ pip install -r requirements.txt
 ```
 
 `MongoDB` can be installed using the [official instructions](https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-ubuntu/).
-
-Installing `stormpy` is more involved. Please see below.
-
-### Installing Stormpy
-
-Stormpy requires the use of [Storm](https://www.stormchecker.org/).
-Instructions for installing stormpy alongside its dependencies can be found [here](https://moves-rwth.github.io/stormpy/installation.html#).
-
-REFINE-PLAN has been tested with the following software versions during the above installation steps:
-
-* Storm - 1.8.1. Specifically we use this [commit](https://github.com/moves-rwth/storm/commit/5b662c76549558750938fdb980c5727b062d662d).
-* Carl - 14.27 (this is the `carl-storm` version of Carl, as mentioned in the Storm installation instructions)
-* pycarl - 2.2.0
-* stormpy - 1.8.0
-
-As Storm is updated, you may want newer versions of these libraries. The current master of Stormpy and Storm should usually be compatible.
+Stormpy installation is outlined above.
 
 ### Installation for Users (Pip Install)
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Class for deterministic memoryless policies.
+"""Class for deterministic memoryless policies and time-dependent policies.
 
 Author: Charlie Street
 Owner: Charlie Street
@@ -78,16 +78,17 @@ class Policy(object):
         """
         return self.get_action(state)
 
-    def write_policy(self, out_file):
-        """Write a policy with all state factor information to a YAML file.
+    def _write_sf_info_dict(self, state_action_dict):
+        """Write out the state factor information in a YAML-suitable format.
 
         Args:
-            out_file: The yaml file to write to
-        """
+            state_action_dict: A state action dictionary
 
-        # First write out state factor info
+        Return:
+            A dictionary from sf_name to state factor info
+        """
         sf_dict = {}
-        example_state = list(self._state_action_dict.keys())[0]
+        example_state = list(state_action_dict)[0]
         for sf_name in example_state._sf_dict:
             sf_dict[sf_name] = {}
             sf = example_state._sf_dict[sf_name]
@@ -100,34 +101,134 @@ class Policy(object):
             else:
                 sf_dict[sf_name]["type"] = "StateFactor"
                 sf_dict[sf_name]["values"] = sf._values
+        return sf_dict
 
-        # Now write out the policy
+    def _write_yaml_state_action_dict(self, state_action_dict):
+        """Write out the state action mapping in a YAML-suitable format.
+
+        Args:
+            state_action_dict: A state action dictionary
+
+        Return:
+            A list of state->action mappings
+        """
         policy_list = []
-        for state in self._state_action_dict:
+        for state in state_action_dict:
             state_action = {}
             for sf in state._state_dict:
                 state_action[sf] = state[sf]
-            state_action["action"] = self.get_action(state)
+            state_action["action"] = state_action_dict[state]
             if state_action["action"] is None:
                 state_action["action"] = "None"
             policy_list.append(state_action)
+        return policy_list
 
-        # Now write out the value function (if not None)
+    def _write_yaml_state_value_dict(self, value_dict):
+        """Write out the value function as a YAML-suitable format.
+
+        Args:
+            value_dict: A state value dictionary
+
+        Return:
+            A list of state->value mappings
+        """
         value_list = []
-        if self._value_dict is not None:
-            for state in self._value_dict:
+        if value_dict is not None:
+            for state in value_dict:
                 state_value = {}
                 for sf in state._state_dict:
                     state_value[sf] = state[sf]
-                state_value["value"] = self.get_value(state)
+                state_value["value"] = value_dict[state]
                 value_list.append(state_value)
+        return value_list
 
-        full_dict = {"state_factors": sf_dict, "state_action_map": policy_list}
+    def write_policy(self, out_file):
+        """Write a policy with all state factor information to a YAML file.
+
+        Args:
+            out_file: The yaml file to write to
+        """
+
+        full_dict = {
+            "state_factors": self._write_sf_info_dict(self._state_action_dict),
+            "state_action_map": self._write_yaml_state_action_dict(
+                self._state_action_dict
+            ),
+        }
+        value_list = self._write_yaml_state_value_dict(self._value_dict)
         if value_list != []:
             full_dict["state_value_map"] = value_list
 
         with open(out_file, "w") as yaml_out:
             yaml.dump(full_dict, yaml_out)
+
+    def _read_state_factors_from_yaml(self, sf_yaml_dict):
+        """Read the state factor information from a YAML dictionary.
+
+        Args:
+            sf_yaml_dict: The YAML state factor dictionary
+
+        Returns:
+            A dictionary from state factor name to StateFactor object
+        """
+        sf_dict = {}
+        for sf_name in sf_yaml_dict:
+            sf_info = sf_yaml_dict[sf_name]
+            if sf_info["type"] == "BoolStateFactor":
+                sf_dict[sf_name] = BoolStateFactor(sf_name)
+            elif sf_info["type"] == "IntStateFactor":
+                sf_dict[sf_name] = IntStateFactor(
+                    sf_name, sf_info["min"], sf_info["max"]
+                )
+            else:
+                sf_dict[sf_name] = StateFactor(sf_name, sf_info["values"])
+        return sf_dict
+
+    def _read_state_action_dict_from_yaml(self, yaml_state_action_map, sf_dict):
+        """Reads a state action mapping from YAML and converts it back.
+
+        Args:
+            yaml_state_action_map: The YAML state action mapping
+            sf_dict: A dictionary from state factor name to StateFactor object
+
+        Returns:
+            The state action dictionary as used by Policy
+        """
+        state_action_dict = {}
+        for state_action_pair in yaml_state_action_map:
+            state_dict = {}
+            action = None
+            for key in state_action_pair:
+                if key == "action":
+                    if state_action_pair[key] != "None":
+                        action = state_action_pair[key]
+                else:
+                    state_dict[sf_dict[key]] = state_action_pair[key]
+            state_action_dict[State(state_dict)] = action
+        return state_action_dict
+
+    def _read_value_dict_from_yaml(self, yaml_value_map, sf_dict):
+        """Reads a state value mapping from YAML and converts it back.
+
+        Args:
+            yaml_value_map: The YAML state value mapping
+            sf_dict: A dictionary from state factor name to StateFactor object
+
+        Returns:
+            The state value dictionary as used by Policy
+        """
+
+        value_dict = {}
+        for state_action_pair in yaml_value_map:
+            state_dict = {}
+            value = None
+            for key in state_action_pair:
+                if key == "value":
+                    value = state_action_pair[key]
+                elif key != "action":
+                    state_dict[sf_dict[key]] = state_action_pair[key]
+            value_dict[State(state_dict)] = value
+        return value_dict
 
     def _read_policy(self, in_file):
         """Read in a policy from file.
@@ -140,44 +241,20 @@ class Policy(object):
             policy_yaml = yaml.load(yaml_in, Loader=yaml.FullLoader)
 
         # Get all state factor info
-        sf_dict = {}
-        for sf_name in policy_yaml["state_factors"]:
-            sf_info = policy_yaml["state_factors"][sf_name]
-            if sf_info["type"] == "BoolStateFactor":
-                sf_dict[sf_name] = BoolStateFactor(sf_name)
-            elif sf_info["type"] == "IntStateFactor":
-                sf_dict[sf_name] = IntStateFactor(
-                    sf_name, sf_info["min"], sf_info["max"]
-                )
-            else:
-                sf_dict[sf_name] = StateFactor(sf_name, sf_info["values"])
+        sf_dict = self._read_state_factors_from_yaml(policy_yaml["state_factors"])
 
         # Get the policy mapping
-        self._state_action_dict = {}
-        for state_action_pair in policy_yaml["state_action_map"]:
-            state_dict = {}
-            action = None
-            for key in state_action_pair:
-                if key == "action":
-                    if state_action_pair[key] != "None":
-                        action = state_action_pair[key]
-                else:
-                    state_dict[sf_dict[key]] = state_action_pair[key]
-            self._state_action_dict[State(state_dict)] = action
+        self._state_action_dict = self._read_state_action_dict_from_yaml(
+            policy_yaml["state_action_map"], sf_dict
+        )
 
         # Get the value function
-        self._value_dict = None
         if "state_value_map" in policy_yaml:
-            self._value_dict = {}
-            for state_action_pair in policy_yaml["state_value_map"]:
-                state_dict = {}
-                value = None
-                for key in state_action_pair:
-                    if key == "value":
-                        value = state_action_pair[key]
-                    elif key != "action":
-                        state_dict[sf_dict[key]] = state_action_pair[key]
-                self._value_dict[State(state_dict)] = value
+            self._value_dict = self._read_value_dict_from_yaml(
+                policy_yaml["state_value_map"], sf_dict
+            )
+        else:
+            self._value_dict = None
 
     def _hierarchical_rep(self):
         """Convert the policy into a hierarchical representation.
@@ -286,3 +363,145 @@ class Policy(object):
         xml = et.ElementTree(scxml)
         et.indent(xml, space="\t", level=0)  # Indent to improve readability
         xml.write(output_file, encoding="UTF-8", xml_declaration=True)
+
+
+class TimeDependentPolicy(Policy):
+    """Data class for time dependent policies.
+
+    In _state_action_dicts and _value_dicts, the list index refers to the timestep.
+
+    Attributes:
+        _state_action_dicts: A list of dictionaries from states to actions
+        _value_dicts: A list of dictionaries from states to values under that policy
+    """
+
+    def __init__(self, state_action_dicts, value_dicts=None, policy_file=None):
+        """Initialise attributes.
+
+        Args:
+            state_action_dicts: The state action mapping for each timestep
+            value_dicts: Optional. A state value mapping for each timestep
+            policy_file: The file to read the policy from, if available.
+        """
+        if policy_file is not None:
+            self._read_policy(policy_file)
+        else:
+            self._state_action_dicts = state_action_dicts
+            self._value_dicts = value_dicts
+
+    def get_action(self, state, time):
+        """Return the policy action for a given state and time.
+
+        Args:
+            state: The state we want an action for
+            time: The current timestep
+
+        Returns:
+            The policy action
+        """
+        if time < 0 or time >= len(self._state_action_dicts):
+            return None
+
+        if state not in self._state_action_dicts[time]:
+            return None
+
+        return self._state_action_dicts[time][state]
+
+    def get_value(self, state, time):
+        """Return the value at a given state and time.
+
+        Args:
+            state: The state we want to retrieve the value for
+            time: The current timestep
+
+        Returns:
+            The value at state at time
+
+        Raises:
+            no_value_dict_exception: Raised if there is no value dictionary
+        """
+        if self._value_dicts is None:
+            raise Exception("No value dictionaries provided to policy")
+
+        if time < 0 or time >= len(self._value_dicts):
+            return None
+        if state not in self._value_dicts[time]:
+            return None
+
+        return self._value_dicts[time][state]
+
+    def __getitem__(self, state_time):
+        """Syntactic sugar for get_action.
+
+        Args:
+            state_time: A tuple with a state and a timestep
+
+        Returns:
+            The policy action
+        """
+        return self.get_action(state_time[0], state_time[1])
+
+    def write_policy(self, out_file):
+        """Write a policy with all state factor information to a YAML file.
+
+        Args:
+            out_file: The yaml file to write to
+        """
+        full_dict = {
+            "state_factors": self._write_sf_info_dict(self._state_action_dicts[0])
+        }
+
+        full_dict["state_action_maps"] = []
+        for sa_map in self._state_action_dicts:
+            full_dict["state_action_maps"].append(
+                self._write_yaml_state_action_dict(sa_map)
+            )
+
+        if self._value_dicts is not None:
+            full_dict["state_value_maps"] = []
+            for sv_map in self._value_dicts:
+                full_dict["state_value_maps"].append(
+                    self._write_yaml_state_value_dict(sv_map)
+                )
+
+        with open(out_file, "w") as yaml_out:
+            yaml.dump(full_dict, yaml_out)
+
+    def _read_policy(self, in_file):
+        """Read in a policy from file.
+
+        Args:
+            in_file: The path to the policy YAML file
+        """
+
+        with open(in_file, "r") as yaml_in:
+            policy_yaml = yaml.load(yaml_in, Loader=yaml.FullLoader)
+
+        # Get all state factor info
+        sf_dict = self._read_state_factors_from_yaml(policy_yaml["state_factors"])
+
+        # Get the policy mapping
+        self._state_action_dicts = []
+        for sa_map in policy_yaml["state_action_maps"]:
+            self._state_action_dicts.append(
+                self._read_state_action_dict_from_yaml(sa_map, sf_dict)
+            )
+
+        # Get the value function
+        if "state_value_maps" in policy_yaml:
+            self._value_dicts = []
+            for sv_map in policy_yaml["state_value_maps"]:
+                self._value_dicts.append(
+                    self._read_value_dict_from_yaml(sv_map, sf_dict)
+                )
+        else:
+            self._value_dicts = None
+
+    def _hierarchical_rep(self):
+        raise NotImplementedError()
+
+    def _build_up_nested_scxml(self, hier_policy, model_name):
+        raise NotImplementedError()
+
+    def to_scxml(self, output_file, model_name, initial_state, name="policy"):
+        raise NotImplementedError()

@@ -1,0 +1,56 @@
+<?xml version="1.0" ?>
+
+<BIF VERSION="0.3">
+<NETWORK>
+<NAME>unnamedBN</NAME>
+<PROPERTY>software aGrUM</PROPERTY>
+
+<!-- Variables -->
+<VARIABLE TYPE="nature">
+	<NAME>location0</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>v7</OUTCOME>
+	<OUTCOME>v8</OUTCOME>
+</VARIABLE>
+
+<VARIABLE TYPE="nature">
+	<NAME>locationt</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>v7</OUTCOME>
+	<OUTCOME>v8</OUTCOME>
+</VARIABLE>
+
+<VARIABLE TYPE="nature">
+	<NAME>wire_at_v20</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>no</OUTCOME>
+	<OUTCOME>unknown</OUTCOME>
+</VARIABLE>
+
+<!-- Probability distributions -->
+<DEFINITION>
+	<FOR>location0</FOR>
+	<TABLE>
+		0.49569 0.50431
+	</TABLE>
+</DEFINITION>
+<DEFINITION>
+	<FOR>locationt</FOR>
+	<GIVEN>location0</GIVEN>
+	<GIVEN>wire_at_v20</GIVEN>
+	<TABLE>
+		0.00218341 0.997817
+		0.5 0.5
+		0.997817 0.00218341
+		0.9 0.1
+	</TABLE>
+</DEFINITION>
+<DEFINITION>
+	<FOR>wire_at_v20</FOR>
+	<TABLE>
+		0.987069 0.012931
+	</TABLE>
+</DEFINITION>
+
+</NETWORK>
+</BIF>
