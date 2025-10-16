@@ -487,3 +487,230 @@ This will be addressed in the next release.
 
 .. _PRISM modelling language: https://www.prismmodelchecker.org/manual/PropertySpecification/Introduction
 .. _XML format used by BehaviorTree.cpp: https://www.behaviortree.dev/docs/3.8/intro
+
+
+Planning an exploration policy to support Bayesian network learning
+----------------------------------------------------------------------------
+
+In this tutorial, we show how to efficiently collect data to support Bayesian network learning.
+For this, we implement the active exploration approach `MAX <https://arxiv.org/abs/1810.12162>`__.
+It is recommended that the above tutorials are followed prior to running through this one.
+
+
+The source code for this tutorial can be found within the following `script <https://github.com/convince-project/refine-plan/blob/main/bin/bookstore_exploration_test.py>`__.
+
+Consider the robot in the bookstore below:
+
+|Bookstore|
+
+Here, the robot must navigate from the start to the goal as quickly as possible, where the robot navigates along the edges of a topological map (shown by the red nodes and edges).
+In the bookstore, there are doors at nodes v\ :sub:`2`, v\ :sub:`3`, v\ :sub:`4`, v\ :sub:`5`, v\ :sub:`6`, and v\ :sub:`7`.
+Each of these doors are closed with some probability (as shown above).
+The robot can check whether a door is open when it reaches it. 
+If the door is closed, the robot may open it, however, this takes 30 seconds.
+
+**In this tutorial, we will synthesise an exploration policy which executes actions the robot knows less about.**
+
+We begin by importing all necessary code from ``refine_plan``. 
+We will cover these imports throughout the tutorial.
+
+.. code-block:: python
+
+    from refine_plan.models.condition import EqCondition, AndCondition, OrCondition
+    from refine_plan.algorithms.explore import synthesise_exploration_policy
+    from refine_plan.models.state_factor import StateFactor
+    from refine_plan.models.state import State
+    import sys
+
+First, we define the connectivity of the topological map, and the edges which are potentially blocked by doors.
+This can be achieved through a number of dictionaries.
+We also define the robot's start and end location.
+
+.. code-block:: python
+
+    GRAPH = {
+        "v1": {"e12": "v2", "e13": "v3", "e14": "v4"},
+        "v2": {"e12": "v1", "e23": "v3", "e25": "v5", "e26": "v6"},
+        "v3": {
+            "e13": "v1",
+            "e23": "v2",
+            "e34": "v4",
+            "e35": "v5",
+            "e36": "v6",
+            "e37": "v7",
+        },
+        "v4": {"e14": "v1", "e34": "v3", "e46": "v6", "e47": "v7"},
+        "v5": {"e25": "v2", "e35": "v3", "e56": "v6", "e58": "v8"},
+        "v6": {
+            "e26": "v2",
+            "e36": "v3",
+            "e46": "v4",
+            "e56": "v5",
+            "e67": "v7",
+            "e68": "v8",
+        },
+        "v7": {
+            "e37": "v3",
+            "e47": "v4",
+            "e67": "v6",
+            "e78": "v8",
+        },
+        "v8": {"e58": "v5", "e68": "v6", "e78": "v7"},
+    }
+
+    CORRESPONDING_DOOR = {
+        "e12": None,
+        "e14": None,
+        "e58": "v5",
+        "e78": "v7",
+        "e13": None,
+        "e36": "v3",
+        "e68": "v6",
+        "e25": "v2",
+        "e47": "v4",
+        "e26": "v2",
+        "e35": "v3",
+        "e46": "v4",
+        "e37": "v3",
+        "e23": None,
+        "e34": None,
+        "e56": None,
+        "e67": None,
+    }
+
+    # Problem Setup
+    INITIAL_LOC = "v1"
+    GOAL_LOC = "v8"
+
+To support policy synthesis, we now create a function ``_get_enabled_cond`` which captures the states in which each action node is enabled.
+This function reasons over edge connectivity and the effects of doors on navigation.
+
+.. code-block:: python
+
+    def _get_enabled_cond(sf_list, option):
+        """Get the enabled condition for an option.
+
+        Args:
+            sf_list: The list of state factors
+            option: The option we want the condition for
+
+        Returns:
+            The enabled condition for the option
+        """
+        sf_dict = {sf.get_name(): sf for sf in sf_list}
+
+        door_locs = ["v{}".format(i) for i in range(2, 8)]
+
+        if option == "check_door" or option == "open_door":
+            enabled_cond = OrCondition()
+            door_status = "unknown" if option == "check_door" else "closed"
+            for door in door_locs:
+                enabled_cond.add_cond(
+                    AndCondition(
+                        EqCondition(sf_dict["location"], door),
+                        EqCondition(sf_dict["{}_door".format(door)], door_status),
+                    )
+                )
+            return enabled_cond
+        else:  # edge navigation option
+            enabled_cond = OrCondition()
+            for node in GRAPH:
+                if option in GRAPH[node]:
+                    enabled_cond.add_cond(EqCondition(sf_dict["location"], node))
+            door = CORRESPONDING_DOOR[option]
+            if door != None:
+                enabled_cond = AndCondition(
+                    enabled_cond, EqCondition(sf_dict["{}_door".format(door)], "open")
+                )
+            return enabled_cond
+
+With this, we now define the planning problem for exploration.
+We begin by defining *state factors* which capture the robot's current node, and a state factor capturing the status of each door, which can be unknown, closed, or open.
+These state factors all use string values, and can be represented with the ``StateFactor`` class:
+
+.. code-block:: python
+
+    loc_sf = StateFactor("location", ["v{}".format(i) for i in range(1, 9)])
+    door_sfs = [
+        StateFactor("v2_door", ["unknown", "closed", "open"]),
+        StateFactor("v3_door", ["unknown", "closed", "open"]),
+        StateFactor("v4_door", ["unknown", "closed", "open"]),
+        StateFactor("v5_door", ["unknown", "closed", "open"]),
+        StateFactor("v6_door", ["unknown", "closed", "open"]),
+        StateFactor("v7_door", ["unknown", "closed", "open"]),
+    ]
+    sf_list = [loc_sf] + door_sfs
+
+Next, we list all of the action nodes the robot can execute, and compute the enabled condition for each action.
+
+.. code-block:: python
+
+    action_names = [
+        "e12",
+        "e14",
+        "e58",
+        "e78",
+        "e13",
+        "e36",
+        "e68",
+        "e25",
+        "e47",
+        "e26",
+        "e35",
+        "e46",
+        "e37",
+        "e23",
+        "e34",
+        "e56",
+        "e67",
+        "check_door",
+        "open_door",
+    ]
+
+    enabled_conds = {}
+    for act in action_names:
+        enabled_conds[act] = _get_enabled_cond(sf_list, act)
+
+Finally, we create our initial ``State`` for the robot and call ``synthesise_exploration_policy``.
+``synthesise_exploration_policy`` takes a connection string, database, and collection name for a MongoDB instance.
+This is for reading existing data collected for this model.
+Next it receives the list of robot ``StateFactor`` objects and the list of action node names.
+After that it receives a parameter which describes the size of the ensemble models used within MAX. 
+It is not recommended to select a value above 10.
+After that, the exploration episode length is passed in.
+The last two parameters are the enabled conditions for each action node and the robot's initial state.
+
+.. code-block:: python
+
+    init_state_dict = {sf: "unknown" for sf in door_sfs}
+    init_state_dict[loc_sf] = "v1"
+    init_state = State(init_state_dict)
+
+    policy = synthesise_exploration_policy(
+        connection_str,
+        "refine-plan",
+        "bookstore-data",
+        sf_list,
+        action_names,
+        10,
+        100,
+        enabled_conds,
+        initial_state=init_state,
+    )
+
+In this example, the BT action nodes are treated as black boxes.
+However, to support geometric reasoning, a user may wish to parametrise the behaviour within each action node.
+This is supported through the use of **motion parameters**.
+To enable this behaviour, ``synthesise_exploration_policy`` has an additional optional parameter called ``motion_params``, which is a dictionary from action names to a list of parameterss for that action.
+For example, say we have a robot manipulator which can pick up objects with different grasps, the ``motion_params`` dictionary may look like:
+
+.. code-block:: python
+
+    motion_params = {"pick_up": ["top", "left", "right", "up", "down"]}
+
+This captures all possible directions the robot could grasp an object from.
+By providing motion parameters, the data collected by the exploration policy for each action will be split by motion parameter in the MongoDB database.
+
+.. |Bookstore| image:: images/book_store_cropped.png
+  :width: 400
+  :alt: A robot must navigate from the start to a goal in a bookstore, where the robot navigates alongside a topological map. Different nodes have different probabilities of being blocked.
