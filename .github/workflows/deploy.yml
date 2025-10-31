@@ -20,9 +20,6 @@ jobs:
             # build the documentation
             - name: Build documentation
               run: |
-                    cd src/refine_plan
-                    ls -R
-                    cd ../../
                     cd docs
                     make html
             # upload the documentation to GitHub Pages
