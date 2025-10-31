@@ -21,7 +21,6 @@ jobs:
             - name: Build documentation
               run: |
                     cd docs
-                    pwd
                     make html
             # upload the documentation to GitHub Pages
             - name: Upload artifact
@@ -36,6 +35,7 @@ jobs:
         permissions:
             pages: write      # to deploy to Pages
             id-token: write   # to verify the deployment originates from an appropriate source
+            contents: write
 
         # Deploy to the github-pages environment
         environment:
