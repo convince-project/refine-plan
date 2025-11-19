@@ -532,7 +532,12 @@ class DBNOption(Option):
 
             if len(target) == 0:  # Only self loops
                 if pre_state_keys:
-                    cond_pairs.append((pre_state, {pre_state.to_and_cond(): 1.0}))
+                    post_cond = (
+                        TrueCondition()
+                        if len(pre_state._state_dict) == 0
+                        else pre_state.to_and_cond()
+                    )
+                    cond_pairs.append((pre_state, {post_cond: 1.0}))
                 else:
                     cond_pairs.append((pre_cond, {pre_cond: 1.0}))
                 continue
