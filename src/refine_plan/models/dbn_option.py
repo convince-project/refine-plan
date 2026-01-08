@@ -539,7 +539,7 @@ class DBNOption(Option):
                     )
                     cond_pairs.append((pre_state, {post_cond: 1.0}))
                 else:
-                    cond_pairs.append((pre_cond, {pre_cond: 1.0}))
+                    cond_pairs.append((pre_cond, {TrueCondition(): 1.0}))
                 continue
 
             inf_eng.setEvidence(evidence)  # Setting evidence for posterior
