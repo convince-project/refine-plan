@@ -530,6 +530,18 @@ class DBNOption(Option):
             if pre_cond is None:
                 continue
 
+            if len(target) == 0:  # Only self loops
+                if pre_state_keys:
+                    post_cond = (
+                        TrueCondition()
+                        if len(pre_state._state_dict) == 0
+                        else pre_state.to_and_cond()
+                    )
+                    cond_pairs.append((pre_state, {post_cond: 1.0}))
+                else:
+                    cond_pairs.append((pre_cond, {TrueCondition(): 1.0}))
+                continue
+
             inf_eng.setEvidence(evidence)  # Setting evidence for posterior
             posterior = inf_eng.jointPosterior(set(target))
             self._prune_posterior(posterior)

@@ -1020,6 +1020,116 @@ class GetPrePostCondPairsTest(unittest.TestCase):
         os.remove("transition.bifxml")
         os.remove("reward.bifxml")
 
+    def test_self_loops_pre_state_keys(self):
+        # Create the transition function DBN
+        t_bn = gum.BayesNet()
+        _ = t_bn.add(gum.LabelizedVariable("x0", "x0?", ["False", "True"]))
+        _ = t_bn.add(gum.LabelizedVariable("y0", "y0?", ["False", "True"]))
+
+        # Create the reward DBN
+        r_bn = gum.BayesNet()
+        _ = r_bn.add(gum.LabelizedVariable("x", "x?", ["False", "True"]))
+        _ = r_bn.add(gum.LabelizedVariable("y", "y?", ["False", "True"]))
+        _ = r_bn.add(gum.LabelizedVariable("r", "r?", ["0", "1", "2", "3"]))
+        r_bn.addArc("x", "r")
+        r_bn.addArc("y", "r")
+
+        r_bn.cpt("x").fillWith([0.5, 0.5])
+        r_bn.cpt("y").fillWith([0.5, 0.5])
+        r_bn.cpt("r")[{"x": "False", "y": "False"}] = [0.0, 0.2, 0.3, 0.5]
+        r_bn.cpt("r")[{"x": "False", "y": "True"}] = [0.0, 0.6, 0.1, 0.3]
+        r_bn.cpt("r")[{"x": "True", "y": "False"}] = [0.0, 0.4, 0.4, 0.2]
+        r_bn.cpt("r")[{"x": "True", "y": "True"}] = [0.0, 0.3, 0.3, 0.4]
+
+        # Save the BNs
+        t_bn.saveBIFXML("transition.bifxml")
+        r_bn.saveBIFXML("reward.bifxml")
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        enabled_cond = NotCondition(
+            AndCondition(EqCondition(sf_list[0], True), EqCondition(sf_list[1], False))
+        )
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, enabled_cond
+        )
+
+        pre_post_cond_pairs = option.get_pre_post_cond_pairs(pre_state_keys=True)
+
+        state_ff = State({sf_list[0]: False, sf_list[1]: False})
+        state_ft = State({sf_list[0]: False, sf_list[1]: True})
+        state_tt = State({sf_list[0]: True, sf_list[1]: True})
+
+        post_cond_ff = AndCondition(
+            EqCondition(sf_list[0], False), EqCondition(sf_list[1], False)
+        )
+        post_cond_ft = AndCondition(
+            EqCondition(sf_list[0], False), EqCondition(sf_list[1], True)
+        )
+        post_cond_tt = AndCondition(
+            EqCondition(sf_list[0], True), EqCondition(sf_list[1], True)
+        )
+
+        self.assertEqual(len(pre_post_cond_pairs), 3)
+        self.assertEqual(pre_post_cond_pairs[0], (state_ff, {post_cond_ff: 1.0}))
+        self.assertEqual(pre_post_cond_pairs[1], (state_ft, {post_cond_ft: 1.0}))
+        self.assertEqual(pre_post_cond_pairs[2], (state_tt, {post_cond_tt: 1.0}))
+
+        os.remove("transition.bifxml")
+        os.remove("reward.bifxml")
+
+    def test_self_loops_pre_cond(self):
+        # Create the transition function DBN
+        t_bn = gum.BayesNet()
+        _ = t_bn.add(gum.LabelizedVariable("x0", "x0?", ["False", "True"]))
+        _ = t_bn.add(gum.LabelizedVariable("y0", "y0?", ["False", "True"]))
+
+        # Create the reward DBN
+        r_bn = gum.BayesNet()
+        _ = r_bn.add(gum.LabelizedVariable("x", "x?", ["False", "True"]))
+        _ = r_bn.add(gum.LabelizedVariable("y", "y?", ["False", "True"]))
+        _ = r_bn.add(gum.LabelizedVariable("r", "r?", ["0", "1", "2", "3"]))
+        r_bn.addArc("x", "r")
+        r_bn.addArc("y", "r")
+
+        r_bn.cpt("x").fillWith([0.5, 0.5])
+        r_bn.cpt("y").fillWith([0.5, 0.5])
+        r_bn.cpt("r")[{"x": "False", "y": "False"}] = [0.0, 0.2, 0.3, 0.5]
+        r_bn.cpt("r")[{"x": "False", "y": "True"}] = [0.0, 0.6, 0.1, 0.3]
+        r_bn.cpt("r")[{"x": "True", "y": "False"}] = [0.0, 0.4, 0.4, 0.2]
+        r_bn.cpt("r")[{"x": "True", "y": "True"}] = [0.0, 0.3, 0.3, 0.4]
+
+        # Save the BNs
+        t_bn.saveBIFXML("transition.bifxml")
+        r_bn.saveBIFXML("reward.bifxml")
+
+        sf_list = [BoolStateFactor("x"), BoolStateFactor("y")]
+        enabled_cond = NotCondition(
+            AndCondition(EqCondition(sf_list[0], True), EqCondition(sf_list[1], False))
+        )
+        option = DBNOption(
+            "test", "transition.bifxml", "reward.bifxml", sf_list, enabled_cond
+        )
+
+        pre_post_cond_pairs = option.get_pre_post_cond_pairs(pre_state_keys=False)
+
+        cond_ff = AndCondition(
+            EqCondition(sf_list[0], False), EqCondition(sf_list[1], False)
+        )
+        cond_ft = AndCondition(
+            EqCondition(sf_list[0], False), EqCondition(sf_list[1], True)
+        )
+        cond_tt = AndCondition(
+            EqCondition(sf_list[0], True), EqCondition(sf_list[1], True)
+        )
+
+        self.assertEqual(len(pre_post_cond_pairs), 3)
+        self.assertEqual(pre_post_cond_pairs[0], (cond_ff, {cond_ff: 1.0}))
+        self.assertEqual(pre_post_cond_pairs[1], (cond_ft, {cond_ft: 1.0}))
+        self.assertEqual(pre_post_cond_pairs[2], (cond_tt, {cond_tt: 1.0}))
+
+        os.remove("transition.bifxml")
+        os.remove("reward.bifxml")
+
 
 class GetTransitionPrismStringTest(unittest.TestCase):
 
