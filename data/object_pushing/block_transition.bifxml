@@ -1,0 +1,47 @@
+<?xml version="1.0" ?>
+
+<BIF VERSION="0.3">
+<NETWORK>
+<NAME>unnamedBN</NAME>
+<PROPERTY>software aGrUM</PROPERTY>
+
+<!-- Variables -->
+<VARIABLE TYPE="nature">
+	<NAME>objectt</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>blocked</OUTCOME>
+</VARIABLE>
+
+<VARIABLE TYPE="nature">
+	<NAME>clutter_level0</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>0</OUTCOME>
+	<OUTCOME>1</OUTCOME>
+	<OUTCOME>2</OUTCOME>
+	<OUTCOME>3</OUTCOME>
+	<OUTCOME>4</OUTCOME>
+	<OUTCOME>5</OUTCOME>
+</VARIABLE>
+
+<!-- Probability distributions -->
+<DEFINITION>
+	<FOR>objectt</FOR>
+	<GIVEN>clutter_level0</GIVEN>
+	<TABLE>
+		1
+		1
+		1
+		1
+		1
+		1
+	</TABLE>
+</DEFINITION>
+<DEFINITION>
+	<FOR>clutter_level0</FOR>
+	<TABLE>
+		0.245726 0.33547 0.232906 0.130342 0.0277778 0.0277778
+	</TABLE>
+</DEFINITION>
+
+</NETWORK>
+</BIF>

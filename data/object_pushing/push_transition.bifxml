@@ -1,0 +1,46 @@
+<?xml version="1.0" ?>
+
+<BIF VERSION="0.3">
+<NETWORK>
+<NAME>unnamedBN</NAME>
+<PROPERTY>software aGrUM</PROPERTY>
+
+<!-- Variables -->
+<VARIABLE TYPE="nature">
+	<NAME>object0</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>bottle</OUTCOME>
+	<OUTCOME>chair</OUTCOME>
+	<OUTCOME>lamp</OUTCOME>
+	<OUTCOME>stool</OUTCOME>
+	<OUTCOME>table</OUTCOME>
+</VARIABLE>
+
+<VARIABLE TYPE="nature">
+	<NAME>objectt</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>blocked</OUTCOME>
+	<OUTCOME>pushed</OUTCOME>
+</VARIABLE>
+
+<!-- Probability distributions -->
+<DEFINITION>
+	<FOR>object0</FOR>
+	<TABLE>
+		0.826374 0.0351648 0.0351648 0.0351648 0.0681319
+	</TABLE>
+</DEFINITION>
+<DEFINITION>
+	<FOR>objectt</FOR>
+	<GIVEN>object0</GIVEN>
+	<TABLE>
+		0.121011 0.878989
+		0.96875 0.03125
+		0.65625 0.34375
+		0.96875 0.03125
+		0.33871 0.66129
+	</TABLE>
+</DEFINITION>
+
+</NETWORK>
+</BIF>
