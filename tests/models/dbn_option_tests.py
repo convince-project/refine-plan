@@ -1123,9 +1123,9 @@ class GetPrePostCondPairsTest(unittest.TestCase):
         )
 
         self.assertEqual(len(pre_post_cond_pairs), 3)
-        self.assertEqual(pre_post_cond_pairs[0], (cond_ff, {cond_ff: 1.0}))
-        self.assertEqual(pre_post_cond_pairs[1], (cond_ft, {cond_ft: 1.0}))
-        self.assertEqual(pre_post_cond_pairs[2], (cond_tt, {cond_tt: 1.0}))
+        self.assertEqual(pre_post_cond_pairs[0], (cond_ff, {TrueCondition(): 1.0}))
+        self.assertEqual(pre_post_cond_pairs[1], (cond_ft, {TrueCondition(): 1.0}))
+        self.assertEqual(pre_post_cond_pairs[2], (cond_tt, {TrueCondition(): 1.0}))
 
         os.remove("transition.bifxml")
         os.remove("reward.bifxml")

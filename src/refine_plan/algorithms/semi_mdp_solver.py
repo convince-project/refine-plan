@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-""" Functions which solve a semi-MDP into storm and retrieve the policy.
+"""Functions which solve a semi-MDP into storm and retrieve the policy.
 
 Author: Charlie Street
 Owner: Charlie Street
@@ -8,7 +8,11 @@ Owner: Charlie Street
 from refine_plan.models.policy import Policy
 from refine_plan.models.state import State
 import tempfile
-import stormpy
+
+try:
+    import stormpy
+except ImportError:
+    print("Stormpy not installed - please install if you want to use solver")
 
 
 def _build_prism_program(semi_mdp):
