@@ -91,7 +91,7 @@ def run_planner():
     for src in GRAPH:
         option_names.update(list(GRAPH[src].keys()))
 
-    assert len(set(option_names)) == 4  # Quick safety check
+    assert len(option_names) == 3  # Quick safety check
 
     init_state_dict = {loc_sf: INITIAL_LOC}
     init_state = State(init_state_dict)
@@ -103,7 +103,7 @@ def run_planner():
         r_path = "../data/t3.4/{}_reward.bifxml".format(option)
         option_list.append(
             DBNOption(
-                option, t_path, r_path, sf_list, _get_enabled_cond(sf_list, option)
+                option, t_path, r_path, sf_list, _get_enabled_cond(loc_sf, option)
             )
         )
 
@@ -124,6 +124,6 @@ def run_planner():
 
 if __name__ == "__main__":
 
-    write_mongodb_to_yaml(sys.argv[1])
+    # write_mongodb_to_yaml(sys.argv[1])
     # learn_options()
-    # run_planner()
+    run_planner()
