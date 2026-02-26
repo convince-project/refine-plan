@@ -1,0 +1,26 @@
+<?xml version="1.0" ?>
+
+<BIF VERSION="0.3">
+<NETWORK>
+<NAME>unnamedBN</NAME>
+<PROPERTY>software aGrUM</PROPERTY>
+
+<!-- Variables -->
+<VARIABLE TYPE="nature">
+	<NAME>r</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>0</OUTCOME>
+	<OUTCOME>1</OUTCOME>
+	<OUTCOME>2</OUTCOME>
+</VARIABLE>
+
+<!-- Probability distributions -->
+<DEFINITION>
+	<FOR>r</FOR>
+	<TABLE>
+		0.116531 0.295393 0.588076
+	</TABLE>
+</DEFINITION>
+
+</NETWORK>
+</BIF>

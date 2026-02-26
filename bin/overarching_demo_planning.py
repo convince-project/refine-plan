@@ -143,6 +143,6 @@ def run_planner():
 
 if __name__ == "__main__":
 
-    write_mongodb_to_yaml(sys.argv[1])
-    learn_options()
+    # write_mongodb_to_yaml(sys.argv[1])
+    # learn_options()
     run_planner()

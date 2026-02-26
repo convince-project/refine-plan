@@ -1,0 +1,25 @@
+<?xml version="1.0" ?>
+
+<BIF VERSION="0.3">
+<NETWORK>
+<NAME>unnamedBN</NAME>
+<PROPERTY>software aGrUM</PROPERTY>
+
+<!-- Variables -->
+<VARIABLE TYPE="nature">
+	<NAME>locationt</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>kitchen_table</OUTCOME>
+	<OUTCOME>side_table</OUTCOME>
+</VARIABLE>
+
+<!-- Probability distributions -->
+<DEFINITION>
+	<FOR>locationt</FOR>
+	<TABLE>
+		0.104317 0.895683
+	</TABLE>
+</DEFINITION>
+
+</NETWORK>
+</BIF>
