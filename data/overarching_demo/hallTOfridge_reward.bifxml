@@ -1,0 +1,43 @@
+<?xml version="1.0" ?>
+
+<BIF VERSION="0.3">
+<NETWORK>
+<NAME>unnamedBN</NAME>
+<PROPERTY>software aGrUM</PROPERTY>
+
+<!-- Variables -->
+<VARIABLE TYPE="nature">
+	<NAME>bread_at_fridge</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>no</OUTCOME>
+	<OUTCOME>unknown</OUTCOME>
+</VARIABLE>
+
+<VARIABLE TYPE="nature">
+	<NAME>r</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>0</OUTCOME>
+	<OUTCOME>6</OUTCOME>
+	<OUTCOME>7</OUTCOME>
+	<OUTCOME>8</OUTCOME>
+	<OUTCOME>9</OUTCOME>
+</VARIABLE>
+
+<!-- Probability distributions -->
+<DEFINITION>
+	<FOR>bread_at_fridge</FOR>
+	<TABLE>
+		0.371658 0.628342
+	</TABLE>
+</DEFINITION>
+<DEFINITION>
+	<FOR>r</FOR>
+	<GIVEN>bread_at_fridge</GIVEN>
+	<TABLE>
+		0.102158 0.00143885 0.893525 0.00143885 0.00143885
+		0.026383 0.111489 0.681702 0.137021 0.0434043
+	</TABLE>
+</DEFINITION>
+
+</NETWORK>
+</BIF>

@@ -14,11 +14,11 @@ setup(
     package_dir={"": "src"},
     install_requires=[
         "pyeda",
-        "stormpy",
         "numpy",
         "sympy",
         "pandas",
         "pyAgrum",
         "pymongo",
     ],
+    extras_require={"full": ["stormpy"]},
 )

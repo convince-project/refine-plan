@@ -1,0 +1,44 @@
+<?xml version="1.0" ?>
+
+<BIF VERSION="0.3">
+<NETWORK>
+<NAME>unnamedBN</NAME>
+<PROPERTY>software aGrUM</PROPERTY>
+
+<!-- Variables -->
+<VARIABLE TYPE="nature">
+	<NAME>bread_at_side_table</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>no</OUTCOME>
+	<OUTCOME>unknown</OUTCOME>
+	<OUTCOME>yes</OUTCOME>
+</VARIABLE>
+
+<VARIABLE TYPE="nature">
+	<NAME>r</NAME>
+	<PROPERTY></PROPERTY>
+	<OUTCOME>0</OUTCOME>
+	<OUTCOME>10</OUTCOME>
+	<OUTCOME>11</OUTCOME>
+	<OUTCOME>12</OUTCOME>
+</VARIABLE>
+
+<!-- Probability distributions -->
+<DEFINITION>
+	<FOR>bread_at_side_table</FOR>
+	<TABLE>
+		0.244624 0.728495 0.0268817
+	</TABLE>
+</DEFINITION>
+<DEFINITION>
+	<FOR>r</FOR>
+	<GIVEN>bread_at_side_table</GIVEN>
+	<TABLE>
+		0.167582 0.00274725 0.233516 0.596154
+		0.111624 0.0562731 0.654059 0.178044
+		0.025 0.025 0.325 0.625
+	</TABLE>
+</DEFINITION>
+
+</NETWORK>
+</BIF>

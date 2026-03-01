@@ -58,10 +58,15 @@ Stormpy installation is outlined above.
 
 ### Installation for Users (Pip Install)
 
-After installing all dependencies, run the following in the root directory of this repository:
+REFINE-PLAN can be installed without stormpy by running the following in the root directory of this repository:
 
 ```bash
 pip install .
+```
+
+To install with stormpy, run:
+```bash
+pip install ".[full]"
 ```
 
 ### Installation for Developers (Update PYTHONPATH)

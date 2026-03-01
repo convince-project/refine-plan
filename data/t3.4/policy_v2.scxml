@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<scxml initial="init" version="1.0" name="House_Policy" model_src="" xmlns="http://www.w3.org/2005/07/scxml">
+	<datamodel>
+		<data id="location" expr="1" type="int32" />
+	</datamodel>
+	<state id="init">
+		<onentry>
+			<if cond="location==1">
+				<send event="e24" target="House" />
+				<elseif cond="location==3" />
+				<send event="e45" target="House" />
+			</if>
+		</onentry>
+		<transition target="init" event="update_datamodel">
+			<assign location="location" expr="_event.data.location" />
+		</transition>
+	</state>
+</scxml>
