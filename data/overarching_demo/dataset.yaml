@@ -3793,7 +3793,7 @@ detect:
     - kitchen_table
     - side_table
     - fridge
-dining_table-hall:
+dining_tableTOhall:
   reward:
     bread_at_dining_table:
     - unknown
@@ -5780,7 +5780,7 @@ dining_table-hall:
     - hall
     - hall
     - hall
-dining_table-side_table:
+dining_tableTOside_table:
   reward:
     bread_at_dining_table:
     - unknown
@@ -7751,7 +7751,7 @@ dining_table-side_table:
     - side_table
     - side_table
     - side_table
-fridge-hall:
+fridgeTOhall:
   reward:
     bread_at_dining_table:
     - unknown
@@ -10330,7 +10330,7 @@ fridge-hall:
     - fridge
     - hall
     - hall
-fridge-kitchen_table:
+fridgeTOkitchen_table:
   reward:
     bread_at_dining_table:
     - unknown
@@ -13181,7 +13181,7 @@ fridge-kitchen_table:
     - kitchen_table
     - kitchen_table
     - kitchen_table
-hall-dining_table:
+hallTOdining_table:
   reward:
     bread_at_dining_table:
     - unknown
@@ -16224,7 +16224,7 @@ hall-dining_table:
     - dining_table
     - dining_table
     - dining_table
-hall-fridge:
+hallTOfridge:
   reward:
     bread_at_dining_table:
     - unknown
@@ -19219,7 +19219,7 @@ hall-fridge:
     - fridge
     - fridge
     - fridge
-kitchen_table-fridge:
+kitchen_tableTOfridge:
   reward:
     bread_at_dining_table:
     - unknown
@@ -21430,7 +21430,7 @@ kitchen_table-fridge:
     - fridge
     - fridge
     - fridge
-kitchen_table-side_table:
+kitchen_tableTOside_table:
   reward:
     bread_at_dining_table:
     - unknown
@@ -23657,7 +23657,7 @@ kitchen_table-side_table:
     - side_table
     - side_table
     - side_table
-side_table-dining_table:
+side_tableTOdining_table:
   reward:
     bread_at_dining_table:
     - unknown
@@ -25420,7 +25420,7 @@ side_table-dining_table:
     - side_table
     - dining_table
     - dining_table
-side_table-kitchen_table:
+side_tableTOkitchen_table:
   reward:
     bread_at_dining_table:
     - 'no'

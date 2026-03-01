@@ -64,7 +64,7 @@ def _get_enabled_cond(sf_list, option):
             )
         return enabled_cond
     else:  # Edge navigation action
-        start_loc = option.split("-")[0]
+        start_loc = option.split("TO")[0]
         return EqCondition(sf_dict["location"], start_loc)
 
 
@@ -114,7 +114,7 @@ def run_planner():
     option_names = set([])
     for src in GRAPH:
         for dst in GRAPH[src]:
-            option_names.add(f"{src}-{dst}")
+            option_names.add(f"{src}TO{dst}")
     option_names.add("detect")
 
     assert len(set(option_names)) == 11  # Quick safety check
