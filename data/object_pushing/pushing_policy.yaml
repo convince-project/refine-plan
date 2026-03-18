@@ -1,17 +1,17 @@
 state_action_map:
-- action: push
+- action: block
   clutter_level: 0
   object: stool
-- action: push
+- action: block
   clutter_level: 0
   object: lamp
-- action: push
+- action: block
   clutter_level: 0
   object: chair
 - action: push
   clutter_level: 0
   object: bottle
-- action: push
+- action: block
   clutter_level: 0
   object: table
 - action: None
@@ -62,19 +62,19 @@ state_action_map:
 - action: None
   clutter_level: 2
   object: blocked
-- action: push
+- action: block
   clutter_level: 3
   object: stool
-- action: push
+- action: block
   clutter_level: 3
   object: lamp
-- action: push
+- action: block
   clutter_level: 3
   object: chair
 - action: push
   clutter_level: 3
   object: bottle
-- action: push
+- action: block
   clutter_level: 3
   object: table
 - action: None
@@ -83,7 +83,7 @@ state_action_map:
 - action: None
   clutter_level: 3
   object: blocked
-- action: push
+- action: block
   clutter_level: 4
   object: stool
 - action: push
@@ -95,7 +95,7 @@ state_action_map:
 - action: push
   clutter_level: 4
   object: bottle
-- action: push
+- action: block
   clutter_level: 4
   object: table
 - action: None
@@ -104,7 +104,7 @@ state_action_map:
 - action: None
   clutter_level: 4
   object: blocked
-- action: push
+- action: block
   clutter_level: 5
   object: stool
 - action: push
@@ -116,7 +116,7 @@ state_action_map:
 - action: push
   clutter_level: 5
   object: bottle
-- action: push
+- action: block
   clutter_level: 5
   object: table
 - action: None
@@ -143,19 +143,19 @@ state_factors:
 state_value_map:
 - clutter_level: 0
   object: stool
-  value: -9.676960302921588
+  value: 0.0
 - clutter_level: 0
   object: lamp
-  value: -9.676960302921588
+  value: -5.485380044152017
 - clutter_level: 0
   object: chair
-  value: -9.676960302921588
+  value: -3.038831277940807
 - clutter_level: 0
   object: bottle
-  value: -9.676960302921588
+  value: -9.989496239197425
 - clutter_level: 0
   object: table
-  value: -9.676960302921588
+  value: 0.0
 - clutter_level: 0
   object: pushed
   value: 0.0
@@ -164,19 +164,19 @@ state_value_map:
   value: 0.0
 - clutter_level: 1
   object: stool
-  value: -20.095541314331197
+  value: 0.0
 - clutter_level: 1
   object: lamp
-  value: -20.095541314331197
+  value: -10.019457248863283
 - clutter_level: 1
   object: chair
-  value: -20.095541314331197
+  value: -7.02854629880985
 - clutter_level: 1
   object: bottle
-  value: -20.095541314331197
+  value: -14.222222222222227
 - clutter_level: 1
   object: table
-  value: -20.095541314331197
+  value: 0.0
 - clutter_level: 1
   object: pushed
   value: 0.0
@@ -185,19 +185,19 @@ state_value_map:
   value: 0.0
 - clutter_level: 2
   object: stool
-  value: -30.04587148853212
+  value: 0.0
 - clutter_level: 2
   object: lamp
-  value: -30.04587148853212
+  value: -14.98585859434344
 - clutter_level: 2
   object: chair
-  value: -30.04587148853212
+  value: -10.016688605458068
 - clutter_level: 2
   object: bottle
-  value: -30.04587148853212
+  value: -29.169590767836297
 - clutter_level: 2
   object: table
-  value: -30.04587148853212
+  value: 0.0
 - clutter_level: 2
   object: pushed
   value: 0.0
@@ -206,19 +206,19 @@ state_value_map:
   value: 0.0
 - clutter_level: 3
   object: stool
-  value: -32.88633631182583
+  value: 0.0
 - clutter_level: 3
   object: lamp
-  value: -32.88633631182583
+  value: -19.946992757879713
 - clutter_level: 3
   object: chair
-  value: -32.88633631182583
+  value: -13.01674277736682
 - clutter_level: 3
   object: bottle
-  value: -32.88633631182583
+  value: 0.9421513166929474
 - clutter_level: 3
   object: table
-  value: -32.88633631182583
+  value: 0.0
 - clutter_level: 3
   object: pushed
   value: 0.0

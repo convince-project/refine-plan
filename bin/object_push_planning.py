@@ -17,6 +17,7 @@ from refine_plan.models.state_factor import StateFactor, IntStateFactor
 from refine_plan.algorithms.semi_mdp_solver import synthesise_policy
 from refine_plan.models.dbn_option import DBNOption
 from refine_plan.models.semi_mdp import SemiMDP
+from refine_plan.models.state import State
 from pymongo import MongoClient
 from datetime import datetime
 from pathlib import Path
@@ -28,8 +29,9 @@ SUCCESS = 1
 FAIL = -1
 
 # Hardcoded reward values
+WEIGHT_CLASS = {"stool": 3, "chair": 3, "bottle": 1, "lamp": 2, "table": 5}
 PUSH_REWARD = 1
-PUSH_FAILURE_COST = 100
+PUSH_FAILURE_COST = 180
 BLOCK_COST = 10
 
 
@@ -86,7 +88,7 @@ def _get_successor_state(action, success):
             raise Exception("Failed block action - unexpected")
 
 
-def _get_reward(clutter_level, action, success):
+def _get_reward(obj_type, clutter_level, action, success):
     """Get the action reward given clutter level and success state.
 
     If pushed and successful: clutter_level * push_success_reward
@@ -94,6 +96,7 @@ def _get_reward(clutter_level, action, success):
     If pushed and failed: <VALUE FOR BLOCKED> - failure_penalty
 
     Args:
+        obj_type: The object type
         clutter_level: How cluttered is the area around the robot?
         action: push or block
         success: SUCCESS or FAIL
@@ -107,9 +110,12 @@ def _get_reward(clutter_level, action, success):
         if success == SUCCESS:
             return clutter_multiplier * PUSH_REWARD
         else:
-            return -1 * (clutter_multiplier * BLOCK_COST + PUSH_FAILURE_COST)
+            return -1 * (
+                clutter_multiplier * BLOCK_COST
+                + WEIGHT_CLASS[obj_type] * PUSH_FAILURE_COST
+            )
     else:
-        return -1 * clutter_multiplier * BLOCK_COST
+        return -1 * (clutter_multiplier * BLOCK_COST) / WEIGHT_CLASS[obj_type]
 
 
 def write_bosch_data_to_db():
@@ -132,7 +138,7 @@ def write_bosch_data_to_db():
                 doc["clutter_level0"] = item[1]
                 doc["clutter_levelt"] = item[1]
                 doc["option"] = item[2]
-                doc["duration"] = _get_reward(item[1], item[2], item[3])
+                doc["duration"] = _get_reward(item[0], item[1], item[2], item[3])
                 doc["_meta"] = {"inserted_at": datetime.now()}
                 docs.append(doc)
     client.insert_many(docs)
@@ -208,6 +214,26 @@ def run_planner():
     print("Synthesising Policy...")
     policy = synthesise_policy(semi_mdp, prism_prop='Rmax=?[F "goal"]')
     policy.write_policy("../data/object_pushing/pushing_policy.yaml")
+    return policy
+
+
+def report_results(policy):
+    """Report the results of the policy.
+
+    Args:
+        policy: The refined policy
+    """
+    sfs = build_sfs()
+    object_sf = sfs[0]
+    clutter_sf = sfs[1]
+
+    for obj_type in object_sf._values:
+        for clutter_level in clutter_sf._values:
+            if obj_type != "pushed" and obj_type != "blocked":
+                state = State({object_sf: obj_type, clutter_sf: clutter_level})
+                print(
+                    f"Object: {obj_type}; Clutter level: {clutter_level}; action: {policy[state]}"
+                )
 
 
 if __name__ == "__main__":
@@ -215,4 +241,5 @@ if __name__ == "__main__":
     write_bosch_data_to_db()
     write_mongodb_to_yaml()
     learn_options()
-    run_planner()
+    policy = run_planner()
+    report_results(policy)
